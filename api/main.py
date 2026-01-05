@@ -1,0 +1,357 @@
+import os
+import gc
+import time
+import base64
+import httpx
+import asyncio
+import logging
+import threading
+import tracemalloc
+from dotenv import load_dotenv
+load_dotenv()
+from cachetools import TTLCache
+from typing import Tuple, Dict, Any
+from models.product import Product
+from models.llm_providers import LLMProviderStats
+from utils.version import load_version_info
+from slowapi import Limiter
+from slowapi.middleware import SlowAPIMiddleware
+from .metagraph_sync_manager import MetagraphSyncManager
+
+from contextlib import asynccontextmanager
+from concurrent.futures import ThreadPoolExecutor
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi import FastAPI, Request
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+log_level = logging.INFO    
+logging.basicConfig(
+    level=log_level,
+    format='%(asctime)s | %(levelname)s | %(name)s:%(lineno)d - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
+
+
+METAGRAPH_CACHE_DURATION = 3600  # 1 hour
+PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600) # 1 hour
+REQUEST_HASH_HISTORY = TTLCache(maxsize=500_000, ttl=60 * 60 * 24)  # 24 hours
+NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)  # 72 hours
+
+
+BT_NETWORK = os.environ.get("BT_NETWORK", "test")
+BT_NETUID = int(os.environ.get("BT_NETUID", 296))
+B64_PRIVATE_KEY = os.environ.get("B64_PRIVATE_KEY")
+if not B64_PRIVATE_KEY:
+    raise ValueError("B64_PRIVATE_KEY environment variable not set")
+PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(base64.b64decode(B64_PRIVATE_KEY))
+PUBLIC_KEY = PRIVATE_KEY.public_key()
+
+
+http_client = httpx.AsyncClient(
+    timeout=httpx.Timeout(30.0),
+    limits=httpx.Limits(
+        max_connections=100,
+        max_keepalive_connections=15,
+        keepalive_expiry=20.0
+    )
+)
+
+metagraph_manager = MetagraphSyncManager(
+    network=BT_NETWORK,
+    netuid=BT_NETUID,
+    sync_interval=METAGRAPH_CACHE_DURATION
+)
+metagraph_snapshot = {"nodes": {}}
+
+async def check_hotkey_stake(
+    hotkey: str,
+    stake: float
+) -> bool:
+    if hotkey is None or stake is None:
+        return False
+    snapshot, _ = metagraph_manager.get_snapshot()
+    node = snapshot.get(hotkey)
+    logger.info(f"check_hotkey_stake {hotkey} : {node['stake'] if node else 'N/A'}, required {stake}")
+    return node["stake"] >= stake if node else False
+
+
+async def check_request_ip(
+    hotkey: str,
+    request_ip: str,
+) -> bool:
+    if hotkey is None or request_ip is None:
+        return False
+    snapshot, _ = metagraph_manager.get_snapshot()
+    node = snapshot.get(hotkey)
+    return node["ip"] == request_ip if node else False
+
+
+def get_client_ip(request: Request) -> str:
+    logger.debug(
+        f"IP headers - x-real-ip: {request.headers.get('x-real-ip')}, "
+        f"x-forwarded-for: {request.headers.get('x-forwarded-for')}, "
+        f"do-connecting-ip: {request.headers.get('do-connecting-ip')}")
+     
+    if "do-connecting-ip" in request.headers:
+        return request.headers.get('do-connecting-ip').strip()
+    if "x-forwarded-for" in request.headers:
+        forwarded_for = request.headers.get('x-forwarded-for')
+        ips = [ip.strip() for ip in forwarded_for.split(",")]
+        if ips:
+            return ips[0]
+    if "x-real-ip" in request.headers:
+        return request.headers["x-real-ip"].strip()
+    if request.client:
+        return str(request.client.host)
+    return "unknown"
+
+
+async def refresh_provider_pings():
+    while True:
+        try:
+            logger.info("Refreshing provider pings cache")
+            output = LLMProviderStats.print_all_providers_info_html()
+            PROVIDER_PING_CACHE["provider_infos_html"] = output
+            logger.info(f"Provider pings cache updated: {len(output)} characters")            
+        except Exception as e:
+            logger.error(f"Error refreshing provider pings: {e}")
+        await asyncio.sleep(1800)  # Refresh every 30 minutes
+
+
+
+limiter = Limiter(key_func=get_client_ip)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):    
+    logger.info("V2 Server starting up")
+    tracemalloc.start()    
+    app.state.thread_pool = ThreadPoolExecutor(
+        max_workers=2,
+        thread_name_prefix="PG-Writer"
+    )
+    app.state.last_updated = None
+    app.state.total_requests = 0
+    app.state.exceptions = 0
+    #app.state.db = AsyncPGHelper()
+    
+    metagraph_manager.start()
+    
+    # Background task to restart manager if dead
+    async def restart_manager():
+        logger.info("Starting restart_manager task")
+        while True:
+            try:
+                if not metagraph_manager._process or not metagraph_manager._process.is_alive():
+                    logger.warning("Restarting dead MetagraphSyncManager process")
+                    metagraph_manager.start()
+                snapshot, _ = metagraph_manager.get_snapshot()
+                metagraph_snapshot["nodes"] = snapshot
+                logger.info(f"Metagraph snapshot updated with {len(snapshot)} nodes")
+            except Exception as e:
+                logger.error(f"Error in restart_manager: {e}")
+            await asyncio.sleep(60)
+
+    app.state.restart_task = asyncio.create_task(restart_manager())
+    app.state.refresh_task = asyncio.create_task(refresh_provider_pings())
+
+    try:
+        yield
+    finally:
+        logger.info("Starting shutdown...")
+        app.state.restart_task.cancel()
+        app.state.refresh_task.cancel()
+        try:
+            await app.state.restart_task
+            await app.state.refresh_task
+        except asyncio.CancelledError:
+            pass        
+        
+        metagraph_manager.stop()
+        await http_client.aclose()
+        logger.info("Shutting down PG writer thread pool...")
+        app.state.thread_pool.shutdown(wait=True, cancel_futures=False)
+        gc.collect()
+        logger.info(f"Shutdown complete. Final thread count: {threading.active_count()}")
+
+
+version_info = load_version_info()
+app_version = version_info if version_info else "2.0"
+
+app = FastAPI(
+    title=f"Bitrecs V2 Testnet (Netuid: {BT_NETWORK} - Network: {BT_NETUID})",
+    version=app_version,
+    description="TBD",
+    debug=False,
+    lifespan=lifespan
+)
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+    return response
+
+
+@app.get("/")
+@limiter.limit("60/minute")
+async def read_root(request: Request):
+    ts = str(int(time.time()))
+    request_ip = get_client_ip(request)
+    logger.info(f"Root endpoint accessed from IP {request_ip} at {ts}")
+    return JSONResponse(
+        status_code=200,
+        content={"message": "Bitrecs V2 Testnet",
+                 "ts": str(ts), 
+                 "network": BT_NETWORK,
+                 "uid": BT_NETUID,
+                 "total_requests": app.state.total_requests,
+                 "exceptions": app.state.exceptions })
+
+
+@app.get("/health")
+@limiter.limit("60/minute")
+async def health(request: Request):
+    client_ip = get_client_ip(request)
+    logger.info(f"Health check from IP: {client_ip}")  
+    snapshot, synced_at = metagraph_manager.get_snapshot()
+    node_count = len(snapshot)
+    thread_count = threading.active_count()
+    message = "OK"
+    if thread_count > 10:
+        message = "WARNING: High thread count"
+        logger.warning(f"High thread count: {thread_count}")
+        logger.warning("Active threads:")
+        for thread in threading.enumerate():
+            logger.warning(f"  - {thread.name} (daemon={thread.daemon}, alive={thread.is_alive()})")
+
+    if thread_count > 50:
+        message = "CRITICAL: Very high thread count"
+        logger.error(f"CRITICAL: Thread count {thread_count}")            
+    
+    current, peak = tracemalloc.get_traced_memory()
+    version_file = load_version_info()
+    return {
+        "status": "healthy",
+        "nodes": node_count,
+        "total_requests": app.state.total_requests,
+        "exceptions": app.state.exceptions,
+        "threads": thread_count,
+        "metagraph_last_synced": int(synced_at) if synced_at else None,
+        "metagraph_age_seconds": round(time.time() - synced_at, 2) if synced_at else None,        
+        "thread_pool_workers": len(app.state.thread_pool._threads) if hasattr(app.state.thread_pool, '_threads') else 0,
+        "memory_current_mb": round(current / 1024 / 1024, 2),
+        "memory_peak_mb": round(peak / 1024 / 1024, 2),        
+        "message": message,
+        "version": version_file.strip() if version_file else "N/A"
+    }
+
+
+@app.get("/public_key")
+@limiter.limit("120/minute")
+async def get_public_key(request: Request):
+    client_ip = get_client_ip(request)
+    logger.info(f"Public key requested from IP: {client_ip}")
+    public_key_raw_bytes = PUBLIC_KEY.public_bytes(
+        encoding=Encoding.Raw,
+        format=PublicFormat.Raw
+    )
+    public_key_hex = public_key_raw_bytes.hex()
+    return JSONResponse(status_code=200, content={"public_key": public_key_hex})
+
+
+
+@app.get("/providers")
+@limiter.limit("60/minute")
+async def provider_log(request: Request):
+    request_ip = get_client_ip(request)
+    logger.info(f"providers endpoint accessed from IP {request_ip}")
+    #its already cached
+    cache_key = "provider_infos_html"
+    if cache_key in PROVIDER_PING_CACHE:
+        logger.info(f"providers endpoint accessed from IP {request_ip} - using cached data")
+        infos = PROVIDER_PING_CACHE[cache_key]
+        return HTMLResponse(content=infos)
+    logging.warning("Cache Broken")
+    return HTMLResponse(content="<pre>Cache Empty</pre>")
+
+@app.get("/miners")
+@limiter.limit("60/minute")
+async def get_miners(request: Request):
+    client_ip = get_client_ip(request)
+    logger.info(f"Miners endpoint accessed from IP {client_ip}")
+    snapshot, _ = metagraph_manager.get_snapshot()
+    miners = [node for node in snapshot.values() if node.get("stake", 0) > 0]  # Rough filter for miners
+    return JSONResponse(content={"miners": miners})
+
+@app.get("/validators")
+@limiter.limit("60/minute")
+async def get_validators(request: Request):
+    client_ip = get_client_ip(request)
+    logger.info(f"Validators endpoint accessed from IP {client_ip}")
+    snapshot, _ = metagraph_manager.get_snapshot()
+    validators = [node for node in snapshot.values() if node.get("stake", 0) == 0]  # Rough filter for validators
+    return JSONResponse(content={"validators": validators})
+
+@app.get("/artifact")
+@limiter.limit("60/minute")
+async def get_artifact(request: Request, artifact_id: str):
+    client_ip = get_client_ip(request)
+    logger.info(f"Artifact endpoint accessed from IP {client_ip} for ID {artifact_id}")
+    # Rough placeholder: return dummy artifact
+    artifact = {"id": artifact_id, "data": "placeholder"}
+    return JSONResponse(content=artifact)
+
+@app.get("/artifacts")
+@limiter.limit("60/minute")
+async def get_artifacts(request: Request, limit: int = 10):
+    client_ip = get_client_ip(request)
+    logger.info(f"Artifacts endpoint accessed from IP {client_ip}")
+    # Rough placeholder: return list of dummy artifacts
+    artifacts = [{"id": f"artifact_{i}", "data": "placeholder"} for i in range(limit)]
+    return JSONResponse(content={"artifacts": artifacts})
+
+@app.post("/artifact")
+@limiter.limit("60/minute")
+async def submit_artifact(request: Request, artifact: Dict[str, Any]):
+    client_ip = get_client_ip(request)
+    logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")
+    # Rough placeholder: accept and return the artifact
+    return JSONResponse(content={"submitted": artifact})
+
+@app.get("/top")
+@limiter.limit("60/minute")
+async def get_top_artifact(request: Request):
+    client_ip = get_client_ip(request)
+    logger.info(f"Top artifact endpoint accessed from IP {client_ip}")
+    # Rough placeholder: return dummy top artifact
+    top_artifact = {"id": "top_artifact", "data": "placeholder"}
+    return JSONResponse(content=top_artifact)
+
+@app.get("/run")
+@limiter.limit("60/minute")
+async def get_run(request: Request, run_id: str):
+    client_ip = get_client_ip(request)
+    logger.info(f"Run endpoint accessed from IP {client_ip} for ID {run_id}")
+    # Rough placeholder: return dummy run
+    run = {"id": run_id, "data": "placeholder"}
+    return JSONResponse(content=run)
+
+@app.get("/runs")
+@limiter.limit("60/minute")
+async def get_runs(request: Request):
+    client_ip = get_client_ip(request)
+    logger.info(f"Runs endpoint accessed from IP {client_ip}")
+    # Rough placeholder: return list of dummy runs
+    runs = [{"id": f"run_{i}", "data": "placeholder"} for i in range(5)]
+    return JSONResponse(content={"runs": runs})
