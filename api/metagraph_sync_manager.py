@@ -64,13 +64,13 @@ class MetagraphSyncManager:
             subtensor = None
             tmp_metagraph = None
             try:                
-                subtensor = Subtensor(network=network)  # Use sync Subtensor
-                tmp_metagraph = subtensor.metagraph(netuid=netuid)  # Get metagraph directly
-                tmp_metagraph.sync()  # Sync the metagraph (replaces sync_nodes)
+                subtensor = Subtensor(network=network)
+                tmp_metagraph = subtensor.metagraph(netuid=netuid)
+                tmp_metagraph.sync()
                 snapshot: Dict[str, Dict[str, Any]] = {}
-                for neuron in tmp_metagraph.neurons:  # Iterate over neurons list
+                for neuron in tmp_metagraph.neurons:
                     axon = neuron.axon_info
-                    snapshot[neuron.hotkey] = {  # Use neuron.hotkey as key
+                    snapshot[neuron.hotkey] = {
                         "uid": neuron.uid,
                         "ip": axon.ip if axon else None,
                         "port": axon.port if axon else None,

@@ -8,6 +8,8 @@ import logging
 import threading
 import tracemalloc
 from dotenv import load_dotenv
+
+from utils.database import initialize_database
 load_dotenv()
 from cachetools import TTLCache
 from typing import Tuple, Dict, Any
@@ -24,6 +26,8 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi import FastAPI, Request
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+from api import config
 
 log_level = logging.INFO    
 logging.basicConfig(
@@ -135,8 +139,13 @@ async def lifespan(app: FastAPI):
     app.state.total_requests = 0
     app.state.exceptions = 0
     #app.state.db = AsyncPGHelper()
-    
-    metagraph_manager.start()
+    await initialize_database(
+        username=config.DATABASE_USERNAME,
+        password=config.DATABASE_PASSWORD,
+        host=config.DATABASE_HOST,
+        port=config.DATABASE_PORT,
+        name=config.DATABASE_NAME
+    )
     
     # Background task to restart manager if dead
     async def restart_manager():
@@ -152,9 +161,10 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Error in restart_manager: {e}")
             await asyncio.sleep(60)
-
-    app.state.restart_task = asyncio.create_task(restart_manager())
-    app.state.refresh_task = asyncio.create_task(refresh_provider_pings())
+    
+    #metagraph_manager.start()
+    #app.state.restart_task = asyncio.create_task(restart_manager())
+    #app.state.refresh_task = asyncio.create_task(refresh_provider_pings())
 
     try:
         yield
