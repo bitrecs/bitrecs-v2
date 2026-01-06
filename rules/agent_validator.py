@@ -32,8 +32,8 @@ def validate_artifact(agent: Agent) -> Tuple[bool, str]:
     if get_token_count(agent.user_prompt_template) > MAX_PROMPT_TOKENS:
         return False, "user_prompt_template must not exceed maximum token count"
     
-    if len(agent.user_prompt_template) == 0:
-        return False, "user_prompt_template must not be empty"
+    if agent.status != 'screening_1':
+        return False, "status must be 'screening_1' upon submission"
     
     return True, ""
 

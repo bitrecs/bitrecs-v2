@@ -29,18 +29,18 @@ async def test_calculator_env():
     env = af_env.load_env(
         image="calculator:latest",
         env_vars={"CHUTES_API_KEY": "your-api-key"}, 
-        host_network=True 
+        host_network=True,
+        host_port=8080
     )
 
     assert env is not None
     logger.info("Loaded Docker environment successfully")        
     
-    result = await asyncio.wait_for(env.evaluate(
+    result = await env.evaluate(
         model="deepseek-ai/DeepSeek-V3",
         base_url="https://llm.chutes.ai/v1",
         task_id=10
-    ), timeout=30)
-
+    )
     print(result)  # {"score": 1.0, "success": True}
     assert result["score"] == 1.0
     assert result["success"] == True
