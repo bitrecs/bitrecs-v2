@@ -5,10 +5,19 @@ import asyncio
 import asyncpg
 import contextvars
 import utils.logger as logger
-
 from typing import Optional
 from functools import wraps
 from uuid import UUID, uuid4
+
+DEBUG_QUERIES = {
+    "running": [],
+    "slow": []
+}
+
+DEBUG_QUERIES_LOCK = asyncio.Lock()
+ACTIVE_CONNECTIONS = 0
+ACTIVE_REUSED_CONNECTIONS = 0
+
 
 async def initialize_database(*, username: str, password: str, host: str, port: int, name: str):
     logger.info(f"Connecting to database {name} as user {username} on {host}:{port}...")
@@ -29,15 +38,6 @@ async def deinitialize_database():
     await pool.close()
     logger.info("Disconnected from database.")
 
-
-DEBUG_QUERIES = {
-    "running": [],
-    "slow": []
-}
-
-DEBUG_QUERIES_LOCK = asyncio.Lock()
-ACTIVE_CONNECTIONS = 0
-ACTIVE_REUSED_CONNECTIONS = 0
 
 async def _begin_db_operation(label: str, query: str):
     id = uuid4()
@@ -123,6 +123,31 @@ class DatabaseConnection:
             return await self.conn.fetchval(query, *args, **kwargs)
         finally:
             await _end_db_operation(id)
+
+
+async def check_database_health() -> bool:
+    try:
+        async with pool.acquire() as conn:            
+            result = await conn.fetchval("SELECT 1")
+            if result != 1:
+                logger.error("Database health check failed: Unexpected result from SELECT 1")
+                return False            
+            
+            table_count = await conn.fetchval(
+                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'"
+            )
+            if table_count == 0:
+                logger.warning("Database health check: No tables found in 'public' schema")                
+                return False
+            
+            logger.info("Database health check passed")
+            return True
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return False
+
+
+
 
 
 

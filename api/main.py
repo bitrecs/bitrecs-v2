@@ -8,8 +8,6 @@ import logging
 import threading
 import tracemalloc
 from dotenv import load_dotenv
-
-from utils.database import initialize_database
 load_dotenv()
 from cachetools import TTLCache
 from typing import Tuple, Dict, Any
@@ -26,6 +24,7 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi import FastAPI, Request
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from utils.database import initialize_database, check_database_health
 
 from api import config
 
@@ -251,9 +250,13 @@ async def health(request: Request):
     
     current, peak = tracemalloc.get_traced_memory()
     version_file = load_version_info()
+
+    db_health = await check_database_health()
+    db_status = "OK" if db_health else "ERROR"
     return {
         "status": "healthy",
         "nodes": node_count,
+        "db_status": db_status,
         "total_requests": app.state.total_requests,
         "exceptions": app.state.exceptions,
         "threads": thread_count,

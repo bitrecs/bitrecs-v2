@@ -147,7 +147,7 @@ class LLMProviderStats:
         avg_ping_time = "N/A"
         ping_status = "Failure"
         try:
-            ping_result, latency = LLMProviderStats.tcp_ping(ip_address, port=port)  # Pass the port
+            ping_result, latency = LLMProviderStats.tcp_ping(ip_address, port=port)
             if ping_result:
                 ping_status = "Success"
                 f = float(latency)
@@ -155,10 +155,9 @@ class LLMProviderStats:
             else:
                 ping_status = "Failure (No response)"
         except Exception as e:
-            ping_status = f"Failure ({str(e)})"
-       
+            ping_status = f"Failure ({str(e)})"       
         
-        # Prepare table data as list of tuples (metric, details)
+        
         table_data = [
             ("Provider", str(provider)),
             ("Domain", domain),
@@ -166,9 +165,8 @@ class LLMProviderStats:
             ("Ping Status", ping_status),
             ("Average Ping Time", avg_ping_time),
             # ("Traceroute Results", trace_output)
-        ]
+        ]        
         
-        # Build table as a string (same as original)
         col_width_metric = 20
         col_width_details = 80
         
@@ -190,9 +188,8 @@ class LLMProviderStats:
         """Returns an HTML snippet (table) for the given LLMProvider's ping report."""
         domain = LLMProviderStats.provider_domain(provider)
         if not domain:
-            return f"<p>No domain to ping for provider {provider} (likely local).</p>"
-            
-        # Gather domain info
+            return f"<p>No domain to ping for provider {provider} (likely local).</p>"            
+        
         try:
             ip_address = socket.gethostbyname(domain)
         except socket.gaierror:
@@ -200,12 +197,11 @@ class LLMProviderStats:
     
         port = LLMProviderStats.provider_port(provider)    
         print(f"Pinging provider {provider} at domain {domain} (IP: {ip_address}, Port: {port})")
-        
-        # Perform ping using TCP
+                
         avg_ping_time = "N/A"
         ping_status = "Failure"
         try:            
-            ping_result, latency = LLMProviderStats.tcp_ping(ip_address, port=port)  # Pass the port
+            ping_result, latency = LLMProviderStats.tcp_ping(ip_address, port=port)
             if ping_result:
                 ping_status = "Success"  
                 f = float(latency)              
@@ -213,24 +209,21 @@ class LLMProviderStats:
             else:
                 ping_status = "Failure (No response)"        
         except Exception as e:
-            ping_status = f"Failure ({str(e)})"       
-    
-        # Prepare table data
+            ping_status = f"Failure ({str(e)})"
+        
         table_data = [
             ("Provider", str(provider)),
             ("Domain", domain),
             ("IP Address", ip_address),
-            ("Port", str(port)),  # Added port to table for visibility
+            ("Port", str(port)),
             ("Ping Status", ping_status),
             ("Average Ping Time", avg_ping_time),
-        ]
+        ]        
         
-        # Build HTML table rows
         rows_html = ""
         for metric, details in table_data:
-            rows_html += f"<tr><td class='td-metric'>{metric}</td><td>{details}</td></tr>\n"
+            rows_html += f"<tr><td class='td-metric'>{metric}</td><td>{details}</td></tr>\n"        
         
-        # Return only the table snippet (no full page)
         html_snippet = f"""
         <h2><b>{provider}</b></h2>
         <table>
@@ -242,17 +235,8 @@ class LLMProviderStats:
             </tbody>
         </table>
         """
-        return html_snippet
-    
-    @staticmethod
-    def print_all_providers_info() -> str:
-        output = ""
-        for provider in islice(LLMProvider, 3):
-        #for provider in LLMProvider:
-            output += "\n" + "="*80 + "\n"
-            output += LLMProviderStats.ping_provider(provider)
-            output += "\n" + "="*80 + "\n"
-        return output
+        return html_snippet    
+
     
     @staticmethod
     def print_all_providers_info_html() -> str:
