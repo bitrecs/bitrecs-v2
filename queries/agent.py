@@ -1,6 +1,5 @@
-#import api.config as config
+import json
 import utils.logger as logger
-
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
@@ -10,6 +9,26 @@ from models.evaluation_set import EvaluationSetGroup
 from utils.database import db_operation, DatabaseConnection
 from models.agent import Agent, AgentStatus, AgentScored, BenchmarkAgentScored, PossiblyBenchmarkAgent
 
+
+@db_operation
+async def get_agents_by_top_limit(conn: DatabaseConnection, top: int=100) -> Optional[List[Agent]]:
+    results = await conn.fetch(
+        """
+        SELECT * FROM agents
+        ORDER BY created_at DESC
+        LIMIT $1
+        """,
+        top
+    )
+
+    agents = []
+    for result in results:
+        result = dict(result)
+        result['sampling_params'] = json.loads(result['sampling_params']) if result['sampling_params'] else {}
+        result['fewshot_examples'] = json.loads(result['fewshot_examples']) if result['fewshot_examples'] else []
+        result['eval_scores'] = json.loads(result['eval_scores']) if result['eval_scores'] else {}
+        agents.append(Agent(**result))    
+    return agents
 
 
 @db_operation
@@ -26,6 +45,12 @@ async def get_agent_by_id(conn: DatabaseConnection, agent_id: UUID) -> Optional[
 
     if result is None:
         return None
+
+    # Parse JSON strings back to Python objects for Pydantic validation
+    result = dict(result)
+    result['sampling_params'] = json.loads(result['sampling_params']) if result['sampling_params'] else {}
+    result['fewshot_examples'] = json.loads(result['fewshot_examples']) if result['fewshot_examples'] else []
+    result['eval_scores'] = json.loads(result['eval_scores']) if result['eval_scores'] else {}
 
     return Agent(**result)
 
@@ -123,22 +148,54 @@ async def get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(conn: Da
 
 
 
-@db_operation
-async def create_agent(conn: DatabaseConnection, agent: Agent, agent_text: str) -> None:
-    await upload_text_file_to_s3(f"{agent.agent_id}/agent.py", agent_text)
+# @db_operation
+# async def create_agent(conn: DatabaseConnection, agent: Agent, agent_text: str) -> None:
+#     await upload_text_file_to_s3(f"{agent.agent_id}/agent.py", agent_text)
 
-    await conn.execute(
-        f"""
-        INSERT INTO agents (agent_id, miner_hotkey, name, version_num, created_at, status, ip_address)
-        VALUES ($1, $2, $3, $4, NOW(), '{AgentStatus.screening_1.value}', $5)
+#     await conn.execute(
+#         f"""
+#         INSERT INTO agents (agent_id, miner_hotkey, name, version_num, created_at, status, ip_address)
+#         VALUES ($1, $2, $3, $4, NOW(), '{AgentStatus.screening_1.value}', $5)
+#         """,
+#         agent.agent_id,
+#         agent.miner_hotkey,
+#         agent.name,
+#         agent.version_num,
+#         agent.ip_address,
+#     )
+
+
+@db_operation
+async def create_agent(conn: DatabaseConnection, agent: Agent) -> UUID:
+    import json  # Add if not already imported at top
+
+    result = await conn.fetchval(
+        """
+        INSERT INTO agents (
+            agent_id, miner_hotkey, name, version_num, status, created_at, ip_address,
+            miner_uid, provider, model, system_prompt_template, user_prompt_template,
+            sampling_params, fewshot_examples, eval_scores
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        RETURNING agent_id
         """,
         agent.agent_id,
         agent.miner_hotkey,
         agent.name,
         agent.version_num,
+        agent.status.value,
+        agent.created_at,
         agent.ip_address,
+        agent.miner_uid,
+        agent.provider,
+        agent.model,
+        agent.system_prompt_template,
+        agent.user_prompt_template,
+        json.dumps(agent.sampling_params.model_dump()),  # Serialize to JSON
+        json.dumps([ex.model_dump() for ex in agent.fewshot_examples]) if agent.fewshot_examples else None,  # Serialize to JSON
+        json.dumps(agent.eval_scores)  # Serialize to JSON
     )
-
+    return result
 
 
 @db_operation

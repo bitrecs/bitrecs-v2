@@ -1,8 +1,8 @@
+import uuid
 from enum import Enum
-from uuid import UUID
-from typing import Optional
-from datetime import datetime
-from pydantic import BaseModel
+from typing import Dict, List, Optional
+from datetime import datetime, timezone
+from pydantic import UUID4, BaseModel, Field
 
 
 
@@ -14,25 +14,40 @@ class AgentStatus(str, Enum):
     evaluating = 'evaluating'
     finished = 'finished'
 
+class SamplingParams(BaseModel):
+    temperature: float = Field(ge=0, le=2)
+    top_p: Optional[float] = Field(None, ge=0, le=1)
+    max_tokens: Optional[int] = Field(None, gt=0)
+    stop_sequences: Optional[List[str]] = None
 
+class MessageExample(BaseModel):
+    role: str = Field(pattern="^(user|assistant|system)$")
+    content: str = Field(max_length=8192)
 
-class Agent(BaseModel):
-    agent_id: UUID
+class Agent(BaseModel):    
+    agent_id: UUID4 = Field(default_factory=uuid.uuid4, description="Unique artifact ID")
     miner_hotkey: str
-
     name: str
     version_num: int
-
     status: AgentStatus
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="ISO8601 timestamp of submission creation"
+    )
+    ip_address: Optional[str] = None   
+    miner_uid: int = Field(gt=0, description="Active UID on Subnet")
+    provider: str = Field(description="LLM provider name")
+    model: str = Field(description="LLM model name")
+    system_prompt_template: str = Field(description="Jinja2 template for system prompt")
+    user_prompt_template: str = Field(description="Jinja2 template for user prompt")
+    sampling_params: SamplingParams = Field(description="Sampling parameters for LLM")
+    fewshot_examples: Optional[List[MessageExample]] = Field(None, max_length=64)
+    eval_scores: Dict[str, float] = Field(description="Evaluation scores claimed by the miner", default_factory=dict)
 
-    created_at: datetime
-    ip_address: Optional[str] = None
 
 class PossiblyBenchmarkAgent(Agent):
     is_benchmark_agent: bool
     benchmark_description: Optional[str] = None
-
-
 
 class BenchmarkAgentScored(Agent):
     benchmark_description: Optional[str] = None
@@ -41,6 +56,8 @@ class BenchmarkAgentScored(Agent):
     approved: bool
     validator_count: int
     final_score: float
+
+
 class AgentScored(Agent):
     set_id: int
     approved: bool

@@ -8,6 +8,7 @@ import logging
 import threading
 import tracemalloc
 from dotenv import load_dotenv
+
 load_dotenv()
 from cachetools import TTLCache
 from typing import Tuple, Dict, Any
@@ -17,7 +18,7 @@ from utils.version import load_version_info
 from slowapi import Limiter
 from slowapi.middleware import SlowAPIMiddleware
 from .metagraph_sync_manager import MetagraphSyncManager
-
+from queries.agent import get_agents_by_top_limit
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -283,13 +284,11 @@ async def get_public_key(request: Request):
     return JSONResponse(status_code=200, content={"public_key": public_key_hex})
 
 
-
 @app.get("/providers")
 @limiter.limit("60/minute")
 async def provider_log(request: Request):
     request_ip = get_client_ip(request)
-    logger.info(f"providers endpoint accessed from IP {request_ip}")
-    #its already cached
+    logger.info(f"providers endpoint accessed from IP {request_ip}")    
     cache_key = "provider_infos_html"
     if cache_key in PROVIDER_PING_CACHE:
         logger.info(f"providers endpoint accessed from IP {request_ip} - using cached data")
@@ -297,6 +296,7 @@ async def provider_log(request: Request):
         return HTMLResponse(content=infos)
     logging.warning("Cache Broken")
     return HTMLResponse(content="<pre>Cache Empty</pre>")
+
 
 @app.get("/miners")
 @limiter.limit("60/minute")
@@ -307,6 +307,7 @@ async def get_miners(request: Request):
     miners = [node for node in snapshot.values() if node.get("stake", 0) > 0]  # Rough filter for miners
     return JSONResponse(content={"miners": miners})
 
+
 @app.get("/validators")
 @limiter.limit("60/minute")
 async def get_validators(request: Request):
@@ -316,23 +317,37 @@ async def get_validators(request: Request):
     validators = [node for node in snapshot.values() if node.get("stake", 0) == 0]  # Rough filter for validators
     return JSONResponse(content={"validators": validators})
 
+
 @app.get("/artifact")
 @limiter.limit("60/minute")
 async def get_artifact(request: Request, artifact_id: str):
     client_ip = get_client_ip(request)
     logger.info(f"Artifact endpoint accessed from IP {client_ip} for ID {artifact_id}")
-    # Rough placeholder: return dummy artifact
-    artifact = {"id": artifact_id, "data": "placeholder"}
-    return JSONResponse(content=artifact)
+    try:
+        if not artifact_id or len(artifact_id.strip()) == 0:            
+            return JSONResponse(content={"error": "Invalid artifact_id"}, status_code=400)
+        artifact = {"id": artifact_id, "data": "placeholder"}
+        return JSONResponse(content=artifact)
+
+    except Exception as e:
+        logger.error(f"Error fetching artifact {artifact_id}: {e}")
+        return JSONResponse(content={}, status_code=500)
+        
 
 @app.get("/artifacts")
 @limiter.limit("60/minute")
 async def get_artifacts(request: Request, limit: int = 10):
     client_ip = get_client_ip(request)
     logger.info(f"Artifacts endpoint accessed from IP {client_ip}")
-    # Rough placeholder: return list of dummy artifacts
-    artifacts = [{"id": f"artifact_{i}", "data": "placeholder"} for i in range(limit)]
-    return JSONResponse(content={"artifacts": artifacts})
+    try:
+        top_agents = await get_agents_by_top_limit(limit)    
+        logger.info(f"Returning {len(top_agents)} top agents")
+        return JSONResponse(content={"artifacts": [agent.model_dump() for agent in top_agents]})
+    except Exception as e:
+        logger.error(f"Error fetching top agents: {e}")
+        return JSONResponse(content={"artifacts": []}, status_code=500)
+    
+  
 
 @app.post("/artifact")
 @limiter.limit("60/minute")

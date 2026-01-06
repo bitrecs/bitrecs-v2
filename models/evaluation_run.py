@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum, IntEnum
 from pydantic import BaseModel
 from typing import List, Optional
-from problem import ProblemTestResult
+from models.problem import ProblemTestResult
 
 
 class EvaluationRunErrorCode(IntEnum):
