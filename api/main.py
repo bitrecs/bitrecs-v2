@@ -9,10 +9,10 @@ import logging
 import threading
 import tracemalloc
 from dotenv import load_dotenv
+load_dotenv()
 
 from models.agent import Agent
 from rules.agent_validator import validate_artifact
-load_dotenv()
 from api import config
 from cachetools import TTLCache
 from typing import Tuple, Dict, Any
@@ -194,9 +194,9 @@ version_info = load_version_info()
 app_version = version_info if version_info else "2.0"
 
 app = FastAPI(
-    title=f"Bitrecs V2 Testnet (Netuid: {BT_NETWORK} - Network: {BT_NETUID})",
+    title=f"Bitrecs V2 Testnet",
     version=app_version,
-    description="TBD",
+    description=f"(Netuid: {BT_NETWORK} - Network: {BT_NETUID})",
     debug=False,
     lifespan=lifespan
 )
