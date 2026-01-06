@@ -24,8 +24,8 @@ def test_get_health():
     assert result["db_status"] == "OK"
 
 def test_get_artifacts():
-    limit = 2
-    response = client.get(f"/artifacts")    
+    limit = 4
+    response = client.get(f"/artifacts?limit={limit}")    
     logger.info("Artifacts endpoint response: %s", response.json())    
     result = response.json()
     assert response.status_code == 200

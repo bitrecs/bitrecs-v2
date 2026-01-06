@@ -8,8 +8,8 @@ import logging
 import threading
 import tracemalloc
 from dotenv import load_dotenv
-
 load_dotenv()
+from api import config
 from cachetools import TTLCache
 from typing import Tuple, Dict, Any
 from models.product import Product
@@ -18,7 +18,7 @@ from utils.version import load_version_info
 from slowapi import Limiter
 from slowapi.middleware import SlowAPIMiddleware
 from .metagraph_sync_manager import MetagraphSyncManager
-from queries.agent import get_agents_by_top_limit
+from queries.agent import get_agent_count, get_agents_by_top_limit
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -27,7 +27,6 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from utils.database import initialize_database, check_database_health
 
-from api import config
 
 log_level = logging.INFO    
 logging.basicConfig(
@@ -68,6 +67,7 @@ metagraph_manager = MetagraphSyncManager(
     sync_interval=METAGRAPH_CACHE_DURATION
 )
 metagraph_snapshot = {"nodes": {}}
+
 
 async def check_hotkey_stake(
     hotkey: str,
@@ -254,12 +254,14 @@ async def health(request: Request):
 
     db_health = await check_database_health()
     db_status = "OK" if db_health else "ERROR"
+    agent_count = await get_agent_count()
     return {
         "status": "healthy",
         "nodes": node_count,
         "db_status": db_status,
         "total_requests": app.state.total_requests,
         "exceptions": app.state.exceptions,
+        "agent_count": agent_count,
         "threads": thread_count,
         "metagraph_last_synced": int(synced_at) if synced_at else None,
         "metagraph_age_seconds": round(time.time() - synced_at, 2) if synced_at else None,        
@@ -342,7 +344,7 @@ async def get_artifacts(request: Request, limit: int = 10):
     try:
         top_agents = await get_agents_by_top_limit(limit)    
         logger.info(f"Returning {len(top_agents)} top agents")
-        return JSONResponse(content={"artifacts": [agent.model_dump() for agent in top_agents]})
+        return JSONResponse(content={"artifacts": [agent.model_dump(mode="json") for agent in top_agents]})
     except Exception as e:
         logger.error(f"Error fetching top agents: {e}")
         return JSONResponse(content={"artifacts": []}, status_code=500)
