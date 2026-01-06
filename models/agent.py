@@ -25,7 +25,7 @@ class MessageExample(BaseModel):
     content: str = Field(max_length=8192)
 
 class Agent(BaseModel):    
-    agent_id: UUID4 = Field(default_factory=uuid.uuid4, description="Unique artifact ID")
+    agent_id: UUID4 = None
     miner_hotkey: str
     name: str
     version_num: int

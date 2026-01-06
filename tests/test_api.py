@@ -1,5 +1,9 @@
 import httpx
 import logging
+from datetime import datetime, timezone
+
+from models.agent import Agent
+from rules.agent_validator import validate_artifact
 
 logger = logging.getLogger(__name__)
 
@@ -31,3 +35,36 @@ def test_get_artifacts():
     assert response.status_code == 200
     assert "artifacts" in result
     assert len(result["artifacts"]) == limit
+
+
+def test_submit_artifact():
+    """Test submitting an artifact via POST /artifact."""
+    sample_artifact = {        
+        "parent_id": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "miner_hotkey": "test_hotkey",
+        "miner_uid": 123,
+        "provider": "test_provider",
+        "model": "test_model",
+        "system_prompt_template": "System prompt",
+        "user_prompt_template": "User prompt",
+        "sampling_params": {"temperature": 0.7},
+        "fewshot_examples": [{"role": "user", "content": "Hello"}],
+        "eval_scores": {"accuracy": 0.95},
+        "version_num": 1,
+        "status": "screening_1",
+        "name": "Test Artifact",
+        "ip_address": "127.0.0.1"  
+    }
+
+    validated, reason = validate_artifact(Agent(**sample_artifact))
+    assert validated == True, f"Artifact validation failed: {reason}"
+    
+    response = client.post("/artifact", json=sample_artifact)
+    logger.info("Submit artifact response: %s", response.json())
+    
+    assert response.status_code == 201
+    result = response.json()
+    assert "message" in result
+    assert result["message"] == "Artifact submitted successfully"
+

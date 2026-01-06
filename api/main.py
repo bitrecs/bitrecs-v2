@@ -2,12 +2,16 @@ import os
 import gc
 import time
 import base64
+import uuid
 import httpx
 import asyncio
 import logging
 import threading
 import tracemalloc
 from dotenv import load_dotenv
+
+from models.agent import Agent
+from rules.agent_validator import validate_artifact
 load_dotenv()
 from api import config
 from cachetools import TTLCache
@@ -18,7 +22,7 @@ from utils.version import load_version_info
 from slowapi import Limiter
 from slowapi.middleware import SlowAPIMiddleware
 from .metagraph_sync_manager import MetagraphSyncManager
-from queries.agent import get_agent_count, get_agents_by_top_limit
+from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -355,18 +359,27 @@ async def get_artifacts(request: Request, limit: int = 10):
 @limiter.limit("60/minute")
 async def submit_artifact(request: Request, artifact: Dict[str, Any]):
     client_ip = get_client_ip(request)
-    logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")
-    # Rough placeholder: accept and return the artifact
-    return JSONResponse(content={"submitted": artifact})
+    logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")    
+    try:        
+        artifact_instance = Agent(**artifact)
+        validated, reason = validate_artifact(artifact_instance)
+        if not validated:
+            logger.warning(reason)
+            return JSONResponse(content={"error": reason}, status_code=400)
+        
+        artifact_instance.agent_id = uuid.uuid4()
+        artifact_id = await create_agent(artifact_instance)        
+        logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
+        return JSONResponse(status_code=201, content={
+            "message": "Artifact submitted successfully",
+            "artifact_id": str(artifact_id)
+        })
+    
+    except Exception as e:
+        logger.error(f"Error submitting artifact: {e}")
+        return JSONResponse(content={"error": "Failed to submit artifact"}, status_code=400)
 
-@app.get("/top")
-@limiter.limit("60/minute")
-async def get_top_artifact(request: Request):
-    client_ip = get_client_ip(request)
-    logger.info(f"Top artifact endpoint accessed from IP {client_ip}")
-    # Rough placeholder: return dummy top artifact
-    top_artifact = {"id": "top_artifact", "data": "placeholder"}
-    return JSONResponse(content=top_artifact)
+
 
 @app.get("/run")
 @limiter.limit("60/minute")
