@@ -171,6 +171,7 @@ async def lifespan(app: FastAPI):
     #app.state.refresh_task = asyncio.create_task(refresh_provider_pings())
 
     try:
+        logger.info("V2 API STARTED")
         yield
     finally:
         logger.info("Starting shutdown...")

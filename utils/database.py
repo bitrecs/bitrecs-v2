@@ -8,6 +8,8 @@ from typing import Optional
 from functools import wraps
 from uuid import UUID, uuid4
 
+DB_POOL = None
+
 DEBUG_QUERIES = {
     "running": [],
     "slow": []
@@ -16,10 +18,6 @@ DEBUG_QUERIES = {
 DEBUG_QUERIES_LOCK = asyncio.Lock()
 ACTIVE_CONNECTIONS = 0
 ACTIVE_REUSED_CONNECTIONS = 0
-
-# Rename 'pool' to 'DB_POOL' for better clarity as a global constant-like variable
-DB_POOL = None
-
 
 async def initialize_database(*, username: str, password: str, host: str, port: int, name: str):
     logger.info(f"Connecting to database {name} as user {username} on {host}:{port}...")
@@ -31,8 +29,8 @@ async def initialize_database(*, username: str, password: str, host: str, port: 
         host=host,
         port=port,
         database=name,
-        min_size=1,  # Minimum connections
-        max_size=10  # Limit to 10 connections per pool
+        min_size=1,
+        max_size=10
     )
     logger.info(f"Connected to database {name} as user {username} on {host}:{port}.")
 
@@ -41,7 +39,7 @@ async def deinitialize_database():
     global DB_POOL
     if DB_POOL:
         await DB_POOL.close()
-        DB_POOL = None  # Reset to prevent reuse
+        DB_POOL = None
     logger.info("Disconnected from database.")
 
 
