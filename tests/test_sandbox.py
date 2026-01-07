@@ -136,4 +136,4 @@ async def test_bitrecs_eval_yaml():
         print("    No extra details available")   
     
     # Cleanup
-    #await env.cleanup()
+    await env.cleanup()
