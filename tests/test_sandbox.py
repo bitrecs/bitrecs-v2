@@ -2,7 +2,6 @@ import os
 import httpx
 import pytest
 import affinetes as af_env
-import asyncio
 import logging
 import yaml
 from dotenv import load_dotenv
@@ -48,40 +47,38 @@ async def test_calculator_env():
     assert result["success"] == True
 
 
-@pytest.mark.asyncio
-async def test_bitrecs_eval():
-    env = af_env.load_env(
-        image="ghcr.io/bitrecs/bitrecs-evals:main",
-        env_vars={"OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY")}, 
-        mode="docker",
-        host_network=True,
-        cleanup=False,
-        force_recreate=True,
-        host_port=8081,
-        pull=True      
-    )
+# @pytest.mark.asyncio
+# async def test_bitrecs_eval():
+#     env = af_env.load_env(
+#         image="ghcr.io/bitrecs/bitrecs-evals:main",
+#         env_vars={"OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY")}, 
+#         mode="docker",
+#         host_network=True,
+#         cleanup=False,
+#         force_recreate=True,
+#         host_port=8081,
+#         pull=True      
+#     )
     
-    assert env is not None
-    logger.info("Loaded Docker environment successfully")
+#     assert env is not None
+#     logger.info("Loaded Docker environment successfully")
     
-    timeout = (30, 600)  # (connect timeout, read timeout)    
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.post(
-            "http://localhost:8081/evaluate",
-            json={
-                "model": "deepseek-ai/DeepSeek-V3",
-                "base_url": "https://llm.chutes.ai/v1",
-                "task_id": 10
-            }
-        )
-        logger.info(f"Received response: {response.text}")
-        response.raise_for_status()
-        result = response.json()
+#     timeout = (30, 600)
+#     async with httpx.AsyncClient(timeout=timeout) as client:
+#         response = await client.post(
+#             "http://localhost:8081/evaluate",
+#             json={
+#                 "model": "deepseek-ai/DeepSeek-V3",
+#                 "base_url": "https://llm.chutes.ai/v1",
+#                 "task_id": 10
+#             }
+#         )
+#         logger.info(f"Received response: {response.text}")
+#         response.raise_for_status()
+#         result = response.json()
     
-    print(f"Score: {result['score']}")
-    
-    # Cleanup
-    await env.cleanup()
+#     print(f"Score: {result['score']}")
+#     await env.cleanup()
 
 
 @pytest.mark.asyncio
@@ -108,6 +105,9 @@ async def test_bitrecs_eval_yaml():
     yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_input.yaml")
     with open(yaml_file_path, "r") as f:
         miner_input_data = yaml.safe_load(f)
+
+    logger.info(f"Testing model: {miner_input_data.get('model', 'N/A')} with provider: {miner_input_data.get('provider', 'N/A')}")
+
     yaml_content = yaml.dump(miner_input_data)
     logger.info(f"Loaded YAML content from : {yaml_file_path}")
     
@@ -122,7 +122,7 @@ async def test_bitrecs_eval_yaml():
         response.raise_for_status()
         result = response.json()
     
-    #print(f"Evaluation Result: {result}")
+    
     print("Evaluation Result:")
     print(f"  Task Name: {result.get('task_name', 'N/A')}")
     print(f"  Run ID: {result.get('run_id', 'N/A')}")
@@ -136,4 +136,4 @@ async def test_bitrecs_eval_yaml():
         print("    No extra details available")   
     
     # Cleanup
-    await env.cleanup()
+    #await env.cleanup()
