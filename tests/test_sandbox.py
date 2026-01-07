@@ -4,24 +4,23 @@ import pytest
 import affinetes as af_env
 import asyncio
 import logging
-
 import yaml
+from dotenv import load_dotenv
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 @pytest.mark.asyncio
-async def test_calculator_env():
-    # Skip if Docker is not running
+async def test_calculator_env():    
     try:
         import docker
         client = docker.from_env()
         client.ping()
     except Exception:
         pytest.skip("Docker daemon not running, skipping test")
-        logger.warning("Docker daemon not running, skipping test")   
-
+        logger.warning("Docker daemon not running, skipping test")
     
     image_tag = af_env.build_image_from_env(
         env_path=os.path.join(PARENT_DIR, "sandbox/environments/calc"),
@@ -49,9 +48,6 @@ async def test_calculator_env():
     assert result["success"] == True
 
 
-
-
-
 @pytest.mark.asyncio
 async def test_bitrecs_eval():
     env = af_env.load_env(
@@ -68,8 +64,7 @@ async def test_bitrecs_eval():
     assert env is not None
     logger.info("Loaded Docker environment successfully")
     
-    timeout = (30, 600)  # (connect timeout, read timeout)
-    # Directly call the HTTP endpoint
+    timeout = (30, 600)  # (connect timeout, read timeout)    
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(
             "http://localhost:8081/evaluate",
@@ -92,9 +87,13 @@ async def test_bitrecs_eval():
 @pytest.mark.asyncio
 async def test_bitrecs_eval_yaml():
     
+    provider_keys = {
+        "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
+        "CHUTES_API_KEY": os.environ.get("CHUTES_API_KEY"),
+    }
     env = af_env.load_env(
         image="ghcr.io/bitrecs/bitrecs-evals:main",
-        env_vars={"OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY")}, 
+        env_vars=provider_keys,
         mode="docker",
         host_network=True,
         cleanup=False,
@@ -119,11 +118,22 @@ async def test_bitrecs_eval_yaml():
             json={"yaml_content": yaml_content},
             headers={"Content-Type": "application/json"}
         )
-        logger.info(f"Received response: {response.text}")
+        #logger.info(f"Received response: {response.text}")
         response.raise_for_status()
         result = response.json()
     
-    print(f"Evaluation Result: {result}")
+    #print(f"Evaluation Result: {result}")
+    print("Evaluation Result:")
+    print(f"  Task Name: {result.get('task_name', 'N/A')}")
+    print(f"  Run ID: {result.get('run_id', 'N/A')}")
+    print(f"  Score: {result.get('score', 'N/A')}")
+    print(f"  Success: {result.get('success', 'N/A')}")
+    print(f"  Time Taken: {result.get('time_taken', 'N/A')}")
+    print("  Extra:")
+    if 'extra' in result and 'result' in result['extra']:
+        print(result['extra']['result'])
+    else:
+        print("    No extra details available")   
     
     # Cleanup
     await env.cleanup()
