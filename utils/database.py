@@ -17,24 +17,31 @@ DEBUG_QUERIES_LOCK = asyncio.Lock()
 ACTIVE_CONNECTIONS = 0
 ACTIVE_REUSED_CONNECTIONS = 0
 
+# Rename 'pool' to 'DB_POOL' for better clarity as a global constant-like variable
+DB_POOL = None
+
 
 async def initialize_database(*, username: str, password: str, host: str, port: int, name: str):
     logger.info(f"Connecting to database {name} as user {username} on {host}:{port}...")
-
-    global pool
-    pool = await asyncpg.create_pool(
+    
+    global DB_POOL
+    DB_POOL = await asyncpg.create_pool(
         user=username,
         password=password,
         host=host,
         port=port,
-        database=name
+        database=name,
+        min_size=1,  # Minimum connections
+        max_size=10  # Limit to 10 connections per pool
     )
     logger.info(f"Connected to database {name} as user {username} on {host}:{port}.")
 
 async def deinitialize_database():
     logger.info("Disconnecting from database...")    
-    global pool
-    await pool.close()
+    global DB_POOL
+    if DB_POOL:
+        await DB_POOL.close()
+        DB_POOL = None  # Reset to prevent reuse
     logger.info("Disconnected from database.")
 
 
@@ -126,7 +133,7 @@ class DatabaseConnection:
 
 async def check_database_health() -> bool:
     try:
-        async with pool.acquire() as conn:            
+        async with DB_POOL.acquire() as conn:  # Update reference
             result = await conn.fetchval("SELECT 1")
             if result != 1:
                 logger.error("Database health check failed: Unexpected result from SELECT 1")
@@ -165,7 +172,7 @@ def db_operation(func):
             finally:
                 ACTIVE_REUSED_CONNECTIONS -= 1
 
-        async with pool.acquire() as _conn:
+        async with DB_POOL.acquire() as _conn:  # Update reference
             ACTIVE_CONNECTIONS += 1
             conn = DatabaseConnection(_conn, f"{func.__name__}()")
             token = _per_context_conn.set(conn)

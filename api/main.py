@@ -29,7 +29,7 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi import FastAPI, Request
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from utils.database import initialize_database, check_database_health
+from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
 
 
 log_level = logging.INFO    
@@ -186,6 +186,13 @@ async def lifespan(app: FastAPI):
         await http_client.aclose()
         logger.info("Shutting down PG writer thread pool...")
         app.state.thread_pool.shutdown(wait=True, cancel_futures=False)
+        if DB_POOL:
+            logger.info("Deinitializing database...")
+            try:
+                await deinitialize_database()
+            except Exception as e:
+                logger.error(f"Error closing DB pool: {e}")
+        
         gc.collect()
         logger.info(f"Shutdown complete. Final thread count: {threading.active_count()}")
 
