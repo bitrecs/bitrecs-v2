@@ -1,4 +1,5 @@
 import os
+import httpx
 import pytest
 import affinetes as af_env
 import asyncio
@@ -45,3 +46,39 @@ async def test_calculator_env():
     assert result["score"] == 1.0
     assert result["success"] == True
 
+
+@pytest.mark.asyncio
+async def test_bitrecs_eval():
+    env = af_env.load_env(
+        image="ghcr.io/bitrecs/bitrecs-evals:main",
+        env_vars={"OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY")}, 
+        mode="docker",
+        host_network=True,
+        cleanup=False,
+        force_recreate=True,
+        host_port=8081,
+        pull=True      
+    )
+    
+    assert env is not None
+    logger.info("Loaded Docker environment successfully")
+    
+    timeout = (30, 600)  # (connect timeout, read timeout)
+    # Directly call the HTTP endpoint
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.post(
+            "http://localhost:8081/evaluate",
+            json={
+                "model": "deepseek-ai/DeepSeek-V3",
+                "base_url": "https://llm.chutes.ai/v1",
+                "task_id": 10
+            }
+        )
+        logger.info(f"Received response: {response.text}")
+        response.raise_for_status()
+        result = response.json()
+    
+    print(f"Score: {result['score']}")
+    
+    # Cleanup
+    await env.cleanup()
