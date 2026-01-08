@@ -56,7 +56,10 @@ def upload_prompt():
         with httpx.Client(base_url=SERVICE_URL, headers=headers) as client:
             fetch_response = client.get(f"/artifact/{artifact_id}")
             fetch_response.raise_for_status()
-            print(f"Fetched artifact data: {fetch_response.json()}")
+            #print(f"Fetched artifact data: {fetch_response.json()}")
+            agent_json = fetch_response.json()
+            agent = Agent(**agent_json)
+            print(f"Reconstructed Agent ID: {agent.agent_id}")
 
 
 if __name__ == "__main__":
