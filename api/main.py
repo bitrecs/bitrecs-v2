@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from models.agent import Agent
-from rules.agent_validator import validate_artifact
+from rules.agent_validator import validate_artifact_template
 from api import config
 from cachetools import TTLCache
 from typing import Tuple, Dict, Any
@@ -22,7 +22,7 @@ from utils.version import load_version_info
 from slowapi import Limiter
 from slowapi.middleware import SlowAPIMiddleware
 from .metagraph_sync_manager import MetagraphSyncManager
-from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit
+from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -30,6 +30,7 @@ from fastapi import FastAPI, Request
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
+from uuid import UUID  # Add this import if not already present
 
 
 log_level = logging.INFO    
@@ -332,21 +333,27 @@ async def get_validators(request: Request):
     return JSONResponse(content={"validators": validators})
 
 
-@app.get("/artifact")
+@app.get("/artifact/{artifact_id}")
 @limiter.limit("60/minute")
 async def get_artifact(request: Request, artifact_id: str):
     client_ip = get_client_ip(request)
     logger.info(f"Artifact endpoint accessed from IP {client_ip} for ID {artifact_id}")
     try:
         if not artifact_id or len(artifact_id.strip()) == 0:            
-            return JSONResponse(content={"error": "Invalid artifact_id"}, status_code=400)
-        artifact = {"id": artifact_id, "data": "placeholder"}
-        return JSONResponse(content=artifact)
-
+            return JSONResponse(content={"error": "Invalid artifact_id"}, status_code=400)        
+        
+        agent = await get_agent_by_id(UUID(artifact_id))  # Convert str to UUID
+        if not agent:
+            return JSONResponse(content={"error": "Artifact not found"}, status_code=404)
+        
+        return JSONResponse(content=agent.model_dump(mode="json"))
+    except ValueError:
+        # Invalid UUID format
+        return JSONResponse(content={"error": "Invalid artifact_id format"}, status_code=400)
     except Exception as e:
         logger.error(f"Error fetching artifact {artifact_id}: {e}")
-        return JSONResponse(content={}, status_code=500)
-        
+        return JSONResponse(content={"error": "Failed to fetch artifact"}, status_code=500)
+
 
 @app.get("/artifacts")
 @limiter.limit("60/minute")
@@ -370,13 +377,14 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
     logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")    
     try:        
         artifact_instance = Agent(**artifact)
-        validated, reason = validate_artifact(artifact_instance)
+        artifact_instance.ip_address = client_ip
+        validated, reason = validate_artifact_template(artifact_instance)
         if not validated:
             logger.warning(reason)
             return JSONResponse(content={"error": reason}, status_code=400)
         
         artifact_instance.agent_id = uuid.uuid4()
-        artifact_id = await create_agent(artifact_instance)        
+        artifact_id = await create_agent(artifact_instance)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
         return JSONResponse(status_code=201, content={
             "message": "Artifact submitted successfully",

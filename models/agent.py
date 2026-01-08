@@ -1,10 +1,8 @@
-import uuid
 from enum import Enum
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
-from pydantic import UUID4, BaseModel, Field
-
-
+from pydantic import BaseModel, Field
+from uuid import UUID
 
 class AgentStatus(str, Enum):
     screening_1 = 'screening_1'
@@ -25,7 +23,7 @@ class MessageExample(BaseModel):
     content: str = Field(max_length=8192)
 
 class Agent(BaseModel):    
-    agent_id: UUID4 = None
+    agent_id: Optional[UUID] = None  
     miner_hotkey: str
     name: str
     version_num: int
@@ -43,6 +41,12 @@ class Agent(BaseModel):
     sampling_params: SamplingParams = Field(description="Sampling parameters for LLM")
     fewshot_examples: Optional[List[MessageExample]] = Field(None, max_length=64)
     eval_scores: Dict[str, float] = Field(description="Evaluation scores claimed by the miner", default_factory=dict)
+
+    @staticmethod
+    def load_from_yaml(yaml_content: str) -> "Agent":
+        import yaml
+        data = yaml.safe_load(yaml_content)
+        return Agent(**data)
 
 
 class PossiblyBenchmarkAgent(Agent):

@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from utils.database import initialize_database, deinitialize_database
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="function")
 async def db_setup():
     """Initialize database for each test and clean up after."""
     await initialize_database(
