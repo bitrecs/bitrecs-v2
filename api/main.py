@@ -30,7 +30,7 @@ from fastapi import FastAPI, Request
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
-from uuid import UUID  # Add this import if not already present
+from uuid import UUID
 
 
 log_level = logging.INFO    

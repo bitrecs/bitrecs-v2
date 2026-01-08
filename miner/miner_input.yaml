@@ -3,7 +3,7 @@ version_num: "1"
 status: "screening_1"
 miner_hotkey: "5FtH6Aj3xKbkNdgbZUghkTeJrkJexn6eBRZSnS8Zgc3oo4GX"
 miner_uid: 42
-ip_address: "127.0.0.1"
+ip_address: ""
 provider: "OPEN_ROUTER"
 model: "x-ai/grok-4.1-fast"
 system_prompt_template: |

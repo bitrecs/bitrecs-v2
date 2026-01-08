@@ -1,7 +1,6 @@
 import httpx
 import logging
 from datetime import datetime, timezone
-
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 
@@ -36,8 +35,7 @@ def test_get_artifacts():
     assert "artifacts" in result
     assert len(result["artifacts"]) == limit
 
-def test_get_single_artifact():
-    # First, get a list of artifacts to obtain a valid artifact_id
+def test_get_single_artifact():    
     list_response = client.get("/artifacts?limit=1")
     list_result = list_response.json()
     assert list_response.status_code == 200
@@ -45,10 +43,9 @@ def test_get_single_artifact():
     assert len(list_result["artifacts"]) > 0
 
     artifact_id = list_result["artifacts"][0]["agent_id"]
-
-    # Now, fetch the single artifact by ID
+    
     response = client.get(f"/artifact/{artifact_id}")
-    logger.info("Single artifact endpoint response: %s", response.json())    
+    logger.info("Single artifact endpoint response: %s", response.json())
     result = response.json()
     assert response.status_code == 200
     assert "agent_id" in result

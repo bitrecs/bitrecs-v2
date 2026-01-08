@@ -201,9 +201,9 @@ async def create_agent(conn: DatabaseConnection, agent: Agent) -> UUID:
         agent.model,
         agent.system_prompt_template,
         agent.user_prompt_template,
-        json.dumps(agent.sampling_params.model_dump()),  # Serialize to JSON
-        json.dumps([ex.model_dump() for ex in agent.fewshot_examples]) if agent.fewshot_examples else None,  # Serialize to JSON
-        json.dumps(agent.eval_scores)  # Serialize to JSON
+        json.dumps(agent.sampling_params.model_dump()),
+        json.dumps([ex.model_dump() for ex in agent.fewshot_examples]) if agent.fewshot_examples else None,
+        json.dumps(agent.eval_scores)
     )
     return result
 
