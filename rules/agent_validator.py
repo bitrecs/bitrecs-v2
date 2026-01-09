@@ -73,6 +73,9 @@ def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
             matched_vars.update(variables_used)
         except Exception as e:
             return False, f"Error parsing variables in {template_name}: {e}"
+
+    if len(matched_vars) == 0:
+        return False, "No valid template variables found in either prompt template"
     
     #logger.info(f"\033[32mTemplate validation successful. Used variables: {', '.join(sorted(matched_vars))} \033[0m")
     return True, f"Valid template. Used variables: {', '.join(sorted(matched_vars))}"
