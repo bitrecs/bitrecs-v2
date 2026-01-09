@@ -3,7 +3,7 @@ import os
 import sys
 import httpx
 import asyncio
-import logging
+import utils.logger as logger
 from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -16,8 +16,9 @@ FETCH_LIMIT = 20
 SLEEP_INTERVAL = 60
 RETRY_SLEEP = 10  # seconds on error
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+#logger = logging.getLogger(__name__)
+#logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 async def fetch_agents(client: httpx.AsyncClient, limit: int) -> list[dict] | None:

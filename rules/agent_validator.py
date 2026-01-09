@@ -1,10 +1,9 @@
-import logging
+import utils.logger as logger
 from typing import Tuple
 from models.agent import Agent
 from utils.token import get_token_count
 from jinja2 import Template, TemplateSyntaxError, Environment, nodes
 
-logger = logging.getLogger(__name__)
 
 MAX_PROMPT_TOKENS = 50_000
 MAX_SYSTEM_PROMPT_TOKENS = 10_000
@@ -77,7 +76,7 @@ def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
     if len(matched_vars) == 0:
         return False, "No valid template variables found in either prompt template"
     
-    #logger.info(f"\033[32mTemplate validation successful. Used variables: {', '.join(sorted(matched_vars))} \033[0m")
+    logger.info(f"\033[32mTemplate validation successful. Used variables: {', '.join(sorted(matched_vars))} \033[0m")
     return True, f"Valid template. Used variables: {', '.join(sorted(matched_vars))}"
     
 

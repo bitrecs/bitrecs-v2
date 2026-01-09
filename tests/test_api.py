@@ -52,7 +52,7 @@ def test_get_single_artifact():
     assert result["agent_id"] == artifact_id
 
 
-def test_submit_artifact():
+def test_submit_artifact_invalid_vars():
     """Test submitting an artifact via POST /artifact."""
     sample_artifact = {
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -62,6 +62,28 @@ def test_submit_artifact():
         "model": "test_model",
         "system_prompt_template": "System prompt",
         "user_prompt_template": "User prompt",
+        "sampling_params": {"temperature": 0.7},
+        "fewshot_examples": [{"role": "user", "content": "Hello"}],
+        "eval_scores": {"accuracy": 0.95},
+        "version_num": 1,
+        "status": "screening_1",
+        "name": "Test Artifact",
+        "ip_address": "127.0.0.1"  
+    }
+    validated, reason = validate_artifact_template(Agent(**sample_artifact))
+    assert validated == False, "Artifact validation should fail due to invalid vars"
+
+
+def test_submit_artifact_valid_vars():
+    """Test submitting an artifact via POST /artifact."""
+    sample_artifact = {
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "miner_hotkey": "test_hotkey",
+        "miner_uid": 123,
+        "provider": "test_provider",
+        "model": "test_model",
+        "system_prompt_template": "System prompt",
+        "user_prompt_template": "User prompt {{sku}}",
         "sampling_params": {"temperature": 0.7},
         "fewshot_examples": [{"role": "user", "content": "Hello"}],
         "eval_scores": {"accuracy": 0.95},
@@ -81,4 +103,3 @@ def test_submit_artifact():
     result = response.json()
     assert "message" in result
     assert result["message"] == "Artifact submitted successfully"
-
