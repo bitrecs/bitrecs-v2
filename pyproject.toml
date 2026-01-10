@@ -23,6 +23,8 @@ dependencies = [
     "asyncpg>=0.31.0",
     "affinetes @ git+https://github.com/AffineFoundation/affinetes.git@main",
     "jinja2>=3.1.6",
+    "aioboto3>=15.0.0",
+    "python-multipart>=0.0.21",
 ]
 
 [tool.pytest.ini_options]

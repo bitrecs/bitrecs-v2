@@ -165,25 +165,25 @@ async def get_num_successful_validator_evaluations_for_agent_id(conn: DatabaseCo
 #         error_message
 #     )
 
-# @db_operation
-# async def update_unfinished_evaluation_runs_in_evaluation_id_to_errored(conn: DatabaseConnection, evaluation_id: UUID, error_message: str) -> None:
-#     await conn.execute(
-#         f"""
-#         UPDATE evaluation_runs
-#         SET
-#             status = '{EvaluationRunStatus.error.value}',
-#             error_code = CASE
-#                 WHEN status = '{EvaluationRunStatus.pending.value}' THEN {EvaluationRunErrorCode.PLATFORM_RESTARTED_WHILE_PENDING.value}
-#                 WHEN status = '{EvaluationRunStatus.initializing_agent.value}' THEN {EvaluationRunErrorCode.PLATFORM_RESTARTED_WHILE_INIT_AGENT.value}
-#                 WHEN status = '{EvaluationRunStatus.running_agent.value}' THEN {EvaluationRunErrorCode.PLATFORM_RESTARTED_WHILE_INIT_AGENT.value}
-#                 WHEN status = '{EvaluationRunStatus.initializing_eval.value}' THEN {EvaluationRunErrorCode.PLATFORM_RESTARTED_WHILE_INIT_EVAL.value}
-#                 WHEN status = '{EvaluationRunStatus.running_eval.value}' THEN {EvaluationRunErrorCode.PLATFORM_RESTARTED_WHILE_RUNNING_EVAL.value}
-#             END,
-#             error_message = $2,
-#             finished_or_errored_at = NOW()
-#         WHERE evaluation_id = $1
-#         AND status NOT IN ('{EvaluationRunStatus.finished.value}', '{EvaluationRunStatus.error.value}')
-#         """,
-#         evaluation_id,
-#         error_message
-#     )
+@db_operation
+async def update_unfinished_evaluation_runs_in_evaluation_id_to_errored(conn: DatabaseConnection, evaluation_id: UUID, error_message: str) -> None:
+    await conn.execute(
+        f"""
+        UPDATE evaluation_runs
+        SET
+            status = '{EvaluationRunStatus.error.value}',
+            error_code = CASE
+                WHEN status = '{EvaluationRunStatus.pending.value}' THEN {EvaluationRunErrorCode.PLATFORM_RESTARTED_WHILE_PENDING.value}
+                WHEN status = '{EvaluationRunStatus.initializing_agent.value}' THEN {EvaluationRunErrorCode.PLATFORM_RESTARTED_WHILE_INIT_AGENT.value}
+                WHEN status = '{EvaluationRunStatus.running_agent.value}' THEN {EvaluationRunErrorCode.PLATFORM_RESTARTED_WHILE_INIT_AGENT.value}
+                WHEN status = '{EvaluationRunStatus.initializing_eval.value}' THEN {EvaluationRunErrorCode.PLATFORM_RESTARTED_WHILE_INIT_EVAL.value}
+                WHEN status = '{EvaluationRunStatus.running_eval.value}' THEN {EvaluationRunErrorCode.PLATFORM_RESTARTED_WHILE_RUNNING_EVAL.value}
+            END,
+            error_message = $2,
+            finished_or_errored_at = NOW()
+        WHERE evaluation_id = $1
+        AND status NOT IN ('{EvaluationRunStatus.finished.value}', '{EvaluationRunStatus.error.value}')
+        """,
+        evaluation_id,
+        error_message
+    )

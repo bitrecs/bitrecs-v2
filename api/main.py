@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
 import base64
@@ -10,18 +12,17 @@ import threading
 import tracemalloc
 from dotenv import load_dotenv
 load_dotenv()
-
+from uuid import UUID
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 from api import config
 from cachetools import TTLCache
-from typing import Tuple, Dict, Any
-from models.product import Product
+from typing import Dict, Any
 from models.llm_providers import LLMProviderStats
 from utils.version import load_version_info
 from slowapi import Limiter
 from slowapi.middleware import SlowAPIMiddleware
-from .metagraph_sync_manager import MetagraphSyncManager
+
 from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
@@ -30,8 +31,20 @@ from fastapi import FastAPI, Request
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
-from uuid import UUID
 
+from api.endpoints.validator import router as validator_router
+from api.endpoints.debug import router as debug_router
+from api.endpoints.agent import router as agent_router
+from api.endpoints.evaluation_run import router as evaluation_run_router
+from api.endpoints.evaluations import router as evaluations_router
+from api.endpoints.evaluation_sets import router as evaluation_sets_router
+from api.endpoints.scoring import router as scoring_router
+from api.endpoints.statistics import router as statistics_router
+from api.endpoints.retrieval import router as retrieval_router
+from api.endpoints.upload import router as upload_router
+
+
+from .metagraph_sync_manager import MetagraphSyncManager
 
 log_level = logging.INFO    
 logging.basicConfig(
@@ -212,7 +225,6 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
-
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -224,6 +236,20 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
     return response
+
+
+app.include_router(upload_router, prefix="/upload")
+app.include_router(retrieval_router, prefix="/retrieval")
+app.include_router(scoring_router, prefix="/scoring")
+app.include_router(validator_router, prefix="/validator")
+app.include_router(evaluation_sets_router, prefix="/evaluation-sets")
+app.include_router(debug_router, prefix="/debug")
+app.include_router(agent_router, prefix="/agent")
+app.include_router(evaluation_run_router, prefix="/evaluation-run")
+app.include_router(evaluations_router, prefix="/evaluation")
+app.include_router(statistics_router, prefix="/statistics")
+
+
 
 
 @app.get("/")
@@ -397,20 +423,9 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
 
 
 
-@app.get("/run")
-@limiter.limit("60/minute")
-async def get_run(request: Request, run_id: str):
-    client_ip = get_client_ip(request)
-    logger.info(f"Run endpoint accessed from IP {client_ip} for ID {run_id}")
-    # Rough placeholder: return dummy run
-    run = {"id": run_id, "data": "placeholder"}
-    return JSONResponse(content=run)
 
-@app.get("/runs")
-@limiter.limit("60/minute")
-async def get_runs(request: Request):
-    client_ip = get_client_ip(request)
-    logger.info(f"Runs endpoint accessed from IP {client_ip}")
-    # Rough placeholder: return list of dummy runs
-    runs = [{"id": f"run_{i}", "data": "placeholder"} for i in range(5)]
-    return JSONResponse(content={"runs": runs})
+
+if __name__ == "__main__":
+    import uvicorn
+    app.debug = True
+    uvicorn.run(app, host="0.0.0.0", port=8000)
