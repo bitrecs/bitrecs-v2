@@ -5,17 +5,19 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import httpx
 import random
 import asyncio
+import traceback
 import utils.logger as logger
-
+from dotenv import load_dotenv
+load_dotenv()
 from uuid import UUID
 from typing import Any, Dict
 from models.evaluation_run import EvaluationRunStatus
 from models.problem import ProblemTestResultStatus
-from utils.debug_lock import DebugLock
-from api.endpoints.validator_models import ValidatorRegistrationRequest, ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, ValidatorRequestEvaluationResponse
+from api.endpoints.validator_models import ValidatorDisconnectRequest, ValidatorRegistrationRequest, ValidatorRequestEvaluationRequest, ValidatorRequestEvaluationResponse
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
-
+from validator.http_utils import post_ridges_platform
+#from validator.test_validator import disconnect
 
 
 SERVICE_URL = "http://localhost:8000"
@@ -26,6 +28,8 @@ RETRY_SLEEP = 15
 
 #logger = logging.getLogger(__name__)
 #logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+session_id: str | None = None
 
 
 async def fetch_agents(client: httpx.AsyncClient, limit: int) -> list[dict] | None:
@@ -135,56 +139,91 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
 
     #await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
 
+async def get_session_id() -> str | None:
+    timestamp = int(time.time())
+    #signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
+    signed_timestamp = "TEST"
+    hotkey = "test hotkey"
+    commit_hash = "TEST HASH"
+    session_id = None
+
+    async with httpx.AsyncClient(base_url=SERVICE_URL) as client:   
+        register_response = await client.post("/validator/register-as-validator", json=ValidatorRegistrationRequest(
+            timestamp=timestamp,
+            signed_timestamp=signed_timestamp,
+            hotkey=hotkey,
+            commit_hash=commit_hash           
+        ).model_dump())
+        if register_response.status_code != 200:
+            logger.error(f"Error registering as validator: {register_response.status_code} - {register_response.text}")
+            return None
+        session_id = register_response.json().get("session_id")
+        logger.info(f"Registered as validator with session ID: {session_id}")
+
+    if not session_id:
+        raise Exception("Failed to register as validator, no session ID received.")
+
+    return session_id
 
 
 async def validator_loop() -> None:
     """Main loop to continuously fetch and validate agents."""
     logger.info("Starting validator loop...")
 
-    timestamp = int(time.time())
-    #signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
-
-    signed_timestamp = "TEST"
-
-    async with httpx.AsyncClient(base_url=SERVICE_URL) as client:   
-        register_response = await client.post("/validator/register-as-validator", json=ValidatorRegistrationRequest(
-            timestamp=timestamp,
-            signed_timestamp=signed_timestamp,
-            hotkey="test hotkey",
-            commit_hash="TEST HASH"
-        ).model_dump())
-        if register_response.status_code != 200:
-            logger.error(f"Error registering as validator: {register_response.status_code} - {register_response.text}")
-            return
-        session_id = register_response.json().get("session_id")
-        logger.info(f"Registered as validator with session ID: {session_id}")
-    
+    session_id = await get_session_id()
     if not session_id:
-        raise Exception("Failed to register as validator, no session ID received.")
-   
+        logger.error("Failed to obtain session ID. Exiting validator loop.")
+        return   
+    
     while True:
         logger.info("Requesting an evaluation...")
         
         url = f"{SERVICE_URL}/validator/request-evaluation"
-        #url = f"{SERVICE_URL}/request-evaluation"
-        session_id = "test-session-id"  # In practice, this would be a real
-        #request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
         async with httpx.AsyncClient() as client:
             response = await client.post(url, json=ValidatorRequestEvaluationRequest().model_dump(), headers={"Authorization": f"Bearer {session_id}"})
             if response.status_code != 200:
                 logger.error(f"Error requesting evaluation: {response.status_code} - {response.text}")
+                logger.error(f"{response}")
                 await asyncio.sleep(RETRY_SLEEP)
                 continue
 
-        # If no evaluation is available, wait and try again
-        # if request_evaluation_response_data is None:
-        #     logger.info(f"No evaluations available. Waiting for {config.REQUEST_EVALUATION_INTERVAL_SECONDS} seconds...")
-        #     await asyncio.sleep(config.REQUEST_EVALUATION_INTERVAL_SECONDS)
-        #     continue
+            data = response.json()
+            if data is None:
+                logger.info("No evaluations available. Waiting...")
+                await asyncio.sleep(SLEEP_INTERVAL)
+                continue
 
-        await _run_evaluation(ValidatorRequestEvaluationResponse(**response.json()))
+            await _run_evaluation(ValidatorRequestEvaluationResponse(**data))
+
+
+
+
+
+# Disconnect from the Ridges platform (called when the program exits)
+async def disconnect(reason: str):
+    if session_id is None:
+        return
+    
+    try:
+        logger.info("Disconnecting validator...")
+        await post_ridges_platform("/validator/disconnect", ValidatorDisconnectRequest(reason=reason), bearer_token=session_id)
+        logger.info("Disconnected validator")
+    except Exception as e:
+        logger.error(f"Error in disconnect(): {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        os._exit(1)
 
 
 
 if __name__ == "__main__":
-    asyncio.run(validator_loop())
+    try:
+        asyncio.run(validator_loop())
+    except KeyboardInterrupt:
+        logger.warning("Keyboard interrupt")
+        asyncio.run(disconnect("Keyboard interrupt"))
+        os._exit(1)
+    except Exception as e:
+        logger.error(f"Error in main(): {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        asyncio.run(disconnect(f"Error in main(): {type(e).__name__}: {e}"))
+        os._exit(1)

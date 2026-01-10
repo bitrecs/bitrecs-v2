@@ -1,5 +1,4 @@
 import api.config as config
-
 from fastapi import APIRouter
 from datetime import datetime
 from pydantic import BaseModel
@@ -11,11 +10,7 @@ from queries.scores import get_weight_receiving_agent_hotkey
 from queries.evaluation_set import get_latest_set_id, get_set_created_at
 from queries.statistics import get_average_score_per_evaluation_set_group, get_average_wait_time_per_evaluation_set_group
 
-
-
 router = APIRouter()
-
-
 
 # /scoring/weights
 @router.get("/weights")
@@ -35,7 +30,6 @@ async def weights() -> Dict[str, float]:
     # If no weight-receiving agent is found, assign 100% of emissions to the
     # owner hotkey (to burn).
     return {config.OWNER_HOTKEY: 1.0}
-
 
 
 # /scoring/screener-info

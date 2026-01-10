@@ -14,18 +14,13 @@ from models.agent import Agent, AgentScored, AgentStatus, BenchmarkAgentScored, 
 from queries.agent import get_top_agents, get_agent_by_id, get_agents_in_queue, get_benchmark_agents, get_all_agents_by_miner_hotkey, get_latest_agent_for_miner_hotkey, get_possibly_benchmark_agent_by_id
 from queries.statistics import top_score, TopScoreOverTime, agents_created_24_hrs, ProblemSetCreationTime, PerfectlySolvedOverTime, get_top_scores_over_time, score_improvement_24_hrs, get_perfectly_solved_over_time, get_problem_set_creation_times
 
-
-
 router = APIRouter()
-
-
 
 # /retrieval/queue?stage={screener_1|screener_2|validator}
 @router.get("/queue")
 @ttl_cache(ttl_seconds=60) # 1 minute
 async def queue(stage: EvaluationSetGroup) -> List[Agent]:
     return await get_agents_in_queue(stage)
-
 
 
 # /retrieval/top-agents
@@ -35,7 +30,6 @@ async def top_agents() -> List[AgentScored]:
     return await get_top_agents(number_of_agents=50)
 
 
-
 # /retrieval/benchmark-agents
 @router.get("/benchmark-agents")
 @ttl_cache(ttl_seconds=10*60) # 10 minutes
@@ -43,12 +37,10 @@ async def benchmark_agents() -> List[BenchmarkAgentScored]:
     return await get_benchmark_agents()
 
 
-
 # /retrieval/agent-by-id?agent_id=
 @router.get("/agent-by-id")
 async def agent_by_id(agent_id: UUID) -> PossiblyBenchmarkAgent:
-    agent = await get_possibly_benchmark_agent_by_id(agent_id)
-    
+    agent = await get_possibly_benchmark_agent_by_id(agent_id)    
     if agent is None:
         raise HTTPException(
             status_code=404,
@@ -60,8 +52,7 @@ async def agent_by_id(agent_id: UUID) -> PossiblyBenchmarkAgent:
 # /retrieval/agent-by-hotkey?miner_hotkey=
 @router.get("/agent-by-hotkey")
 async def agent_by_hotkey(miner_hotkey: str) -> Agent:
-    agent = await get_latest_agent_for_miner_hotkey(miner_hotkey=miner_hotkey)
-    
+    agent = await get_latest_agent_for_miner_hotkey(miner_hotkey=miner_hotkey)    
     if agent is None:
         raise HTTPException(
             status_code=404,
@@ -77,29 +68,23 @@ async def all_agents_by_hotkey(miner_hotkey: str) -> List[Agent]:
     return agents
 
 
-
-# TODO ADAM: optimize
 # /retrieval/evaluations-for-agent?agent_id=
 @router.get("/evaluations-for-agent")
 async def evaluations_for_agent(agent_id: UUID) -> List[EvaluationWithRuns]:
-    evaluations: List[Evaluation] = await get_evaluations_for_agent_id(agent_id=agent_id)
-    
+    evaluations: List[Evaluation] = await get_evaluations_for_agent_id(agent_id=agent_id)    
     runs_per_eval = await asyncio.gather(
         *[get_all_evaluation_runs_in_evaluation_id(evaluation_id=e.evaluation_id) for e in evaluations]
     )
-
     return [
         EvaluationWithRuns(**e.model_dump(), runs=runs)
         for e, runs in zip(evaluations, runs_per_eval)
     ]
 
 
-
 # /retrieval/agent-code?agent_id=
 @router.get("/agent-code")
 async def agent_code(agent_id: UUID) -> str:
-    agent = await get_agent_by_id(agent_id=agent_id)
-    
+    agent = await get_agent_by_id(agent_id=agent_id)    
     if not agent:
         raise HTTPException(
             status_code=404, 
@@ -123,11 +108,11 @@ async def top_scores_over_time() -> List[TopScoreOverTime]:
     return await get_top_scores_over_time()
 
 
-
 # /retrieval/perfectly-solved-over-time
 class PerfectlySolvedOverTimeResponse(BaseModel):
     perfectly_solved_over_times: List[PerfectlySolvedOverTime]
     problem_set_creation_times: List[ProblemSetCreationTime]
+
 
 @router.get("/perfectly-solved-over-time")
 @ttl_cache(ttl_seconds=60 * 15) # 15 minutes
@@ -136,7 +121,6 @@ async def perfectly_solved_over_time() -> PerfectlySolvedOverTimeResponse:
         perfectly_solved_over_times=await get_perfectly_solved_over_time(),
         problem_set_creation_times=await get_problem_set_creation_times()
     )
-
 
 
 # /retrieval/network-statistics

@@ -1,6 +1,5 @@
 import asyncio
 import re
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
@@ -21,13 +20,11 @@ from queries.evaluation_run import get_evaluation_run_by_id, update_evaluation_r
 from models.agent import Agent, AgentStatus
 from models.evaluation import Evaluation, EvaluationStatus
 from models.evaluation_run import EvaluationRunStatus, EvaluationRunLogType
-from models.problem import ProblemTestResult
-from utils.bittensor import validate_signed_timestamp
 from utils.s3 import download_text_file_from_s3
 from utils.s3 import download_text_file_from_s3
 from utils.system_metrics import SystemMetrics
 
-from utils.validator_hotkeys import validator_hotkey_to_name, is_validator_hotkey_whitelisted
+from utils.validator_hotkeys import validator_hotkey_to_name
 
 from api.endpoints.validator_models import *
 
@@ -306,8 +303,11 @@ async def validator_request_evaluation(
     validator: Validator = Depends(get_request_validator_with_lock)
 ) -> Optional[ValidatorRequestEvaluationResponse]:
 
+    logger.debug(f"Validator {validator.name} ({validator.hotkey}) requesting evaluation")
+
     # Make sure the validator is not already running an evaluation
     if validator.current_evaluation_id is not None:
+        logger.warning(f"Validator {validator.name} already running evaluation {validator.current_evaluation_id}")
         raise HTTPException(
             status_code=409,
             detail=f"This validator is already running an evaluation, and validators may only run one evaluation at a time."
@@ -324,28 +324,31 @@ async def validator_request_evaluation(
         lock = validator_request_evaluation_lock
         lock_name = "validator_request_evaluation_lock"
 
+    logger.debug(f"Validator {validator.name} using lock {lock_name}")
+
     # Try to acquire the lock, but don't hang forever
-    # TODO: .env
     try:
         async with DebugLock(lock, f"{validator.name} ({validator.hotkey}) for {lock_name}", timeout=30):
+            logger.debug(f"Validator {validator.name} acquired lock {lock_name}")
+            
             # Find the next agent awaiting an evaluation from this validator
             agent_id = await get_next_agent_id_awaiting_evaluation_for_validator_hotkey(validator.hotkey)
             if agent_id is None:
+                logger.debug(f"No agent awaiting evaluation for validator {validator.name}")
                 return None
+
+            logger.info(f"Validator {validator.name} found agent {agent_id} for evaluation")
 
             # Create a new evaluation and evaluation runs for this agent & validator
             evaluation, evaluation_runs = await create_new_evaluation_and_evaluation_runs(agent_id, validator.hotkey)
+            logger.debug(f"Created evaluation {evaluation.evaluation_id} with {len(evaluation_runs)} runs")
     except asyncio.TimeoutError:
-        # We couldn't acquire the lock, just act as though there are no evaluations available
-        # The validator will automatically retry in a few seconds
-        # This should prevent a ridiculous amount of lock contention
+        logger.warning(f"Validator {validator.name} timed out acquiring lock {lock_name}")
         return None
 
     validator.current_evaluation_id = evaluation.evaluation_id
     validator.current_evaluation = evaluation
     validator.current_agent = await get_agent_by_id(agent_id)
-
-
 
     logger.info(f"Validator '{validator.name}' requested an evaluation")
     logger.info(f"  Agent ID: {agent_id}")
@@ -354,6 +357,8 @@ async def validator_request_evaluation(
 
     agent_code = await download_text_file_from_s3(f"{agent_id}/agent.py")
     evaluation_runs = [ValidatorRequestEvaluationResponseEvaluationRun(evaluation_run_id=evaluation_run.evaluation_run_id, problem_name=evaluation_run.problem_name) for evaluation_run in evaluation_runs]
+
+    logger.debug(f"Downloaded agent code for {agent_id}, returning response")
 
     return ValidatorRequestEvaluationResponse(agent_code=agent_code, evaluation_runs=evaluation_runs)
 

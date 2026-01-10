@@ -43,7 +43,9 @@ Server runs on `http://127.0.0.1:8000`
 ## Run
 ```bash
 uv sync
-uv run uvicorn api.main:app
+
+uv run uvicorn api.main:app --access-log --log-level debug
+
 ```
 
 ## Test

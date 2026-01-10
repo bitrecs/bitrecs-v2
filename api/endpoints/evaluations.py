@@ -3,11 +3,7 @@ from fastapi import APIRouter, HTTPException
 from models.evaluation import HydratedEvaluation
 from queries.evaluation import get_hydrated_evaluation_by_evaluation_run_id
 
-
-
 router = APIRouter()
-
-
 
 # /evaluations/get-by-evaluation-run-id?evaluation_run_id=
 @router.get("/get-by-evaluation-run-id")

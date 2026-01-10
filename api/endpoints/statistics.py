@@ -9,18 +9,17 @@ from queries.evaluation_set import get_latest_set_id, get_set_created_at
 from queries.problem_statistics import ProblemStatistics, get_problem_statistics
 
 
-
 # NOTE ADAM: Set IDs 6 and earlier still included the validator optimization
 #            of skipping all tests after the first failure, which means that
 #            the test pass-rate information is incorrect. We will just exclude
 #            these sets since they came before the Problem Info viewer anyway,
 #            which is the only feature uses this endpoint.
-EARLIEST_SET_ID_WITH_GOOD_DATA = 7
+#EARLIEST_SET_ID_WITH_GOOD_DATA = 7
 
+EARLIEST_SET_ID_WITH_GOOD_DATA = 0 
 
 
 router = APIRouter()
-
 
 
 # /statistics/problem-statistics?set_id=

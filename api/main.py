@@ -7,11 +7,12 @@ import base64
 import uuid
 import httpx
 import asyncio
-import logging
+#import logging
 import threading
 import tracemalloc
 from dotenv import load_dotenv
 load_dotenv()
+import utils.logger as logger
 from uuid import UUID
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
@@ -46,13 +47,13 @@ from api.endpoints.upload import router as upload_router
 
 from .metagraph_sync_manager import MetagraphSyncManager
 
-log_level = logging.INFO    
-logging.basicConfig(
-    level=log_level,
-    format='%(asctime)s | %(levelname)s | %(name)s:%(lineno)d - %(message)s',
-    handlers=[logging.StreamHandler()]
-)
-logger = logging.getLogger(__name__)
+# log_level = logging.INFO    
+# logging.basicConfig(
+#     level=log_level,
+#     format='%(asctime)s | %(levelname)s | %(name)s:%(lineno)d - %(message)s',
+#     handlers=[logging.StreamHandler()]
+# )
+# logger = logging.getLogger(__name__)
 
 
 METAGRAPH_CACHE_DURATION = 3600  # 1 hour
@@ -335,7 +336,7 @@ async def provider_log(request: Request):
         logger.info(f"providers endpoint accessed from IP {request_ip} - using cached data")
         infos = PROVIDER_PING_CACHE[cache_key]
         return HTMLResponse(content=infos)
-    logging.warning("Cache Broken")
+    logger.warning("Provider ping cache is empty")
     return HTMLResponse(content="<pre>Cache Empty</pre>")
 
 

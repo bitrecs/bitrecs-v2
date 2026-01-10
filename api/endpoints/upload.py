@@ -1,4 +1,3 @@
-from bittensor import Subtensor
 
 import asyncio
 import os
@@ -6,11 +5,10 @@ import pprint
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
-
+from bittensor import Subtensor
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Request
 from numpy import meshgrid
 from pydantic import BaseModel, Field
-
 from api.utils.request_cache import hourly_cache
 from queries.payments import retrieve_payment_by_hash, record_evaluation_payment
 from utils.debug_lock import DebugLock
