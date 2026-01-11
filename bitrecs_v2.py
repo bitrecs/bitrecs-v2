@@ -1,9 +1,8 @@
-#!.venv/bin/python3
-
 """
-# https://github.com/ridgesai/ridges/blob/main/ridges.py 
 
-Bitrecs CLI - Elegant command-line interface for managing Bitrecs miners and validators
+Bitrecs CLI - Upload your Bitrecs miner artifacts
+
+# https://github.com/ridgesai/ridges/blob/main/ridges.py 
 
 """
 import os
@@ -74,24 +73,24 @@ def cli(ctx, url):
     ctx.obj['url'] = url
 
 @cli.command()
-@click.option("--file", help="Path to agent.py file")
+@click.option("--file", help="Path to miner_artifact.yaml file")
 @click.option("--coldkey-name", help="Coldkey name")
 @click.option("--hotkey-name", help="Hotkey name")
 @click.pass_context
 def upload(ctx, file: Optional[str], coldkey_name: Optional[str], hotkey_name: Optional[str]):
-    """Upload a miner agent to the Bitrecs API."""
+    """Upload a miner artifact to the Bitrecs API."""
     bitrecs = BitrecsCLI(ctx.obj.get('url'))
     
     coldkey = coldkey_name or get_or_prompt("BITRECS_COLDKEY_NAME", "Enter your coldkey name", "miner")
     hotkey = hotkey_name or get_or_prompt("BITRECS_HOTKEY_NAME", "Enter your hotkey name", "default")
     wallet = Wallet(name=coldkey, hotkey=hotkey)
 
-    file = file or get_or_prompt("BITRECS_AGENT_FILE", "Enter the path to your agent.py file", "agent.py")
-    if not os.path.exists(file) or os.path.basename(file) != "agent.py":
-        console.print("File must be named 'agent.py' and exist", style="bold red")
+    file = file or get_or_prompt("BITRECS_AGENT_FILE", "Enter the path to your miner_artifact.yaml file", "miner_artifact.yaml")
+    if not os.path.exists(file) or os.path.basename(file) != "miner_artifact.yaml":
+        console.print("File must be named 'miner_artifact.yaml' and exist", style="bold red")
         return
     
-    console.print(Panel(f"[bold cyan]Uploading Agent[/bold cyan]\n[yellow]Hotkey:[/yellow] {wallet.hotkey.ss58_address}\n[yellow]File:[/yellow] {file}\n[yellow]API:[/yellow] {bitrecs.api_url}", title="Upload", border_style="cyan"))
+    console.print(Panel(f"[bold cyan]Uploading Artifact[/bold cyan]\n[yellow]Hotkey:[/yellow] {wallet.hotkey.ss58_address}\n[yellow]File:[/yellow] {file}\n[yellow]API:[/yellow] {bitrecs.api_url}", title="Upload", border_style="cyan"))
     
     try:
         with open(file, 'rb') as f:
@@ -108,10 +107,10 @@ def upload(ctx, file: Optional[str], coldkey_name: Optional[str], hotkey_name: O
                 name = latest_agent.get("name")
                 version_num = latest_agent.get("version_num", -1) + 1
             else:
-                name = Prompt.ask("Enter a name for your miner agent")
+                name = Prompt.ask("Enter a name for your miner artifact")
                 version_num = 0
 
-            # Check if agent can be uploaded 
+            # Check if artifact can be uploaded 
             check_file_info = f"{wallet.hotkey.ss58_address}:{content_hash}:{version_num}"
             check_payload = {
                 'public_key': public_key, 
@@ -120,7 +119,7 @@ def upload(ctx, file: Optional[str], coldkey_name: Optional[str], hotkey_name: O
                 'name': name,
                 'payment_time': time.time()
             }
-            check_response = client.post(f"{bitrecs.api_url}/upload/agent/check", files={'agent_file': ('agent.py', file_content, 'text/plain')}, data=check_payload, timeout=120)
+            check_response = client.post(f"{bitrecs.api_url}/upload/agent/check", files={'agent_file': ('miner_artifact.yaml', file_content, 'text/plain')}, data=check_payload, timeout=120)
             if check_response.status_code != 200:
                 console.print(f"Error checking agent: {check_response.text}", style="bold red")
                 return
@@ -176,7 +175,7 @@ def upload(ctx, file: Optional[str], coldkey_name: Optional[str], hotkey_name: O
             console.print(f"[cyan]Payment Extrinsic Index:[/cyan] {receipt.extrinsic_idx}\n")
 
             #files = {'agent_file': ('agent.py', file_content, 'text/plain')}
-            files = {'agent_file': ('miner_input.yaml', file_content, 'text/plain')}
+            files = {'agent_file': ('miner_artifact.yaml', file_content, 'text/plain')}
 
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
                 progress.add_task("Signing and uploading...", total=None)

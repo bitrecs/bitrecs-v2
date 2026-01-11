@@ -9,27 +9,28 @@ import httpx
 import asyncio
 import threading
 import tracemalloc
+import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
-import utils.logger as logger
+
 from uuid import UUID
-from models.agent import Agent
-from rules.agent_validator import validate_artifact_template
 from api import config
 from cachetools import TTLCache
 from typing import Dict, Any
 from models.llm_providers import LLMProviderStats
 from utils.version import load_version_info
-from slowapi import Limiter
-from slowapi.middleware import SlowAPIMiddleware
-
-from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id
 from contextlib import asynccontextmanager
-from concurrent.futures import ThreadPoolExecutor
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi import FastAPI, Request
+from slowapi import Limiter
+from slowapi.middleware import SlowAPIMiddleware
+from concurrent.futures import ThreadPoolExecutor
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+from models.agent import Agent
+from rules.agent_validator import validate_artifact_template
+from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
 
 from api.endpoints.validator import router as validator_router
@@ -45,15 +46,14 @@ from api.endpoints.upload import router as upload_router
 
 from api.heartbeat import validator_heartbeat_timeout_loop
 from api.metagraph_sync_manager import MetagraphSyncManager
-
 from version import __version__ as this_version
 
 
 
-METAGRAPH_CACHE_DURATION = 3600  # 1 hour
-PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600) # 1 hour
-REQUEST_HASH_HISTORY = TTLCache(maxsize=500_000, ttl=60 * 60 * 24)  # 24 hours
-NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)  # 72 hours
+METAGRAPH_CACHE_DURATION = 3600
+PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
+REQUEST_HASH_HISTORY = TTLCache(maxsize=500_000, ttl=60 * 60 * 24)
+NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
 
 
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
@@ -134,7 +134,7 @@ async def refresh_provider_pings():
             logger.info(f"Provider pings cache updated: {len(output)} characters")            
         except Exception as e:
             logger.error(f"Error refreshing provider pings: {e}")
-        await asyncio.sleep(1800)  # Refresh every 30 minutes
+        await asyncio.sleep(1800)
 
 
 
