@@ -1,3 +1,4 @@
+from functools import wraps
 import re
 import traceback
 import asyncio
@@ -119,16 +120,16 @@ async def get_request_validator_with_lock(request: Request, validator: Validator
 
 
 # Catches HTTP exceptions and cleans up the associated validator
-# def handle_validator_http_exceptions(func):
-#     @wraps(func)
-#     async def wrapper(*args, **kwargs):
-#         try:
-#             return await func(*args, **kwargs)
-#         except HTTPException as e:
-#             logger.error(f"Validator HTTP exception: {e.status_code} {e.detail}")
-#             await delete_validator(kwargs['validator'], f"An HTTP exception was raised in {func.__name__}(): {e.status_code} {HTTPStatus(e.status_code).phrase}: {e.detail}")
-#             raise
-#     return wrapper
+def handle_validator_http_exceptions(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except HTTPException as e:
+            logger.error(f"Validator HTTP exception: {e.status_code} {e.detail}")
+            await delete_validator(kwargs['validator'], f"An HTTP exception was raised in {func.__name__}(): {e.status_code} {HTTPStatus(e.status_code).phrase}: {e.detail}")
+            raise
+    return wrapper
 
 router = APIRouter()
 
@@ -275,7 +276,7 @@ screener_1_request_evaluation_lock = asyncio.Lock()
 screener_2_request_evaluation_lock = asyncio.Lock()
 
 @router.post("/request-evaluation")
-#@handle_validator_http_exceptions
+@handle_validator_http_exceptions
 async def validator_request_evaluation(
     request: ValidatorRequestEvaluationRequest,
     validator: Validator = Depends(get_request_validator_with_lock)
@@ -371,7 +372,7 @@ async def validator_heartbeat(
 
 # /validator/update-evaluation-run
 @router.post("/update-evaluation-run")
-#@handle_validator_http_exceptions
+@handle_validator_http_exceptions
 async def validator_update_evaluation_run(
     request: ValidatorUpdateEvaluationRunRequest,
     validator: Validator = Depends(get_request_validator_with_lock)
@@ -604,7 +605,7 @@ async def validator_disconnect(
 
 # /validator/finish-evaluation
 @router.post("/finish-evaluation")
-#@handle_validator_http_exceptions
+@handle_validator_http_exceptions
 async def validator_finish_evaluation(
     request: ValidatorFinishEvaluationRequest,
     validator: Validator = Depends(get_request_validator_with_lock)
@@ -624,9 +625,7 @@ async def validator_finish_evaluation(
             status_code=409,
             detail="Not all evaluation runs associated with the evaluation that this validator is currently running have either finished or errored. Did you forget to send an update-evaluation-run?"
         )
-
-
-
+    
     await handle_evaluation_if_finished(validator.current_evaluation_id)
 
     logger.info(f"Validator '{validator.name}' finished an evaluation")

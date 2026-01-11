@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import httpx
 import random
@@ -13,7 +14,7 @@ from uuid import UUID
 from typing import Any, Dict
 from models.evaluation_run import EvaluationRunStatus
 from models.problem import ProblemTestResultStatus
-from api.endpoints.validator_models import ScreenerRegistrationRequest, ScreenerRegistrationResponse, ValidatorDisconnectRequest, ValidatorHeartbeatRequest, ValidatorRegistrationRequest, ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, ValidatorRequestEvaluationResponse
+from api.endpoints.validator_models import ScreenerRegistrationRequest, ScreenerRegistrationResponse, ValidatorDisconnectRequest, ValidatorFinishEvaluationRequest, ValidatorHeartbeatRequest, ValidatorRegistrationRequest, ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, ValidatorRequestEvaluationResponse, ValidatorUpdateEvaluationRunRequest
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 from validator.http_utils import get_ridges_platform, post_ridges_platform
@@ -87,11 +88,11 @@ async def validate_agent(agent_data: dict) -> None:
 async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
     logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")
     
-    # await post_ridges_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(
-    #     evaluation_run_id=evaluation_run_id,
-    #     updated_status=updated_status,
-    #     **(extra or {})
-    # ), bearer_token=session_id, quiet=2)
+    await post_ridges_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(
+        evaluation_run_id=evaluation_run_id,
+        updated_status=updated_status,
+        **(extra or {})
+    ), bearer_token=session_id, quiet=2)
 
 
 
@@ -159,63 +160,13 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
 
     logger.info("Finished evaluation")
 
-    #await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
-
-async def get_session_id() -> str | None:
-    timestamp = int(time.time())
-    #signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
-    signed_timestamp = "TEST"
-    hotkey = "5Dy9FDg5jshHS7MirAFrRsKiFa6GPRMaiHC4Zng4HAgyi8yf"
-    commit_hash = "TEST HASH"
-    session_id = None
-
-    async with httpx.AsyncClient(base_url=SERVICE_URL) as client:   
-        register_response = await client.post("/validator/register-as-validator", json=ValidatorRegistrationRequest(
-            timestamp=timestamp,
-            signed_timestamp=signed_timestamp,
-            hotkey=hotkey,
-            commit_hash=commit_hash           
-        ).model_dump())
-        if register_response.status_code != 200:
-            logger.error(f"Error registering as validator: {register_response.status_code} - {register_response.text}")
-            return None
-        session_id = register_response.json().get("session_id")
-        logger.info(f"Registered as validator with session ID: {session_id}")
-
-    if not session_id:
-        raise Exception("Failed to register as validator, no session ID received.")
-
-    return session_id
-
-
-async def validator_loop() -> None:
-    """Main loop to continuously fetch and validate agents."""
-    logger.info("Starting validator loop...")  
-    
-    while True:
-        logger.info("Requesting an evaluation...")
-        session_id = await get_session_id()
-        if not session_id:
-            logger.error("Failed to obtain session ID. Exiting validator loop.")
-            await asyncio.sleep(RETRY_SLEEP)
-            continue   
+    try:
+        await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
+    except Exception as e:
+        logger.error(f"Error finishing evaluation: {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        await disconnect(f"Error finishing evaluation: {type(e).__name__}: {e}")
         
-        url = f"{SERVICE_URL}/validator/request-evaluation"
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=ValidatorRequestEvaluationRequest().model_dump(), headers={"Authorization": f"Bearer {session_id}"})
-            if response.status_code != 200:
-                logger.error(f"Error requesting evaluation: {response.status_code} - {response.text}")
-                logger.error(f"{response}")
-                await asyncio.sleep(RETRY_SLEEP)
-                continue
-
-            data = response.json()
-            if data is None:
-                logger.info("No evaluations available. Waiting...")
-                await asyncio.sleep(SLEEP_INTERVAL)
-                continue
-
-            await _run_evaluation(ValidatorRequestEvaluationResponse(**data))
 
 
 # Disconnect from the Ridges platform (called when the program exits)
@@ -284,14 +235,11 @@ async def main():
     logger.info(f"  Running Evaluation Timeout: {running_eval_timeout_seconds} second(s)")
     logger.info(f"  Max Evaluation Run Log Size: {max_evaluation_run_log_size_bytes} byte(s)")
 
-
-
     # Create the sandbox manager
    # sandbox_manager = SandboxManager(config.RIDGES_INFERENCE_GATEWAY_URL)
 
     # Load all problem suites
     problem_suites = [POLYGLOT_PY_SUITE, POLYGLOT_JS_SUITE, SWEBENCH_VERIFIED_SUITE]
-
 
 
     # Get all the problems in the latest set
@@ -322,10 +270,15 @@ async def main():
             logger.info(f"No evaluations available. Waiting for {config.REQUEST_EVALUATION_INTERVAL_SECONDS} seconds...")
             await asyncio.sleep(config.REQUEST_EVALUATION_INTERVAL_SECONDS)
             continue
+        try:
+            await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))
+        except Exception as e:
+            logger.error(f"Error running evaluation: {type(e).__name__}: {e}")
+            logger.error(traceback.format_exc())
+            
+            await asyncio.sleep(RETRY_SLEEP)
 
-        await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))
-
-
+    
 
 
 
