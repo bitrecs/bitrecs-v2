@@ -92,7 +92,7 @@ async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: st
     logger.info(f"Starting simulated evaluation run {evaluation_run_id} for problem {problem_name}...")
 
 
-    SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS = random.choice([3, 5, 9])
+    SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS = random.choice([1, 3, 4])
     # Move from pending -> initializing_agent
     await asyncio.sleep(random.random() * SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
     await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_agent)
@@ -127,7 +127,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
     logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
 
     ## TODO - implement actual evaluation run logic here
-    
+
     return
 
 # Run an evaluation, automatically dispatches all runs to either _simulate_run_evaluation_run or _run_evaluation_run
