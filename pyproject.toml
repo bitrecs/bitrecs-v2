@@ -1,34 +1,34 @@
 [project]
 name = "Bitrecs_V2"
-version = "1.0"
-description = "Bitrecs V2 - Prompt Evolution"
+version = "2.0"
+description = "Bitrecs V2 - Prompt Evolution Subnet"
 readme = "README.md"
 requires-python = ">=3.13, <3.14"
 dependencies = [
     "bittensor>=10.0.1",
+    "bittensor-wallet>=4.0.1",
     "cryptography>=45.0.5",
+    "async-substrate-interface>=1.5.15",
+    "affinetes @ git+https://github.com/AffineFoundation/affinetes.git@main",    
     "python-dotenv>=1.0.1",
     "fastapi>=0.128.0",
+    "slowapi>=0.1.9",
     "httpx>=0.28.1",
     "openai>=2.7.2",
-    "slowapi>=0.1.9",
+    "tiktoken>=0.12.0",
     "uvicorn>=0.40.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "numpy>=2.3.3",
     "cachetools>=6.2.0",
-    "psycopg[binary]>=3.2.12",
-    "tiktoken>=0.12.0",
+    "psycopg[binary]>=3.2.12",    
     "psycopg2-binary>=2.9.11",
-    "asyncpg>=0.31.0",
-    "affinetes @ git+https://github.com/AffineFoundation/affinetes.git@main",
+    "asyncpg>=0.31.0",    
     "jinja2>=3.1.6",
     "aioboto3>=15.0.0",
     "python-multipart>=0.0.21",
     "rich>=14.2.0",
-    "async-substrate-interface>=1.5.15",
-    "bittensor-wallet>=4.0.1",
-    "click>=8.3.1",
+    "click>=8.3.1"
 ]
 
 [tool.pytest.ini_options]
@@ -37,4 +37,3 @@ pythonpath = [
   "."
 ]
 testpaths = ["tests"]
-
