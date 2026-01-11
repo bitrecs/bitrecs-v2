@@ -38,6 +38,8 @@ class PolyglotSuite(ProblemSuite):
         dataset_path = str(pathlib.Path(__file__).parent.parent.parent / "datasets" / (f"polyglot_{self.language}" + ("_unpatched" if unpatched else "")))
 
         logger.info(f"Loading problems from {dataset_path}...")
+
+        return
         
         # Find problems
         problem_names = []

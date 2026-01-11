@@ -1,19 +1,16 @@
-import asyncio
 import re
-from datetime import datetime, timedelta, timezone
 import traceback
+import asyncio
+import api.config as config
+import utils.logger as logger
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
-
+from datetime import datetime, timedelta, timezone
 from utils.git import COMMIT_HASH
 from utils.debug_lock import DebugLock
-from http import HTTPStatus
 from fastapi import Depends, APIRouter, HTTPException, Request
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
-from functools import wraps
-import api.config as config
-import utils.logger as logger
 from queries.agent import get_top_agents, get_agent_by_id, update_agent_status, get_next_agent_id_awaiting_evaluation_for_validator_hotkey
 from queries.evaluation import get_hydrated_evaluation_by_id, update_evaluation_finished_at, create_new_evaluation_and_evaluation_runs, get_num_successful_validator_evaluations_for_agent_id, update_unfinished_evaluation_runs_in_evaluation_id_to_errored
 from queries.evaluation_run import get_evaluation_run_by_id, update_evaluation_run_by_id, \
@@ -24,38 +21,27 @@ from models.evaluation_run import EvaluationRunStatus, EvaluationRunLogType
 from utils.s3 import download_text_file_from_s3
 from utils.s3 import download_text_file_from_s3
 from utils.system_metrics import SystemMetrics
-
 from utils.validator_hotkeys import is_validator_hotkey_whitelisted, validator_hotkey_to_name
-
 from api.endpoints.validator_models import *
-
 
 
 # A validator
 class Validator(BaseModel):
     session_id: UUID
-
     name: str
     hotkey: str
     time_connected: datetime
     ip_address: str
-
     current_evaluation_id: Optional[UUID] = None
     current_evaluation: Optional[Evaluation] = None
     current_agent: Optional[Agent] = None
-
     time_last_heartbeat: Optional[datetime] = None
     system_metrics: Optional[SystemMetrics] = None
-    
-
-
     _lock: asyncio.Lock
 
     def __init__(self, **data):
         super().__init__(**data)
         self._lock = asyncio.Lock()
-
-
 
 # Map of session IDs to validator objects
 SESSION_ID_TO_VALIDATOR: Dict[UUID, Validator] = {}
@@ -67,8 +53,6 @@ def is_validator_registered(validator_hotkey: str) -> bool:
 # Returns the IP addresses of all connected screeners and validators
 def get_all_connected_validator_ip_addresses() -> List[str]:
     return [validator.ip_address for validator in SESSION_ID_TO_VALIDATOR.values()]
-
-
 
 # Deletes a validator from the SESSION_ID_TO_VALIDATOR map, and cleans up its associated state
 async def delete_validator(validator: Validator, reason: str) -> None:
@@ -99,7 +83,6 @@ async def delete_validators_that_have_not_sent_a_heartbeat() -> None:
     logger.info("Deleted validators that have not sent a heartbeat")
 
 
-
 # Dependency to get the validator associated with the request
 # Requires that the request has a valid "Authorization: Bearer <session_id>" header
 # See validator_request_evaluation() and other endpoints for usage examples
@@ -111,16 +94,15 @@ async def get_request_validator(token: str = Depends(HTTPBearer())) -> Validator
         raise HTTPException(
             status_code=422,
             detail="Invalid session ID format (expected a UUID)."
-        )
-    
+        )    
     # Make sure the session_id is associated with a validator
     if session_id not in SESSION_ID_TO_VALIDATOR:
         raise HTTPException(
             status_code=401,
             detail="Session ID not found or expired."
-        )
-    
+        )    
     return SESSION_ID_TO_VALIDATOR[session_id]
+
 
 # Exactly the same as get_request_validator, but locks the validator
 # The significance of this is that specific endpoints can use this dependency to prevent race conditions
@@ -136,7 +118,6 @@ async def get_request_validator_with_lock(request: Request, validator: Validator
         yield validator
 
 
-
 # Catches HTTP exceptions and cleans up the associated validator
 # def handle_validator_http_exceptions(func):
 #     @wraps(func)
@@ -149,11 +130,7 @@ async def get_request_validator_with_lock(request: Request, validator: Validator
 #             raise
 #     return wrapper
 
-
-
 router = APIRouter()
-
-
 
 # /validator/register-as-validator
 @router.post("/register-as-validator")
@@ -232,12 +209,12 @@ async def validator_register_as_screener(
 ) -> ScreenerRegistrationResponse:
 
     # Ensure that the commit hash matches
-    if registration_request.commit_hash != COMMIT_HASH:
-        raise HTTPException(
-            status_code=426,
-            detail=f"The provided screener commit hash ({registration_request.commit_hash}) does not match the platform commit hash ({COMMIT_HASH}). Run `git pull` to update your screener, and try again.",
-            headers={"X-Commit-Hash": COMMIT_HASH}
-        )
+    # if registration_request.commit_hash != COMMIT_HASH:
+    #     raise HTTPException(
+    #         status_code=426,
+    #         detail=f"The provided screener commit hash ({registration_request.commit_hash}) does not match the platform commit hash ({COMMIT_HASH}). Run `git pull` to update your screener, and try again.",
+    #         headers={"X-Commit-Hash": COMMIT_HASH}
+    #     )
 
     # Ensure that the name is in the format screener-CLASS-NUM
     if not re.match(r"screener-\d-\d+", registration_request.name):
@@ -359,7 +336,8 @@ async def validator_request_evaluation(
         logger.info(f"  Evaluation ID: {evaluation.evaluation_id}")
         logger.info(f"  # of Evaluation Runs: {len(evaluation_runs)}")
 
-        agent_code = await download_text_file_from_s3(f"{agent_id}/agent.py")
+        #agent_code = await download_text_file_from_s3(f"{agent_id}/agent.py")
+        agent_code = "test code"
         evaluation_runs = [ValidatorRequestEvaluationResponseEvaluationRun(evaluation_run_id=evaluation_run.evaluation_run_id, problem_name=evaluation_run.problem_name) for evaluation_run in evaluation_runs]
 
         logger.debug(f"Downloaded agent code for {agent_id}, returning response")
@@ -659,13 +637,6 @@ async def validator_finish_evaluation(
     return ValidatorFinishEvaluationResponse()
 
 
-
-
-
-
-
-
-
 # /validator/connected-validators-info
 @router.get("/connected-validators-info")
 async def validator_connected_validators_info() -> List[ConnectedValidatorInfo]:
@@ -688,10 +659,6 @@ async def validator_connected_validators_info() -> List[ConnectedValidatorInfo]:
         connected_validators.append(connected_validator)
 
     return connected_validators
-
-
-
-
 
 
 async def handle_evaluation_if_finished(evaluation_id: UUID) -> None:

@@ -13,11 +13,18 @@ from uuid import UUID
 from typing import Any, Dict
 from models.evaluation_run import EvaluationRunStatus
 from models.problem import ProblemTestResultStatus
-from api.endpoints.validator_models import ValidatorDisconnectRequest, ValidatorRegistrationRequest, ValidatorRequestEvaluationRequest, ValidatorRequestEvaluationResponse
+from api.endpoints.validator_models import ScreenerRegistrationRequest, ScreenerRegistrationResponse, ValidatorDisconnectRequest, ValidatorHeartbeatRequest, ValidatorRegistrationRequest, ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, ValidatorRequestEvaluationResponse
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
-from validator.http_utils import post_ridges_platform
-#from validator.test_validator import disconnect
+from validator.http_utils import get_ridges_platform, post_ridges_platform
+
+from evaluator.problem_suites.polygot.polyglot_suite import POLYGLOT_JS_SUITE, POLYGLOT_PY_SUITE
+from models.evaluation_set import EvaluationSetProblem
+from queries.problem_statistics import SWEBENCH_VERIFIED_SUITE
+from utils.git import COMMIT_HASH
+from utils.system_metrics import get_system_metrics
+
+import validator.config as config
 
 
 SERVICE_URL = "http://localhost:8000"
@@ -30,6 +37,21 @@ RETRY_SLEEP = 15
 #logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 session_id: str | None = None
+
+
+# A loop that sends periodic heartbeats to the Ridges platform
+async def send_heartbeat_loop():
+    try:
+        logger.info("Starting send heartbeat loop...")
+        while True:
+            logger.info("Sending heartbeat...")
+            system_metrics = await get_system_metrics()
+            await post_ridges_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
+            await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
+    except Exception as e:
+        logger.error(f"Error in send_heartbeat_loop(): {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        os._exit(1)
 
 
 async def fetch_agents(client: httpx.AsyncClient, limit: int) -> list[dict] | None:
@@ -211,10 +233,105 @@ async def disconnect(reason: str):
         os._exit(1)
 
 
+# Main loop
+async def main():
+    global session_id
+    global running_agent_timeout_seconds
+    global running_eval_timeout_seconds
+    global max_evaluation_run_log_size_bytes
+    #global sandbox_manager
+    global problem_suites
+
+    # Register with the Ridges platform, yielding us a session ID
+    logger.info("Registering validator...")
+
+    try:
+        if config.MODE == "validator":
+            # Get the current timestamp, and sign it with the validator hotkey
+            timestamp = int(time.time())
+            signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
+            
+            register_response = ValidatorRegistrationResponse(**(await post_ridges_platform("/validator/register-as-validator", ValidatorRegistrationRequest(
+                timestamp=timestamp,
+                signed_timestamp=signed_timestamp,
+                hotkey=config.VALIDATOR_HOTKEY.ss58_address,
+                commit_hash=COMMIT_HASH
+            ))))
+        
+        elif config.MODE == "screener":
+            register_response = ScreenerRegistrationResponse(**(await post_ridges_platform("/validator/register-as-screener", ScreenerRegistrationRequest(
+                name=config.SCREENER_NAME,
+                password=config.SCREENER_PASSWORD,
+                commit_hash=COMMIT_HASH
+            ))))
+    
+    except httpx.HTTPStatusError as e:
+        if config.UPDATE_AUTOMATICALLY and e.response.status_code == 426:
+            logger.info("Updating...")
+            #reset_local_repo(pathlib.Path(__file__).parent.parent, e.response.headers["X-Commit-Hash"])
+            sys.exit(0)
+        else:
+            raise e
+    
+    session_id = register_response.session_id
+    running_agent_timeout_seconds = register_response.running_agent_timeout_seconds
+    running_eval_timeout_seconds = register_response.running_eval_timeout_seconds
+    max_evaluation_run_log_size_bytes = register_response.max_evaluation_run_log_size_bytes
+
+    logger.info("Registered validator:")
+    logger.info(f"  Session ID: {session_id}")
+    logger.info(f"  Running Agent Timeout: {running_agent_timeout_seconds} second(s)")
+    logger.info(f"  Running Evaluation Timeout: {running_eval_timeout_seconds} second(s)")
+    logger.info(f"  Max Evaluation Run Log Size: {max_evaluation_run_log_size_bytes} byte(s)")
+
+
+
+    # Create the sandbox manager
+   # sandbox_manager = SandboxManager(config.RIDGES_INFERENCE_GATEWAY_URL)
+
+    # Load all problem suites
+    problem_suites = [POLYGLOT_PY_SUITE, POLYGLOT_JS_SUITE, SWEBENCH_VERIFIED_SUITE]
+
+
+
+    # Get all the problems in the latest set
+    latest_set_problems_data = await get_ridges_platform("/evaluation-sets/all-latest-set-problems", quiet=1)
+    latest_set_problems = [EvaluationSetProblem(**prob) for prob in latest_set_problems_data]
+    latest_set_problem_names = list({prob.problem_name for prob in latest_set_problems})
+    
+    # Prebuild the images for the SWE-Bench Verified problems
+    #SWEBENCH_VERIFIED_SUITE.prebuild_problem_images(latest_set_problem_names)
+
+    # Start the send heartbeat loop
+    asyncio.create_task(send_heartbeat_loop())
+
+    if config.MODE == "validator":
+        # Start the set weights loop
+        #asyncio.create_task(set_weights_loop())
+        logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")
+        pass
+
+    # Loop forever, just keep requesting evaluations and running them
+    while True:
+        logger.info("Requesting an evaluation...")
+        
+        request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
+
+        # If no evaluation is available, wait and try again
+        if request_evaluation_response_data is None:
+            logger.info(f"No evaluations available. Waiting for {config.REQUEST_EVALUATION_INTERVAL_SECONDS} seconds...")
+            await asyncio.sleep(config.REQUEST_EVALUATION_INTERVAL_SECONDS)
+            continue
+
+        await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))
+
+
+
+
 
 if __name__ == "__main__":
     try:
-        asyncio.run(validator_loop())
+        asyncio.run(main())
     except KeyboardInterrupt:
         logger.warning("Keyboard interrupt")
         asyncio.run(disconnect("Keyboard interrupt"))
