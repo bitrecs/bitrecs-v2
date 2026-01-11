@@ -9,7 +9,7 @@ from models.evaluation_set import EvaluationSetGroup
 from utils.database import db_operation, DatabaseConnection
 from models.agent import Agent, AgentStatus, AgentScored, BenchmarkAgentScored, PossiblyBenchmarkAgent
 
-
+NUM_EVALS_PER_AGENT = 3
 
 @db_operation
 async def get_agent_count(conn: DatabaseConnection) -> int:
@@ -363,7 +363,7 @@ async def get_next_agent_id_awaiting_evaluation_for_validator_hotkey(conn: Datab
             LIMIT 1
             """,
             validator_hotkey,
-            config.NUM_EVALS_PER_AGENT
+            NUM_EVALS_PER_AGENT
         )
 
     if result is None:

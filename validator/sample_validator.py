@@ -78,7 +78,7 @@ async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: st
     logger.info(f"Starting simulated evaluation run {evaluation_run_id} for problem {problem_name}...")
 
 
-    SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS =1
+    SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS = random.choice([3, 5, 9])
     # Move from pending -> initializing_agent
     await asyncio.sleep(random.random() * SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
     await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_agent)
@@ -143,7 +143,7 @@ async def get_session_id() -> str | None:
     timestamp = int(time.time())
     #signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
     signed_timestamp = "TEST"
-    hotkey = "test hotkey"
+    hotkey = "5Dy9FDg5jshHS7MirAFrRsKiFa6GPRMaiHC4Zng4HAgyi8yf"
     commit_hash = "TEST HASH"
     session_id = None
 
@@ -168,15 +168,15 @@ async def get_session_id() -> str | None:
 
 async def validator_loop() -> None:
     """Main loop to continuously fetch and validate agents."""
-    logger.info("Starting validator loop...")
-
-    session_id = await get_session_id()
-    if not session_id:
-        logger.error("Failed to obtain session ID. Exiting validator loop.")
-        return   
+    logger.info("Starting validator loop...")  
     
     while True:
         logger.info("Requesting an evaluation...")
+        session_id = await get_session_id()
+        if not session_id:
+            logger.error("Failed to obtain session ID. Exiting validator loop.")
+            await asyncio.sleep(RETRY_SLEEP)
+            continue   
         
         url = f"{SERVICE_URL}/validator/request-evaluation"
         async with httpx.AsyncClient() as client:
@@ -194,9 +194,6 @@ async def validator_loop() -> None:
                 continue
 
             await _run_evaluation(ValidatorRequestEvaluationResponse(**data))
-
-
-
 
 
 # Disconnect from the Ridges platform (called when the program exits)

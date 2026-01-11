@@ -44,8 +44,8 @@ from api.endpoints.statistics import router as statistics_router
 from api.endpoints.retrieval import router as retrieval_router
 from api.endpoints.upload import router as upload_router
 
-
-from .metagraph_sync_manager import MetagraphSyncManager
+from api.heartbeat import validator_heartbeat_timeout_loop
+from api.metagraph_sync_manager import MetagraphSyncManager
 
 # log_level = logging.INFO    
 # logging.basicConfig(
@@ -157,7 +157,7 @@ async def lifespan(app: FastAPI):
     app.state.last_updated = None
     app.state.total_requests = 0
     app.state.exceptions = 0
-    #app.state.db = AsyncPGHelper()
+    
     await initialize_database(
         username=config.DATABASE_USERNAME,
         password=config.DATABASE_PASSWORD,
@@ -182,8 +182,10 @@ async def lifespan(app: FastAPI):
             await asyncio.sleep(60)
     
     #metagraph_manager.start()
+    app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())
     #app.state.restart_task = asyncio.create_task(restart_manager())
     #app.state.refresh_task = asyncio.create_task(refresh_provider_pings())
+    #asyncio.create_task(validator_heartbeat_timeout_loop())
 
     try:
         logger.info("V2 API STARTED")
@@ -192,9 +194,11 @@ async def lifespan(app: FastAPI):
         logger.info("Starting shutdown...")
         app.state.restart_task.cancel()
         app.state.refresh_task.cancel()
+        app.state.heartbeat_task.cancel()
         try:
             await app.state.restart_task
             await app.state.refresh_task
+            await app.state.heartbeat_task
         except asyncio.CancelledError:
             pass        
         
@@ -249,7 +253,6 @@ app.include_router(agent_router, prefix="/agent")
 app.include_router(evaluation_run_router, prefix="/evaluation-run")
 app.include_router(evaluations_router, prefix="/evaluation")
 app.include_router(statistics_router, prefix="/statistics")
-
 
 
 

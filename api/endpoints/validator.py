@@ -1,6 +1,7 @@
 import asyncio
 import re
 from datetime import datetime, timedelta, timezone
+import traceback
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
 
@@ -24,7 +25,7 @@ from utils.s3 import download_text_file_from_s3
 from utils.s3 import download_text_file_from_s3
 from utils.system_metrics import SystemMetrics
 
-from utils.validator_hotkeys import validator_hotkey_to_name
+from utils.validator_hotkeys import is_validator_hotkey_whitelisted, validator_hotkey_to_name
 
 from api.endpoints.validator_models import *
 
@@ -137,16 +138,16 @@ async def get_request_validator_with_lock(request: Request, validator: Validator
 
 
 # Catches HTTP exceptions and cleans up the associated validator
-def handle_validator_http_exceptions(func):
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except HTTPException as e:
-            logger.error(f"Validator HTTP exception: {e.status_code} {e.detail}")
-            await delete_validator(kwargs['validator'], f"An HTTP exception was raised in {func.__name__}(): {e.status_code} {HTTPStatus(e.status_code).phrase}: {e.detail}")
-            raise
-    return wrapper
+# def handle_validator_http_exceptions(func):
+#     @wraps(func)
+#     async def wrapper(*args, **kwargs):
+#         try:
+#             return await func(*args, **kwargs)
+#         except HTTPException as e:
+#             logger.error(f"Validator HTTP exception: {e.status_code} {e.detail}")
+#             await delete_validator(kwargs['validator'], f"An HTTP exception was raised in {func.__name__}(): {e.status_code} {HTTPStatus(e.status_code).phrase}: {e.detail}")
+#             raise
+#     return wrapper
 
 
 
@@ -172,11 +173,11 @@ async def validator_register_as_validator(
     #     )
 
     # # Ensure that the hotkey is in the list of acceptable validator hotkeys
-    # if not is_validator_hotkey_whitelisted(registration_request.hotkey):
-    #     raise HTTPException(
-    #         status_code=403,
-    #         detail="The provided hotkey is not in the list of whitelisted validator hotkeys."
-    #     )
+    if not is_validator_hotkey_whitelisted(registration_request.hotkey):
+        raise HTTPException(
+            status_code=403,
+            detail="The provided hotkey is not in the list of whitelisted validator hotkeys."
+        )
     
     # # Check if the signed timestamp is valid (i.e., matches the raw timestamp)
     # if not validate_signed_timestamp(registration_request.timestamp, registration_request.signed_timestamp, registration_request.hotkey):
@@ -297,7 +298,7 @@ screener_1_request_evaluation_lock = asyncio.Lock()
 screener_2_request_evaluation_lock = asyncio.Lock()
 
 @router.post("/request-evaluation")
-@handle_validator_http_exceptions
+#@handle_validator_http_exceptions
 async def validator_request_evaluation(
     request: ValidatorRequestEvaluationRequest,
     validator: Validator = Depends(get_request_validator_with_lock)
@@ -305,62 +306,71 @@ async def validator_request_evaluation(
 
     logger.debug(f"Validator {validator.name} ({validator.hotkey}) requesting evaluation")
 
-    # Make sure the validator is not already running an evaluation
-    if validator.current_evaluation_id is not None:
-        logger.warning(f"Validator {validator.name} already running evaluation {validator.current_evaluation_id}")
-        raise HTTPException(
-            status_code=409,
-            detail=f"This validator is already running an evaluation, and validators may only run one evaluation at a time."
-        )
-
-    # Choose the appropriate lock based on the validator's hotkey
-    if validator.hotkey.startswith("screener-1"):
-        lock = screener_1_request_evaluation_lock
-        lock_name = "screener_1_request_evaluation_lock"
-    elif validator.hotkey.startswith("screener-2"):
-        lock = screener_2_request_evaluation_lock
-        lock_name = "screener_2_request_evaluation_lock"
-    else:
-        lock = validator_request_evaluation_lock
-        lock_name = "validator_request_evaluation_lock"
-
-    logger.debug(f"Validator {validator.name} using lock {lock_name}")
-
-    # Try to acquire the lock, but don't hang forever
     try:
-        async with DebugLock(lock, f"{validator.name} ({validator.hotkey}) for {lock_name}", timeout=30):
-            logger.debug(f"Validator {validator.name} acquired lock {lock_name}")
-            
-            # Find the next agent awaiting an evaluation from this validator
-            agent_id = await get_next_agent_id_awaiting_evaluation_for_validator_hotkey(validator.hotkey)
-            if agent_id is None:
-                logger.debug(f"No agent awaiting evaluation for validator {validator.name}")
-                return None
 
-            logger.info(f"Validator {validator.name} found agent {agent_id} for evaluation")
+        # Make sure the validator is not already running an evaluation
+        if validator.current_evaluation_id is not None:
+            logger.warning(f"Validator {validator.name} already running evaluation {validator.current_evaluation_id}")
+            raise HTTPException(
+                status_code=409,
+                detail=f"This validator is already running an evaluation, and validators may only run one evaluation at a time."
+            )
 
-            # Create a new evaluation and evaluation runs for this agent & validator
-            evaluation, evaluation_runs = await create_new_evaluation_and_evaluation_runs(agent_id, validator.hotkey)
-            logger.debug(f"Created evaluation {evaluation.evaluation_id} with {len(evaluation_runs)} runs")
-    except asyncio.TimeoutError:
-        logger.warning(f"Validator {validator.name} timed out acquiring lock {lock_name}")
-        return None
+        # Choose the appropriate lock based on the validator's hotkey
+        if validator.hotkey.startswith("screener-1"):
+            lock = screener_1_request_evaluation_lock
+            lock_name = "screener_1_request_evaluation_lock"
+        elif validator.hotkey.startswith("screener-2"):
+            lock = screener_2_request_evaluation_lock
+            lock_name = "screener_2_request_evaluation_lock"
+        else:
+            lock = validator_request_evaluation_lock
+            lock_name = "validator_request_evaluation_lock"
 
-    validator.current_evaluation_id = evaluation.evaluation_id
-    validator.current_evaluation = evaluation
-    validator.current_agent = await get_agent_by_id(agent_id)
+        logger.debug(f"Validator {validator.name} using lock {lock_name}")
 
-    logger.info(f"Validator '{validator.name}' requested an evaluation")
-    logger.info(f"  Agent ID: {agent_id}")
-    logger.info(f"  Evaluation ID: {evaluation.evaluation_id}")
-    logger.info(f"  # of Evaluation Runs: {len(evaluation_runs)}")
+        # Try to acquire the lock, but don't hang forever
+        try:
+            async with DebugLock(lock, f"{validator.name} ({validator.hotkey}) for {lock_name}", timeout=30):
+                logger.debug(f"Validator {validator.name} acquired lock {lock_name}")
+                
+                # Find the next agent awaiting an evaluation from this validator
+                agent_id = await get_next_agent_id_awaiting_evaluation_for_validator_hotkey(validator.hotkey)
+                if agent_id is None:
+                    logger.debug(f"No agent awaiting evaluation for validator {validator.name}")
+                    return None
 
-    agent_code = await download_text_file_from_s3(f"{agent_id}/agent.py")
-    evaluation_runs = [ValidatorRequestEvaluationResponseEvaluationRun(evaluation_run_id=evaluation_run.evaluation_run_id, problem_name=evaluation_run.problem_name) for evaluation_run in evaluation_runs]
+                logger.info(f"Validator {validator.name} found agent {agent_id} for evaluation")
 
-    logger.debug(f"Downloaded agent code for {agent_id}, returning response")
+                # Create a new evaluation and evaluation runs for this agent & validator
+                evaluation, evaluation_runs = await create_new_evaluation_and_evaluation_runs(agent_id, validator.hotkey)
+                logger.debug(f"Created evaluation {evaluation.evaluation_id} with {len(evaluation_runs)} runs")
+        except asyncio.TimeoutError:
+            logger.warning(f"Validator {validator.name} timed out acquiring lock {lock_name}")
+            return None
+        
 
-    return ValidatorRequestEvaluationResponse(agent_code=agent_code, evaluation_runs=evaluation_runs)
+        validator.current_evaluation_id = evaluation.evaluation_id
+        validator.current_evaluation = evaluation
+        validator.current_agent = await get_agent_by_id(agent_id)
+
+        logger.info(f"Validator '{validator.name}' requested an evaluation")
+        logger.info(f"  Agent ID: {agent_id}")
+        logger.info(f"  Evaluation ID: {evaluation.evaluation_id}")
+        logger.info(f"  # of Evaluation Runs: {len(evaluation_runs)}")
+
+        agent_code = await download_text_file_from_s3(f"{agent_id}/agent.py")
+        evaluation_runs = [ValidatorRequestEvaluationResponseEvaluationRun(evaluation_run_id=evaluation_run.evaluation_run_id, problem_name=evaluation_run.problem_name) for evaluation_run in evaluation_runs]
+
+        logger.debug(f"Downloaded agent code for {agent_id}, returning response")
+
+        return ValidatorRequestEvaluationResponse(agent_code=agent_code, evaluation_runs=evaluation_runs)
+
+    except Exception as e:
+        traceback.print_exc()
+        logger.error(f"Error in validator_request_evaluation for validator {validator.name}: {e}")
+        raise
+    
 
 
 
@@ -383,7 +393,7 @@ async def validator_heartbeat(
 
 # /validator/update-evaluation-run
 @router.post("/update-evaluation-run")
-@handle_validator_http_exceptions
+#@handle_validator_http_exceptions
 async def validator_update_evaluation_run(
     request: ValidatorUpdateEvaluationRunRequest,
     validator: Validator = Depends(get_request_validator_with_lock)
@@ -616,7 +626,7 @@ async def validator_disconnect(
 
 # /validator/finish-evaluation
 @router.post("/finish-evaluation")
-@handle_validator_http_exceptions
+#@handle_validator_http_exceptions
 async def validator_finish_evaluation(
     request: ValidatorFinishEvaluationRequest,
     validator: Validator = Depends(get_request_validator_with_lock)
