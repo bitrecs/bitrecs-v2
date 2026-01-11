@@ -46,13 +46,8 @@ from api.endpoints.upload import router as upload_router
 from api.heartbeat import validator_heartbeat_timeout_loop
 from api.metagraph_sync_manager import MetagraphSyncManager
 
-# log_level = logging.INFO    
-# logging.basicConfig(
-#     level=log_level,
-#     format='%(asctime)s | %(levelname)s | %(name)s:%(lineno)d - %(message)s',
-#     handlers=[logging.StreamHandler()]
-# )
-# logger = logging.getLogger(__name__)
+from version import __version__ as this_version
+
 
 
 METAGRAPH_CACHE_DURATION = 3600  # 1 hour
@@ -187,21 +182,21 @@ async def lifespan(app: FastAPI):
     #asyncio.create_task(validator_heartbeat_timeout_loop())
 
     try:
-        logger.info("V2 API STARTED")
+        logger.info(f"V2 API STARTED version: {this_version}")
         yield
     finally:
         logger.info("Starting shutdown...")
-        app.state.restart_task.cancel()
-        app.state.refresh_task.cancel()
+        #app.state.restart_task.cancel()
+        #app.state.refresh_task.cancel()
         app.state.heartbeat_task.cancel()
         try:
-            await app.state.restart_task
-            await app.state.refresh_task
+            #await app.state.restart_task
+            #await app.state.refresh_task
             await app.state.heartbeat_task
         except asyncio.CancelledError:
             pass        
         
-        metagraph_manager.stop()
+        #metagraph_manager.stop()
         await http_client.aclose()
         logger.info("Shutting down PG writer thread pool...")
         app.state.thread_pool.shutdown(wait=True, cancel_futures=False)
@@ -218,9 +213,10 @@ async def lifespan(app: FastAPI):
 
 version_info = load_version_info()
 app_version = version_info if version_info else "2.0"
+library_version = this_version
 
 app = FastAPI(
-    title=f"Bitrecs V2 Testnet",
+    title=f"Bitrecs V2 Testnet API ({library_version})",
     version=app_version,
     description=f"(Netuid: {BT_NETWORK} - Network: {BT_NETUID})",
     debug=False,
@@ -348,7 +344,8 @@ async def get_miners(request: Request):
     client_ip = get_client_ip(request)
     logger.info(f"Miners endpoint accessed from IP {client_ip}")
     snapshot, _ = metagraph_manager.get_snapshot()
-    miners = [node for node in snapshot.values() if node.get("stake", 0) > 0]  # Rough filter for miners
+    # miners everyone not in top 64 by stake
+    miners = [node for node in snapshot.values() if node.get("stake", 0) > 0][64:264]
     return JSONResponse(content={"miners": miners})
 
 
@@ -358,7 +355,8 @@ async def get_validators(request: Request):
     client_ip = get_client_ip(request)
     logger.info(f"Validators endpoint accessed from IP {client_ip}")
     snapshot, _ = metagraph_manager.get_snapshot()
-    validators = [node for node in snapshot.values() if node.get("stake", 0) == 0]  # Rough filter for validators
+    # validators top 64 by stake
+    validators = [node for node in snapshot.values() if node.get("stake", 0) > 0][:64]
     return JSONResponse(content={"validators": validators})
 
 
