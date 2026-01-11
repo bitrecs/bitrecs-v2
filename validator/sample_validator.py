@@ -1,7 +1,6 @@
 import os
 import sys
 import time
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import httpx
 import random
@@ -18,24 +17,19 @@ from api.endpoints.validator_models import ScreenerRegistrationRequest, Screener
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 from validator.http_utils import get_ridges_platform, post_ridges_platform
-
 from evaluator.problem_suites.polygot.polyglot_suite import POLYGLOT_JS_SUITE, POLYGLOT_PY_SUITE
 from models.evaluation_set import EvaluationSetProblem
 from queries.problem_statistics import SWEBENCH_VERIFIED_SUITE
 from utils.git import COMMIT_HASH
 from utils.system_metrics import get_system_metrics
-
 import validator.config as config
 
 
 SERVICE_URL = "http://localhost:8000"
 FETCH_LIMIT = 20
 SLEEP_INTERVAL = 60
-RETRY_SLEEP = 15 
+RETRY_SLEEP = 15
 
-
-#logger = logging.getLogger(__name__)
-#logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 session_id: str | None = None
 
@@ -84,17 +78,14 @@ async def validate_agent(agent_data: dict) -> None:
         logger.error(f"Error validating agent {agent_id}: {e}")
 
 
-
 async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
-    logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")
-    
+    logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")    
     await post_ridges_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(
         evaluation_run_id=evaluation_run_id,
         updated_status=updated_status,
         **(extra or {})
     ), bearer_token=session_id, quiet=2)
-
-
+    
 
 # Simulate a run of an evaluation run, useful for testing, set SIMULATE_EVALUATION_RUNS=True in .env
 async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: str):
@@ -134,6 +125,9 @@ async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: st
 # Run an evaluation run
 async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_code: str):
     logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
+
+    ## TODO - implement actual evaluation run logic here
+    
     return
 
 # Run an evaluation, automatically dispatches all runs to either _simulate_run_evaluation_run or _run_evaluation_run

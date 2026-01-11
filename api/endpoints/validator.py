@@ -1,9 +1,11 @@
-from functools import wraps
+
+from http import HTTPStatus
 import re
 import traceback
 import asyncio
 import api.config as config
 import utils.logger as logger
+from functools import wraps
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
 from datetime import datetime, timedelta, timezone
@@ -20,13 +22,11 @@ from models.agent import Agent, AgentStatus
 from models.evaluation import Evaluation, EvaluationStatus
 from models.evaluation_run import EvaluationRunStatus, EvaluationRunLogType
 from utils.s3 import download_text_file_from_s3
-from utils.s3 import download_text_file_from_s3
 from utils.system_metrics import SystemMetrics
 from utils.validator_hotkeys import is_validator_hotkey_whitelisted, validator_hotkey_to_name
 from api.endpoints.validator_models import *
 
 
-# A validator
 class Validator(BaseModel):
     session_id: UUID
     name: str
@@ -87,8 +87,7 @@ async def delete_validators_that_have_not_sent_a_heartbeat() -> None:
 # Dependency to get the validator associated with the request
 # Requires that the request has a valid "Authorization: Bearer <session_id>" header
 # See validator_request_evaluation() and other endpoints for usage examples
-async def get_request_validator(token: str = Depends(HTTPBearer())) -> Validator:
-    # Make sure the session_id is a valid UUID
+async def get_request_validator(token: str = Depends(HTTPBearer())) -> Validator:    
     try:
         session_id = UUID(token.credentials)
     except ValueError:
@@ -101,7 +100,7 @@ async def get_request_validator(token: str = Depends(HTTPBearer())) -> Validator
         raise HTTPException(
             status_code=401,
             detail="Session ID not found or expired."
-        )    
+        )
     return SESSION_ID_TO_VALIDATOR[session_id]
 
 
@@ -402,8 +401,6 @@ async def validator_update_evaluation_run(
             detail=f"The evaluation run with ID {request.evaluation_run_id} is not associated with the validator's current evaluation."
         )
 
-
-
     # The logic differs based on the updated status of the evaluation run
     match request.updated_status:
         case EvaluationRunStatus.pending:
@@ -412,9 +409,6 @@ async def validator_update_evaluation_run(
                 status_code=400,
                 detail="An evaluation run can never be updated to pending."
             )
-
-
-
         case EvaluationRunStatus.initializing_agent:
             # A validator may only update an evaluation run to initializing_agent if the evaluation run is currently in the pending status
             if evaluation_run.status != EvaluationRunStatus.pending:
@@ -422,13 +416,9 @@ async def validator_update_evaluation_run(
                     status_code=400,
                     detail=f"An evaluation run can only be updated to initializing_agent if it is currently in the pending status. The current status of evaluation run {request.evaluation_run_id} is {evaluation_run.status}."
                 )
-
             # Update the evaluation run to initializing_agent
             evaluation_run.status = EvaluationRunStatus.initializing_agent
             evaluation_run.started_initializing_agent_at = datetime.now(timezone.utc)
-
-
-
         case EvaluationRunStatus.running_agent:
             # A validator may only update an evaluation run to running_agent if the evaluation run is currently in the initializing_agent status
             if evaluation_run.status != EvaluationRunStatus.initializing_agent:
@@ -436,13 +426,9 @@ async def validator_update_evaluation_run(
                     status_code=400,
                     detail=f"An evaluation run can only be updated to running_agent if it is currently in the initializing_agent status. The current status of evaluation run {request.evaluation_run_id} is {evaluation_run.status}."
                 )
-
             # Update the evaluation run to running_agent
             evaluation_run.status = EvaluationRunStatus.running_agent
             evaluation_run.started_running_agent_at = datetime.now(timezone.utc)
-
-
-
         case EvaluationRunStatus.initializing_eval:
             # A validator may only update an evaluation run to initializing_eval if the evaluation run is currently in the running_agent status
             if evaluation_run.status != EvaluationRunStatus.running_agent:
@@ -450,31 +436,24 @@ async def validator_update_evaluation_run(
                     status_code=400,
                     detail=f"An evaluation run can only be updated to initializing_eval if it is currently in the running_agent status. The current status of evaluation run {request.evaluation_run_id} is {evaluation_run.status}."
                 )
-
             # Make sure that the patch is provided
             if request.patch is None:
                 raise HTTPException(
                     status_code=422,
                     detail="The patch is required when updating an evaluation run to initializing_eval."
-                )
-            
+                )            
             # Make sure that the agent logs are provided
             if request.agent_logs is None:
                 raise HTTPException(
                     status_code=422,
                     detail="The agent logs are required when updating an evaluation run to initializing_eval."
                 )
-
             # Update the evaluation run to initializing_eval
             evaluation_run.status = EvaluationRunStatus.initializing_eval
             evaluation_run.patch = request.patch
             evaluation_run.started_initializing_eval_at = datetime.now(timezone.utc)
-
             # Create an evaluation run log
             await create_evaluation_run_log(evaluation_run.evaluation_run_id, EvaluationRunLogType.agent, request.agent_logs)
-
-    
-
         case EvaluationRunStatus.running_eval:
             # A validator may only update an evaluation run to running_eval if the evaluation run is currently in the initializing_eval status
             if evaluation_run.status != EvaluationRunStatus.initializing_eval:
@@ -482,13 +461,9 @@ async def validator_update_evaluation_run(
                     status_code=400,
                     detail=f"An evaluation run can only be updated to running_eval if it is currently in the initializing_eval status. The current status of evaluation run {request.evaluation_run_id} is {evaluation_run.status}."
                 )
-
             # Update the evaluation run to running_eval
             evaluation_run.status = EvaluationRunStatus.running_eval
             evaluation_run.started_running_eval_at = datetime.now(timezone.utc)
-
-
-
         case EvaluationRunStatus.finished:
                 # A validator may only update an evaluation run to finished if the evaluation run is currently in the running_eval status
             if evaluation_run.status != EvaluationRunStatus.running_eval:
@@ -496,31 +471,24 @@ async def validator_update_evaluation_run(
                     status_code=400,
                     detail=f"An evaluation run can only be updated to finished if it is currently in the running_eval status. The current status of evaluation run {request.evaluation_run_id} is {evaluation_run.status}."
                 )
-
             # Make sure the test results are provided
             if request.test_results is None:
                 raise HTTPException(
                     status_code=422,
                     detail="The test results are required when updating an evaluation run to finished."
                 )
-
             # Make sure the eval logs are provided
             if request.eval_logs is None:
                 raise HTTPException(
                     status_code=422,
                     detail="The eval logs are required when updating an evaluation run to finished."
                 )
-
             # Update the evaluation run to finished
             evaluation_run.status = EvaluationRunStatus.finished
             evaluation_run.test_results = request.test_results
             evaluation_run.finished_or_errored_at = datetime.now(timezone.utc)
-
             # Create an evaluation run log
             await create_evaluation_run_log(evaluation_run.evaluation_run_id, EvaluationRunLogType.eval, request.eval_logs)
-    
-
-
         case EvaluationRunStatus.error:
             # A validator may only update an evaluation run to error if the evaluation run is currently in the pending, initializing_agent, running_agent, initializing_eval, or running_eval status
             if evaluation_run.status not in [
@@ -534,57 +502,46 @@ async def validator_update_evaluation_run(
                     status_code=400,
                     detail=f"An evaluation run can only be updated to error if it is currently in the pending, initializing_agent, running_agent, initializing_eval, or running_eval status.  The current status of evaluation run {request.evaluation_run_id} is {evaluation_run.status}."
                 )
-
             # Make sure the error code is provided
             if request.error_code is None:
                 raise HTTPException(
                     status_code=422,
                     detail="The error code is required when updating an evaluation run to error."
-                )
-            
+                )            
             # Make sure the error message is provided
             if request.error_message is None:
                 raise HTTPException(
                     status_code=422,
                     detail="The error message is required when updating an evaluation run to error."
                 )
-
             # Agent logs can only be provided if none already exist
             if request.agent_logs is not None and await check_if_evaluation_run_logs_exist(evaluation_run.evaluation_run_id, EvaluationRunLogType.agent):
                 raise HTTPException(
                     status_code=422,
                     detail="The agent logs can only be provided if none already exist."
                 )
-
             # Evaluation logs can only be provided if none already exist
             if request.eval_logs is not None and await check_if_evaluation_run_logs_exist(evaluation_run.evaluation_run_id, EvaluationRunLogType.eval):
                 raise HTTPException(
                     status_code=422,
                     detail="The eval logs can only be provided if none already exist."
                 )
-
             # Update the evaluation run to error
             evaluation_run.status = EvaluationRunStatus.error
             evaluation_run.error_code = request.error_code
             evaluation_run.error_message = request.error_message
             evaluation_run.finished_or_errored_at = datetime.now(timezone.utc)
-
             # Create evaluation run logs
             if request.agent_logs is not None:
                 await create_evaluation_run_log(evaluation_run.evaluation_run_id, EvaluationRunLogType.agent, request.agent_logs)
             if request.eval_logs is not None:
                 await create_evaluation_run_log(evaluation_run.evaluation_run_id, EvaluationRunLogType.eval, request.eval_logs)
 
-
-
     await update_evaluation_run_by_id(evaluation_run)
-
     logger.info(f"Validator '{validator.name}' updated an evaluation run")
     logger.info(f"  Evaluation run ID: {request.evaluation_run_id}")
     logger.info(f"  Updated status: {request.updated_status}")
-
     return ValidatorUpdateEvaluationRunResponse()
-
 
 
 # /validator/disconnect
@@ -595,13 +552,9 @@ async def validator_disconnect(
 ) -> ValidatorDisconnectResponse:
 
     await delete_validator(validator, f"The validator disconnected. Reason: {request.reason}")
-
     logger.info(f"Validator '{validator.name}' disconnected")
     logger.info(f"  Reason: {request.reason}")
-
     return ValidatorDisconnectResponse()
-
-
 
 # /validator/finish-evaluation
 @router.post("/finish-evaluation")
@@ -632,7 +585,6 @@ async def validator_finish_evaluation(
     logger.info(f"  Evaluation ID: {validator.current_evaluation_id}")
 
     validator.current_evaluation_id = None
-
     return ValidatorFinishEvaluationResponse()
 
 
