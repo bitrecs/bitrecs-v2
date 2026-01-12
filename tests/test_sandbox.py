@@ -32,7 +32,8 @@ async def test_calculator_env():
         image="calculator:latest",
         env_vars={"CHUTES_API_KEY": "your-api-key"}, 
         host_network=True,
-        host_port=8080
+        host_port=8080,
+        log_file="calculator_env.log"
     )
 
     assert env is not None

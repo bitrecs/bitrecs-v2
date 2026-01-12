@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+
+import yaml
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import httpx
 import random
@@ -29,14 +31,14 @@ from queries.problem_statistics import SWEBENCH_VERIFIED_SUITE
 from utils.git import COMMIT_HASH
 from utils.system_metrics import get_system_metrics
 import validator.config as config
+import affinetes as af_env
 
 
 
-# FETCH_LIMIT = 20
-# SLEEP_INTERVAL = 60
+session_id: str | None = None
 
 RETRY_SLEEP_ON_ERROR = 60
-session_id: str | None = None
+PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 
 # A loop that sends periodic heartbeats to the Ridges platform
@@ -96,7 +98,6 @@ async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, upda
 async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: str):
     logger.info(f"Starting simulated evaluation run {evaluation_run_id} for problem {problem_name}...")
 
-
     SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS = random.choice([1, 3, 4])
     # Move from pending -> initializing_agent
     await asyncio.sleep(random.random() * SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
@@ -127,6 +128,119 @@ async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: st
     logger.info(f"Finished simulated evaluation run {evaluation_run_id} for problem {problem_name}")
 
 
+
+async def _simulate_run_evaluation_run_affine(evaluation_run_id: UUID, problem_name: str):
+    logger.info(f"\033[33mStarting Affine ENV run {evaluation_run_id} for problem {problem_name}... \033[0m")
+
+    try:
+
+
+
+        await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
+        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_agent)
+
+        await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
+        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_agent)
+
+        af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
+        af_mode = "docker"
+        logger.info(f"Using Affine mode: {af_mode}")
+        af_container_port = 8081
+        logger.info(f"Using container port: {af_container_port}")
+
+        provider_keys = {
+            "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
+            "CHUTES_API_KEY": os.environ.get("CHUTES_API_KEY"),
+        }
+        key_length = len(provider_keys)
+        logger.info(f"Using {key_length} provider keys for the environment")
+
+        env = af_env.load_env(
+            image=af_image,
+            env_vars=provider_keys,
+            mode=af_mode,
+            host_network=True,
+            cleanup=False,
+            force_recreate=True,
+            host_port=af_container_port,
+            pull=True
+        )
+        if env is None:
+            logger.error("Failed to load Docker environment")
+            return
+        
+        #assert env is not None
+        logger.info("Loaded Docker environment successfully")
+
+        yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_input.yaml")
+        with open(yaml_file_path, "r") as f:
+            miner_input_data = yaml.safe_load(f)
+        logger.info("Loaded miner input YAML file successfully")
+
+        logger.info(f"Testing model: {miner_input_data.get('model', 'N/A')} with provider: {miner_input_data.get('provider', 'N/A')}")
+
+        yaml_content = yaml.dump(miner_input_data)
+        logger.info(f"Loaded YAML content from : {yaml_file_path}")
+        
+        logger.info("Triggering evaluation in Affine environment...")
+        
+        await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
+        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_eval, {
+            "patch": "ENV START",
+            "agent_logs": "FAKE AGENT LOGS"
+        })
+        
+        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_eval)
+        timeout = (30, 600)    
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(
+                "http://localhost:8081/evaluate",
+                json={"yaml_content": yaml_content},
+                headers={"Content-Type": "application/json"}
+            )
+            #logger.info(f"Received response: {response.text}")
+            response.raise_for_status()
+            result = response.json()    
+        
+        tak_name = result.get("task_name", "N/A")
+        run_id = result.get("run_id", "N/A")
+        score = result.get("score", "N/A")
+        success = result.get("success", "N/A")
+        time_taken = result.get("time_taken", "N/A")
+        extra = ""
+        print("Evaluation Result:")
+        print(f"  Task Name: {result.get('task_name', 'N/A')}")
+        print(f"  Run ID: {result.get('run_id', 'N/A')}")
+        print(f"  Score: {result.get('score', 'N/A')}")
+        print(f"  Success: {result.get('success', 'N/A')}")
+        print(f"  Time Taken: {result.get('time_taken', 'N/A')}")
+        print("  Extra:")
+        if 'extra' in result and 'result' in result['extra']:
+            print(result['extra']['result'])
+            extra = result['extra']['result']
+        else:
+            print("    No extra details available")   
+        
+        # Cleanup
+        await env.cleanup()    
+
+        status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL
+        # Move from running_eval -> finished
+        await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
+        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
+            "test_results": [{"name": tak_name, "category": "default", "status": f"{status.value}"}],
+            "eval_logs": extra
+        })
+
+        logger.info(f"Finished simulated AFFINE evaluation run {evaluation_run_id} for problem {problem_name}")
+    except Exception as e:
+        logger.error(f"Error during Affine ENV evaluation run: {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.error, {
+            "eval_logs": f"Error during evaluation run: {type(e).__name__}: {e}"
+        })
+
+
 # Run an evaluation run
 async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_code: str):
     logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
@@ -151,7 +265,8 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
         problem_name = evaluation_run.problem_name
         SIMULATE_EVALUATION_RUNS = True
         if SIMULATE_EVALUATION_RUNS:
-            tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))
+            #tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))
+            tasks.append(asyncio.create_task(_simulate_run_evaluation_run_affine(evaluation_run_id, problem_name)))            
         else:
             tasks.append(asyncio.create_task(_run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)))
 
