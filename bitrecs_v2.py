@@ -1,6 +1,6 @@
 """
 
-Bitrecs CLI - Upload your Bitrecs miner artifacts
+Bitrecs CLI - Upload miner artifacts to the Bitrecs platform.
 
 # https://github.com/ridgesai/ridges/blob/main/ridges.py 
 
