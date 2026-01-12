@@ -13,7 +13,13 @@ from uuid import UUID
 from typing import Any, Dict
 from models.evaluation_run import EvaluationRunStatus
 from models.problem import ProblemTestResultStatus
-from api.endpoints.validator_models import ScreenerRegistrationRequest, ScreenerRegistrationResponse, ValidatorDisconnectRequest, ValidatorFinishEvaluationRequest, ValidatorHeartbeatRequest, ValidatorRegistrationRequest, ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, ValidatorRequestEvaluationResponse, ValidatorUpdateEvaluationRunRequest
+from api.endpoints.validator_models import (
+    ScreenerRegistrationRequest, ScreenerRegistrationResponse, 
+    ValidatorDisconnectRequest, ValidatorFinishEvaluationRequest, 
+    ValidatorHeartbeatRequest, ValidatorRegistrationRequest, 
+    ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, 
+    ValidatorRequestEvaluationResponse, ValidatorUpdateEvaluationRunRequest
+)
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 from validator.http_utils import get_ridges_platform, post_ridges_platform
@@ -25,12 +31,11 @@ from utils.system_metrics import get_system_metrics
 import validator.config as config
 
 
-SERVICE_URL = "http://localhost:8000"
-FETCH_LIMIT = 20
-SLEEP_INTERVAL = 60
-RETRY_SLEEP = 15
 
+# FETCH_LIMIT = 20
+# SLEEP_INTERVAL = 60
 
+RETRY_SLEEP_ON_ERROR = 60
 session_id: str | None = None
 
 
@@ -270,7 +275,7 @@ async def main():
             logger.error(f"Error running evaluation: {type(e).__name__}: {e}")
             logger.error(traceback.format_exc())
             
-            await asyncio.sleep(RETRY_SLEEP)
+            await asyncio.sleep(RETRY_SLEEP_ON_ERROR)
 
     
 

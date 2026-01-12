@@ -5,12 +5,14 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from pathlib import Path
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
+import validator.config as config
 
 
 ROOT_DIR = Path(__file__).parent.parent
 MINER_YAML_PATH = os.path.join(ROOT_DIR, "miner", "miner_input.yaml")
 
-SERVICE_URL = "http://localhost:8000"
+#SERVICE_URL = "http://localhost:8000"
+SERVICE_URL =  config.RIDGES_PLATFORM_URL
 
 
 def upload_prompt():
