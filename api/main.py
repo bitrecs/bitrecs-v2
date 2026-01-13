@@ -32,7 +32,7 @@ from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
-from api.utils.network import get_client_ip
+from utils.network import get_client_ip
 from api.endpoints.validator import router as validator_router
 from api.endpoints.debug import router as debug_router
 from api.endpoints.agent import router as agent_router
