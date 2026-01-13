@@ -48,6 +48,22 @@ BEGIN
     
 END $$;
 
+
+CREATE TABLE IF NOT EXISTS
+  public.sessions (
+    id bigserial NOT NULL,
+    session_id text NOT NULL,
+    node_name text NOT NULL,
+    node_hotkey text NULL,
+    ip_address text NULL,
+    time_connected timestamp with time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text)   
+  );
+
+ALTER TABLE
+  public.sessions
+ADD
+  CONSTRAINT sessions_pkey PRIMARY KEY (id);
+
 CREATE TABLE IF NOT EXISTS agents (
     agent_id UUID NOT NULL PRIMARY KEY,
     miner_hotkey TEXT NOT NULL,

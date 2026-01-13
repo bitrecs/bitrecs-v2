@@ -4,6 +4,7 @@ import re
 import traceback
 import asyncio
 import api.config as config
+from queries.session import insert_validator_session
 import utils.logger as logger
 from functools import wraps
 from typing import Dict, List, Optional
@@ -187,6 +188,7 @@ async def validator_register_as_validator(
         time_connected=datetime.now(timezone.utc),
         ip_address=ip_address
     )
+    await insert_validator_session(session_id, validator_hotkey_to_name(registration_request.hotkey), registration_request.hotkey, ip_address)
     
     logger.info(f"Validator '{validator_hotkey_to_name(registration_request.hotkey)}' ({registration_request.hotkey}) was registered")
     logger.info(f"  Session ID: {session_id}")
@@ -255,6 +257,8 @@ async def validator_register_as_screener(
         time_connected=datetime.now(timezone.utc),
         ip_address=ip_address
     )
+
+    await insert_validator_session(session_id, registration_request.name, registration_request.name, ip_address)
     
     logger.info(f"Screener {registration_request.name} was registered")
     logger.info(f"  Session ID: {session_id}")

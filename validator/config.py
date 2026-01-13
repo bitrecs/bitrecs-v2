@@ -1,15 +1,9 @@
 import os
 import re
 import utils.logger as logger
-
 from dotenv import load_dotenv
 from bittensor_wallet.wallet import Wallet
-
-
-
 load_dotenv()
-
-
 
 NETUID = os.getenv("NETUID")
 if not NETUID:
@@ -24,16 +18,12 @@ SUBTENSOR_NETWORK = os.getenv("SUBTENSOR_NETWORK")
 if not SUBTENSOR_NETWORK:
     logger.fatal("SUBTENSOR_NETWORK is not set in .env")
 
-
-
 MODE = os.getenv("MODE")
 if not MODE:
     logger.fatal("MODE is not set in .env")
 
 if MODE != "screener" and MODE != "validator":
     logger.fatal("MODE must be either 'screener' or 'validator'")
-
-
 
 if MODE == "validator":
     VALIDATOR_WALLET_NAME = os.getenv("VALIDATOR_WALLET_NAME")

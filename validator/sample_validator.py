@@ -73,7 +73,7 @@ async def get_health_from_docker(url: str) -> dict | None:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(url, headers={"Content-Type": "application/json"})
             response.raise_for_status()
-            data = response.json()    
+            data = response.json()
             return data
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error fetching heartbeat from Docker: {e.response.status_code} - {e.response.text}")
@@ -277,13 +277,13 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
         logger.info(f"    {evaluation_run.problem_name}")
 
     logger.info("Starting evaluation...")
+    SIMULATE_EVALUATION_RUNS = False
 
     tasks = []
     for evaluation_run in request_evaluation_response.evaluation_runs:
         evaluation_run_id = evaluation_run.evaluation_run_id
         problem_name = evaluation_run.problem_name
-
-        SIMULATE_EVALUATION_RUNS = False
+      
         if SIMULATE_EVALUATION_RUNS:
             tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))
             #tasks.append(asyncio.create_task(_simulate_run_evaluation_run_affine(evaluation_run_id, problem_name)))            
