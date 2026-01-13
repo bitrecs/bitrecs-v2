@@ -33,9 +33,9 @@ from evaluator.models import EvaluationRunException
 
 session_id: str | None = None
 
+EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-
 
 
 async def send_heartbeat_loop():
@@ -50,21 +50,6 @@ async def send_heartbeat_loop():
         logger.error(f"Error in send_heartbeat_loop(): {type(e).__name__}: {e}")
         logger.error(traceback.format_exc())
         os._exit(1)
-
-
-# async def validate_agent(agent_data: dict) -> None:
-#     """Validate a single agent's template."""
-#     try:
-#         agent = Agent(**agent_data)
-#         validated, reason = validate_artifact_template(agent)
-#         if validated:
-#             logger.info(f"Agent {agent.agent_id} validated: {reason}")
-#             # TODO: Add actual evaluation/scoring logic here
-#         else:
-#             logger.warning(f"Agent {agent.agent_id} validation failed: {reason}")
-#     except Exception as e:
-#         agent_id = agent_data.get('agent_id', 'unknown')
-#         logger.error(f"Error validating agent {agent_id}: {e}")
 
 
 async def get_health_from_docker(url: str) -> dict | None:
@@ -84,10 +69,9 @@ async def get_health_from_docker(url: str) -> dict | None:
 
 
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
-    """Load an agent by its evaluation run ID.    
-    """
-    thing = await get_ridges_platform(f"/agent/get-by-evaluation-run-id?evaluation_run_id={evaluation_run_id}", quiet=2)
-    agent = Agent(**thing)
+    """Load an agent by its evaluation run ID."""
+    response = await get_ridges_platform(f"/agent/get-by-evaluation-run-id?evaluation_run_id={evaluation_run_id}", quiet=2)
+    agent = Agent(**response)
     return agent
 
 
@@ -182,18 +166,19 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             af_mode = "docker"            
             af_hostname = "localhost"
             af_container_port = 8081
-            provider_keys = {
+            af_env_vars = {
+                "BITRECS_RUN_ID": str(evaluation_run_id),
                 "OPENROUTER_API_KEY": openrouter_api_key,
-                "CHUTES_API_KEY": chutes_api_key,
-            }          
+                "CHUTES_API_KEY": chutes_api_key
+            }
             env = af_env.load_env(
                 image=af_image,
-                env_vars=provider_keys,
                 mode=af_mode,
+                env_vars=af_env_vars,                
+                host_port=af_container_port,
                 host_network=True,
                 cleanup=False,
-                force_recreate=True,
-                host_port=af_container_port,
+                force_recreate=True,                
                 pull=True
             )
             if env is None:
@@ -204,7 +189,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             if af_health is None:
                 raise Exception("Failed to get heartbeat from Docker environment")
             if af_health["status"] != "healthy":
-                raise Exception(f"Docker environment is not healthy: {af_health}")        
+                raise Exception(f"Docker environment is not healthy: {af_health}")
 
             # yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_input.yaml")
             # with open(yaml_file_path, "r") as f:
@@ -212,7 +197,6 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
 
             #yaml_content = yaml.dump(miner_agent)            
             yaml_content = Agent.to_yaml(miner_agent)
-
             logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")            
             logger.info("Triggering evaluation in Affine environment...")
 
@@ -224,10 +208,10 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             })
 
             await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
-            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_eval)
+            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_eval)            
             
-            timeout = (30, 600)    
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            logger.info(f"Run timeout set to: {EVAL_TIMEOUT[1]} seconds")
+            async with httpx.AsyncClient(timeout=EVAL_TIMEOUT) as client:
                 response = await client.post(
                     f"http://{af_hostname}:{af_container_port}/evaluate",
                     json={"yaml_content": yaml_content},
@@ -244,11 +228,11 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             time_taken = result.get("time_taken", "N/A")
             extra = ""
             print("Evaluation Result:")
-            print(f"  Task Name: {result.get('task_name', 'N/A')}")
-            print(f"  Run ID: {result.get('run_id', 'N/A')}")
-            print(f"  Score: {result.get('score', 'N/A')}")
-            print(f"  Success: {result.get('success', 'N/A')}")
-            print(f"  Time Taken: {result.get('time_taken', 'N/A')}")
+            print(f"  Task Name: {tak_name}")
+            print(f"  Run ID: {run_id}")
+            print(f"  Score: {score}")
+            print(f"  Success: {success}")
+            print(f"  Time Taken: {time_taken} seconds")           
             print("  Extra:")
             if 'extra' in result and 'result' in result['extra']:
                 print(result['extra']['result'])
