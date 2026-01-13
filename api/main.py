@@ -1,7 +1,5 @@
 import os
 import sys
-
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
@@ -14,7 +12,6 @@ import tracemalloc
 import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
-
 from uuid import UUID
 from api import config
 from cachetools import TTLCache
@@ -29,7 +26,6 @@ from slowapi.middleware import SlowAPIMiddleware
 from concurrent.futures import ThreadPoolExecutor
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id
@@ -46,19 +42,14 @@ from api.endpoints.scoring import router as scoring_router
 from api.endpoints.statistics import router as statistics_router
 from api.endpoints.retrieval import router as retrieval_router
 from api.endpoints.upload import router as upload_router
-
 from api.heartbeat import validator_heartbeat_timeout_loop
 from api.metagraph_sync_manager import MetagraphSyncManager
 from version import __version__ as this_version
-
-
 
 METAGRAPH_CACHE_DURATION = 3600
 PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
 REQUEST_HASH_HISTORY = TTLCache(maxsize=500_000, ttl=60 * 60 * 24)
 NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
-
-
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
 BT_NETUID = int(os.environ.get("BT_NETUID", 296))
 B64_PRIVATE_KEY = os.environ.get("B64_PRIVATE_KEY")
@@ -66,7 +57,6 @@ if not B64_PRIVATE_KEY:
     raise ValueError("B64_PRIVATE_KEY environment variable not set")
 PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(base64.b64decode(B64_PRIVATE_KEY))
 PUBLIC_KEY = PRIVATE_KEY.public_key()
-
 
 http_client = httpx.AsyncClient(
     timeout=httpx.Timeout(30.0),
@@ -108,26 +98,6 @@ async def check_request_ip(
     return node["ip"] == request_ip if node else False
 
 
-# def get_client_ip(request: Request) -> str:
-#     logger.debug(
-#         f"IP headers - x-real-ip: {request.headers.get('x-real-ip')}, "
-#         f"x-forwarded-for: {request.headers.get('x-forwarded-for')}, "
-#         f"do-connecting-ip: {request.headers.get('do-connecting-ip')}")
-     
-#     if "do-connecting-ip" in request.headers:
-#         return request.headers.get('do-connecting-ip').strip()
-#     if "x-forwarded-for" in request.headers:
-#         forwarded_for = request.headers.get('x-forwarded-for')
-#         ips = [ip.strip() for ip in forwarded_for.split(",")]
-#         if ips:
-#             return ips[0]
-#     if "x-real-ip" in request.headers:
-#         return request.headers["x-real-ip"].strip()
-#     if request.client:
-#         return str(request.client.host)
-#     return "unknown"
-
-
 async def refresh_provider_pings():
     while True:
         try:
@@ -138,7 +108,6 @@ async def refresh_provider_pings():
         except Exception as e:
             logger.error(f"Error refreshing provider pings: {e}")
         await asyncio.sleep(1800)
-
 
 
 limiter = Limiter(key_func=get_client_ip)
@@ -187,8 +156,8 @@ async def lifespan(app: FastAPI):
     try:
         logger.info(f"V2 API STARTED version: {this_version}")
         await set_all_unfinished_evaluation_runs_to_errored(error_message="Platform crashed while running this evaluation")
-
         yield
+
     finally:
         logger.info("Starting shutdown...")
         #app.state.restart_task.cancel()
@@ -199,7 +168,7 @@ async def lifespan(app: FastAPI):
             #await app.state.refresh_task
             await app.state.heartbeat_task
         except asyncio.CancelledError:
-            pass        
+            pass
         
         #metagraph_manager.stop()
         await http_client.aclose()
