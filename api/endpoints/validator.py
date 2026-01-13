@@ -256,7 +256,7 @@ async def validator_register_as_screener(
         hotkey=registration_request.name,
         time_connected=datetime.now(timezone.utc),
         ip_address=ip_address
-    )
+    )    
 
     await insert_validator_session(session_id, registration_request.name, registration_request.name, ip_address)
     
