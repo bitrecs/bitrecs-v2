@@ -53,11 +53,15 @@ async def test_calculator_env():
 
 @pytest.mark.asyncio
 async def test_bitrecs_eval_yaml():
+    from dotenv import load_dotenv
+    load_dotenv()
     
     provider_keys = {
         "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
         "CHUTES_API_KEY": os.environ.get("CHUTES_API_KEY"),
     }
+    assert all(provider_keys.values()), "Provider API keys must be set in environment variables"
+
     env = af_env.load_env(
         image="ghcr.io/bitrecs/bitrecs-evals:main",
         env_vars=provider_keys,

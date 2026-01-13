@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import httpx
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from pathlib import Path
@@ -39,6 +40,7 @@ def upload_prompt():
         "x-timestamp": "your_timestamp_here",
         "x-nonce": "your_nonce_here"
     }   
+    artifact.name = f"Yuma Recomender - Test {time.time()}"
     with httpx.Client(base_url=SERVICE_URL, headers=headers) as client:
         response = client.post(
             "/artifact",

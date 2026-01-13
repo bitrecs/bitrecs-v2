@@ -60,14 +60,14 @@ def test_submit_artifact_invalid_vars():
         "miner_uid": 123,
         "provider": "test_provider",
         "model": "test_model",
-        "system_prompt_template": "System prompt",
-        "user_prompt_template": "User prompt",
+        "system_prompt_template": "System prompt Unit Test",
+        "user_prompt_template": "User prompt Unit Test",
         "sampling_params": {"temperature": 0.7},
         "fewshot_examples": [{"role": "user", "content": "Hello"}],
         "eval_scores": {"accuracy": 0.95},
         "version_num": 1,
         "status": "screening_1",
-        "name": "Test Artifact",
+        "name": "Test Artifact Unit Test",
         "ip_address": "127.0.0.1"  
     }
     validated, reason = validate_artifact_template(Agent(**sample_artifact))
@@ -82,14 +82,14 @@ def test_submit_artifact_valid_vars():
         "miner_uid": 123,
         "provider": "test_provider",
         "model": "test_model",
-        "system_prompt_template": "System prompt",
-        "user_prompt_template": "User prompt {{sku}}",
+        "system_prompt_template": "System prompt Unit Test",
+        "user_prompt_template": "User prompt {{sku}} Unit Test",
         "sampling_params": {"temperature": 0.7},
         "fewshot_examples": [{"role": "user", "content": "Hello"}],
         "eval_scores": {"accuracy": 0.95},
         "version_num": 1,
         "status": "screening_1",
-        "name": "Test Artifact",
+        "name": "Test Artifact Unit Test",
         "ip_address": "127.0.0.1"  
     }
 

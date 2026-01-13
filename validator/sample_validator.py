@@ -23,17 +23,12 @@ from api.endpoints.validator_models import (
     ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, 
     ValidatorRequestEvaluationResponse, ValidatorUpdateEvaluationRunRequest
 )
-from models.agent import Agent
-from rules.agent_validator import validate_artifact_template
-from validator.http_utils import get_ridges_platform, post_ridges_platform
+from validator.http_utils import post_ridges_platform
 from evaluator.problem_suites.polygot.polyglot_suite import POLYGLOT_JS_SUITE, POLYGLOT_PY_SUITE
-from models.evaluation_set import EvaluationSetProblem
 from queries.problem_statistics import SWEBENCH_VERIFIED_SUITE
 from utils.git import COMMIT_HASH
 from utils.system_metrics import get_system_metrics
-
 from evaluator.models import EvaluationRunException
-
 
 session_id: str | None = None
 
@@ -41,7 +36,7 @@ RETRY_SLEEP_ON_ERROR = 60
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 
-# A loop that sends periodic heartbeats to the Ridges platform
+
 async def send_heartbeat_loop():
     try:
         logger.info("Starting send heartbeat loop...")
@@ -56,36 +51,22 @@ async def send_heartbeat_loop():
         os._exit(1)
 
 
-async def fetch_agents(client: httpx.AsyncClient, limit: int) -> list[dict] | None:
-    """Fetch a list of agents from the API."""
-    try:
-        response = await client.get(f"/artifacts?limit={limit}")
-        response.raise_for_status()
-        data = response.json()
-        return data.get("artifacts", [])
-    except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error fetching agents: {e.response.status_code} - {e.response.text}")
-    except Exception as e:
-        logger.error(f"Error fetching agents: {e}")
-    return None
+# async def validate_agent(agent_data: dict) -> None:
+#     """Validate a single agent's template."""
+#     try:
+#         agent = Agent(**agent_data)
+#         validated, reason = validate_artifact_template(agent)
+#         if validated:
+#             logger.info(f"Agent {agent.agent_id} validated: {reason}")
+#             # TODO: Add actual evaluation/scoring logic here
+#         else:
+#             logger.warning(f"Agent {agent.agent_id} validation failed: {reason}")
+#     except Exception as e:
+#         agent_id = agent_data.get('agent_id', 'unknown')
+#         logger.error(f"Error validating agent {agent_id}: {e}")
 
 
-async def validate_agent(agent_data: dict) -> None:
-    """Validate a single agent's template."""
-    try:
-        agent = Agent(**agent_data)
-        validated, reason = validate_artifact_template(agent)
-        if validated:
-            logger.info(f"Agent {agent.agent_id} validated: {reason}")
-            # TODO: Add actual evaluation/scoring logic here
-        else:
-            logger.warning(f"Agent {agent.agent_id} validation failed: {reason}")
-    except Exception as e:
-        agent_id = agent_data.get('agent_id', 'unknown')
-        logger.error(f"Error validating agent {agent_id}: {e}")
-
-
-async def get_heartbeat_from_docker(url: str) -> dict | None:
+async def get_health_from_docker(url: str) -> dict | None:
     """Fetch heartbeat data from a Docker container."""
     try:
         timeout = (5, 10)    
@@ -99,7 +80,6 @@ async def get_heartbeat_from_docker(url: str) -> dict | None:
     except Exception as e:
         logger.error(f"Error fetching heartbeat from Docker: {e}")
     return None
-
 
 
 async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
@@ -145,8 +125,6 @@ async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: st
     logger.info(f"Finished simulated evaluation run {evaluation_run_id} for problem {problem_name}")
 
 
-
-
 # Run an evaluation run
 async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_code: str):
     try:
@@ -160,6 +138,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
         #         "error_message": f"The problem '{problem_name}' was not found in any problem suite"
         #     })
         #     return
+        test = 1 + 1
 
         try:
              # Get the problem
@@ -180,11 +159,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 raise Exception("Missing required API keys for Affine ENV evaluation run")
 
             af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
-            af_mode = "docker"
-            logger.info(f"Using Affine mode: {af_mode}")
+            af_mode = "docker"            
+            af_hostname = "localhost"
             af_container_port = 8081
-            logger.info(f"Using container port: {af_container_port}")
-
             provider_keys = {
                 "OPENROUTER_API_KEY": openrouter_api_key,
                 "CHUTES_API_KEY": chutes_api_key,
@@ -203,10 +180,11 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 raise Exception("Failed to load Docker environment")
             logger.info("Loaded Docker environment successfully")
 
-            test = await get_heartbeat_from_docker(f"http://localhost:{af_container_port}/health")
-            if test is None:
+            af_health = await get_health_from_docker(f"http://{af_hostname}:{af_container_port}/health")
+            if af_health is None:
                 raise Exception("Failed to get heartbeat from Docker environment")
-            logger.info(f"Received heartbeat from Docker environment: {test}")
+            if af_health["status"] != "healthy":
+                raise Exception(f"Docker environment is not healthy: {af_health}")        
 
             yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_input.yaml")
             with open(yaml_file_path, "r") as f:
@@ -216,9 +194,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
 
             yaml_content = yaml.dump(miner_input_data)
             logger.info(f"Loaded YAML content from : {yaml_file_path}")            
-            logger.info("Triggering evaluation in Affine environment...")      
-
-          
+            logger.info("Triggering evaluation in Affine environment...")
 
             # Move from running_agent -> initializing_eval
             await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
@@ -233,7 +209,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             timeout = (30, 600)    
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(
-                    "http://localhost:8081/evaluate",
+                    f"http://{af_hostname}:{af_container_port}/evaluate",
                     json={"yaml_content": yaml_content},
                     headers={"Content-Type": "application/json"}
                 )
@@ -263,18 +239,13 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             # Cleanup
             await env.cleanup()    
 
-            status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL
-          
+            status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL          
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
                 "test_results": [{"name": tak_name, "category": "default", "status": f"{status.value}"}],
                 "eval_logs": extra
             })
-          
-          
-
         except EvaluationRunException as e:
             logger.error(f"Evaluation run {evaluation_run_id} for problem {problem_name} errored: {e}")
-
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.error, {
                 "error_code": e.error_code.value,
                 "error_message": e.error_message
@@ -283,7 +254,6 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
         except Exception as e:
             logger.error(f"Evaluation run {evaluation_run_id} for problem {problem_name} errored: {EvaluationRunErrorCode.VALIDATOR_INTERNAL_ERROR.get_error_message()}: {e}")
             logger.error(traceback.format_exc())
-
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.error, {
                 "error_code": EvaluationRunErrorCode.VALIDATOR_INTERNAL_ERROR.value,
                 "error_message": f"{EvaluationRunErrorCode.VALIDATOR_INTERNAL_ERROR.get_error_message()}: {e}\n\nTraceback:\n{traceback.format_exc()}"
@@ -312,6 +282,7 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     for evaluation_run in request_evaluation_response.evaluation_runs:
         evaluation_run_id = evaluation_run.evaluation_run_id
         problem_name = evaluation_run.problem_name
+
         SIMULATE_EVALUATION_RUNS = False
         if SIMULATE_EVALUATION_RUNS:
             tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))
@@ -321,7 +292,10 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
 
     await asyncio.gather(*tasks)
 
-    logger.info("Finished evaluation")
+    if SIMULATE_EVALUATION_RUNS:
+        logger.info("Finished SIMULATED evaluation")
+    else:
+        logger.info("Finished evaluation")
 
     try:
         await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
@@ -332,11 +306,10 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
         
 
 
-# Disconnect from the Ridges platform (called when the program exits)
+# Disconnect from the Bitrecs platform (called when the program exits)
 async def disconnect(reason: str):
     if session_id is None:
-        return
-    
+        return    
     try:
         logger.info("Disconnecting validator...")
         await post_ridges_platform("/validator/disconnect", ValidatorDisconnectRequest(reason=reason), bearer_token=session_id)
@@ -355,10 +328,8 @@ async def main():
     global max_evaluation_run_log_size_bytes
     #global sandbox_manager
     global problem_suites
-
-    # Register with the Ridges platform, yielding us a session ID
+    
     logger.info("Registering validator...")
-
     try:
         if config.MODE == "validator":
             # Get the current timestamp, and sign it with the validator hotkey
@@ -404,11 +375,10 @@ async def main():
     # Load all problem suites
     problem_suites = [POLYGLOT_PY_SUITE, POLYGLOT_JS_SUITE, SWEBENCH_VERIFIED_SUITE]
 
-
     # Get all the problems in the latest set
-    latest_set_problems_data = await get_ridges_platform("/evaluation-sets/all-latest-set-problems", quiet=1)
-    latest_set_problems = [EvaluationSetProblem(**prob) for prob in latest_set_problems_data]
-    latest_set_problem_names = list({prob.problem_name for prob in latest_set_problems})
+    #latest_set_problems_data = await get_ridges_platform("/evaluation-sets/all-latest-set-problems", quiet=1)
+    #latest_set_problems = [EvaluationSetProblem(**prob) for prob in latest_set_problems_data]
+    #latest_set_problem_names = list({prob.problem_name for prob in latest_set_problems})
     
     # Prebuild the images for the SWE-Bench Verified problems
     #SWEBENCH_VERIFIED_SUITE.prebuild_problem_images(latest_set_problem_names)
@@ -424,10 +394,8 @@ async def main():
 
     # Loop forever, just keep requesting evaluations and running them
     while True:
-        logger.info("Requesting an evaluation...")
-        
+        logger.info("Requesting an evaluation...")        
         request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
-
         # If no evaluation is available, wait and try again
         if request_evaluation_response_data is None:
             logger.info(f"No evaluations available. Waiting for {config.REQUEST_EVALUATION_INTERVAL_SECONDS} seconds...")

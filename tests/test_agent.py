@@ -26,11 +26,11 @@ async def test_insert_and_select_agent(db_setup):
     agent = Agent(
         agent_id=uuid.uuid4(),
         created_at=datetime.now(timezone.utc),
-        miner_hotkey="sample_hotkey",
-        name="Sample Agent",
+        miner_hotkey="test_unit_sample_hotkey",
+        name="Sample Agent Unit Test",
         version_num=1,
         status=AgentStatus.screening_1,
-        ip_address="127.0.0.1",  # Add ip_address to avoid NOT NULL violation
+        ip_address="127.0.0.1", 
         miner_uid=123, 
         provider="sample_provider",
         model="sample_model",
