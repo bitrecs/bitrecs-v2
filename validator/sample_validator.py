@@ -206,8 +206,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             # with open(yaml_file_path, "r") as f:
             #     miner_input_data = yaml.safe_load(f)
 
-            #yaml_content = yaml.dump(miner_agent)
-            yaml_content = miner_agent.to_yaml()
+            #yaml_content = yaml.dump(miner_agent)            
+            yaml_content = Agent.to_yaml(miner_agent)
+            
             logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")            
             logger.info("Triggering evaluation in Affine environment...")
 
