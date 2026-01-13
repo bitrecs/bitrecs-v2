@@ -1,9 +1,8 @@
 import os
 import sys
 import time
-
-import yaml
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import yaml
 import httpx
 import random
 import asyncio
@@ -11,9 +10,11 @@ import traceback
 import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
+import validator.config as config
+import affinetes as af_env
 from uuid import UUID
 from typing import Any, Dict
-from models.evaluation_run import EvaluationRunStatus
+from models.evaluation_run import EvaluationRunErrorCode, EvaluationRunStatus
 from models.problem import ProblemTestResultStatus
 from api.endpoints.validator_models import (
     ScreenerRegistrationRequest, ScreenerRegistrationResponse, 
@@ -30,9 +31,8 @@ from models.evaluation_set import EvaluationSetProblem
 from queries.problem_statistics import SWEBENCH_VERIFIED_SUITE
 from utils.git import COMMIT_HASH
 from utils.system_metrics import get_system_metrics
-import validator.config as config
-import affinetes as af_env
 
+from evaluator.models import EvaluationRunException
 
 
 session_id: str | None = None
@@ -85,6 +85,23 @@ async def validate_agent(agent_data: dict) -> None:
         logger.error(f"Error validating agent {agent_id}: {e}")
 
 
+async def get_heartbeat_from_docker(url: str) -> dict | None:
+    """Fetch heartbeat data from a Docker container."""
+    try:
+        timeout = (5, 10)    
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(url, headers={"Content-Type": "application/json"})
+            response.raise_for_status()
+            data = response.json()    
+            return data
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error fetching heartbeat from Docker: {e.response.status_code} - {e.response.text}")
+    except Exception as e:
+        logger.error(f"Error fetching heartbeat from Docker: {e}")
+    return None
+
+
+
 async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
     logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")    
     await post_ridges_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(
@@ -129,125 +146,157 @@ async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: st
 
 
 
-async def _simulate_run_evaluation_run_affine(evaluation_run_id: UUID, problem_name: str):
-    logger.info(f"\033[33mStarting Affine ENV run {evaluation_run_id} for problem {problem_name}... \033[0m")
-
-    try:
-
-
-
-        await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
-        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_agent)
-
-        await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
-        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_agent)
-
-        af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
-        af_mode = "docker"
-        logger.info(f"Using Affine mode: {af_mode}")
-        af_container_port = 8081
-        logger.info(f"Using container port: {af_container_port}")
-
-        provider_keys = {
-            "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
-            "CHUTES_API_KEY": os.environ.get("CHUTES_API_KEY"),
-        }
-        key_length = len(provider_keys)
-        logger.info(f"Using {key_length} provider keys for the environment")
-
-        env = af_env.load_env(
-            image=af_image,
-            env_vars=provider_keys,
-            mode=af_mode,
-            host_network=True,
-            cleanup=False,
-            force_recreate=True,
-            host_port=af_container_port,
-            pull=True
-        )
-        if env is None:
-            logger.error("Failed to load Docker environment")
-            return
-        
-        #assert env is not None
-        logger.info("Loaded Docker environment successfully")
-
-        yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_input.yaml")
-        with open(yaml_file_path, "r") as f:
-            miner_input_data = yaml.safe_load(f)
-        logger.info("Loaded miner input YAML file successfully")
-
-        logger.info(f"Testing model: {miner_input_data.get('model', 'N/A')} with provider: {miner_input_data.get('provider', 'N/A')}")
-
-        yaml_content = yaml.dump(miner_input_data)
-        logger.info(f"Loaded YAML content from : {yaml_file_path}")
-        
-        logger.info("Triggering evaluation in Affine environment...")
-        
-        await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
-        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_eval, {
-            "patch": "ENV START",
-            "agent_logs": "FAKE AGENT LOGS"
-        })
-        
-        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_eval)
-        timeout = (30, 600)    
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(
-                "http://localhost:8081/evaluate",
-                json={"yaml_content": yaml_content},
-                headers={"Content-Type": "application/json"}
-            )
-            #logger.info(f"Received response: {response.text}")
-            response.raise_for_status()
-            result = response.json()    
-        
-        tak_name = result.get("task_name", "N/A")
-        run_id = result.get("run_id", "N/A")
-        score = result.get("score", "N/A")
-        success = result.get("success", "N/A")
-        time_taken = result.get("time_taken", "N/A")
-        extra = ""
-        print("Evaluation Result:")
-        print(f"  Task Name: {result.get('task_name', 'N/A')}")
-        print(f"  Run ID: {result.get('run_id', 'N/A')}")
-        print(f"  Score: {result.get('score', 'N/A')}")
-        print(f"  Success: {result.get('success', 'N/A')}")
-        print(f"  Time Taken: {result.get('time_taken', 'N/A')}")
-        print("  Extra:")
-        if 'extra' in result and 'result' in result['extra']:
-            print(result['extra']['result'])
-            extra = result['extra']['result']
-        else:
-            print("    No extra details available")   
-        
-        # Cleanup
-        await env.cleanup()    
-
-        status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL
-        # Move from running_eval -> finished
-        await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
-        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
-            "test_results": [{"name": tak_name, "category": "default", "status": f"{status.value}"}],
-            "eval_logs": extra
-        })
-
-        logger.info(f"Finished simulated AFFINE evaluation run {evaluation_run_id} for problem {problem_name}")
-    except Exception as e:
-        logger.error(f"Error during Affine ENV evaluation run: {type(e).__name__}: {e}")
-        logger.error(traceback.format_exc())
-        await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.error, {
-            "eval_logs": f"Error during evaluation run: {type(e).__name__}: {e}"
-        })
-
 
 # Run an evaluation run
 async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_code: str):
-    logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
+    try:
+        # Figure out what problem suite this problem belongs to
+        #problem_suite = next((suite for suite in problem_suites if suite.has_problem_name(problem_name)), None)
 
-    ## TODO - implement actual evaluation run logic here
+        # If we don't have a problem suite that supports this problem, mark the evaluation run as errored
+        # if problem_suite is None:
+        #     await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.error, {
+        #         "error_code": EvaluationRunErrorCode.VALIDATOR_UNKNOWN_PROBLEM.value,
+        #         "error_message": f"The problem '{problem_name}' was not found in any problem suite"
+        #     })
+        #     return
 
-    return
+        try:
+             # Get the problem
+            #problem = problem_suite.get_problem(problem_name)
+            #logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
+
+            # Move from pending -> initializing_agent
+            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_agent)
+            
+            # Move from initializing_agent -> running_agent
+            await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
+            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_agent)           
+
+            # Start initializing the agent sandbox
+            openrouter_api_key = os.environ.get("OPENROUTER_API_KEY")
+            chutes_api_key = os.environ.get("CHUTES_API_KEY")
+            if not openrouter_api_key or not chutes_api_key:
+                raise Exception("Missing required API keys for Affine ENV evaluation run")
+
+            af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
+            af_mode = "docker"
+            logger.info(f"Using Affine mode: {af_mode}")
+            af_container_port = 8081
+            logger.info(f"Using container port: {af_container_port}")
+
+            provider_keys = {
+                "OPENROUTER_API_KEY": openrouter_api_key,
+                "CHUTES_API_KEY": chutes_api_key,
+            }          
+            env = af_env.load_env(
+                image=af_image,
+                env_vars=provider_keys,
+                mode=af_mode,
+                host_network=True,
+                cleanup=False,
+                force_recreate=True,
+                host_port=af_container_port,
+                pull=True
+            )
+            if env is None:
+                raise Exception("Failed to load Docker environment")
+            logger.info("Loaded Docker environment successfully")
+
+            test = await get_heartbeat_from_docker(f"http://localhost:{af_container_port}/health")
+            if test is None:
+                raise Exception("Failed to get heartbeat from Docker environment")
+            logger.info(f"Received heartbeat from Docker environment: {test}")
+
+            yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_input.yaml")
+            with open(yaml_file_path, "r") as f:
+                miner_input_data = yaml.safe_load(f)
+            logger.info("Loaded miner input YAML file successfully")
+            logger.info(f"Testing model: {miner_input_data.get('model', 'N/A')} with provider: {miner_input_data.get('provider', 'N/A')}")
+
+            yaml_content = yaml.dump(miner_input_data)
+            logger.info(f"Loaded YAML content from : {yaml_file_path}")            
+            logger.info("Triggering evaluation in Affine environment...")      
+
+          
+
+            # Move from running_agent -> initializing_eval
+            await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
+            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_eval, {
+                "patch": "FAKE PATCH",
+                "agent_logs": "FAKE AGENT LOGS"
+            })
+
+            await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
+            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_eval)
+            
+            timeout = (30, 600)    
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(
+                    "http://localhost:8081/evaluate",
+                    json={"yaml_content": yaml_content},
+                    headers={"Content-Type": "application/json"}
+                )
+                logger.info(f"Received response: {response.text}")
+                response.raise_for_status()
+                result = response.json()    
+            
+            tak_name = result.get("task_name", "N/A")
+            run_id = result.get("run_id", "N/A")
+            score = result.get("score", "N/A")
+            success = result.get("success", "N/A")
+            time_taken = result.get("time_taken", "N/A")
+            extra = ""
+            print("Evaluation Result:")
+            print(f"  Task Name: {result.get('task_name', 'N/A')}")
+            print(f"  Run ID: {result.get('run_id', 'N/A')}")
+            print(f"  Score: {result.get('score', 'N/A')}")
+            print(f"  Success: {result.get('success', 'N/A')}")
+            print(f"  Time Taken: {result.get('time_taken', 'N/A')}")
+            print("  Extra:")
+            if 'extra' in result and 'result' in result['extra']:
+                print(result['extra']['result'])
+                extra = result['extra']['result']
+            else:
+                print("    No extra details available")   
+            
+            # Cleanup
+            await env.cleanup()    
+
+            status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL
+          
+            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
+                "test_results": [{"name": tak_name, "category": "default", "status": f"{status.value}"}],
+                "eval_logs": extra
+            })
+          
+          
+
+        except EvaluationRunException as e:
+            logger.error(f"Evaluation run {evaluation_run_id} for problem {problem_name} errored: {e}")
+
+            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.error, {
+                "error_code": e.error_code.value,
+                "error_message": e.error_message
+            })
+
+        except Exception as e:
+            logger.error(f"Evaluation run {evaluation_run_id} for problem {problem_name} errored: {EvaluationRunErrorCode.VALIDATOR_INTERNAL_ERROR.get_error_message()}: {e}")
+            logger.error(traceback.format_exc())
+
+            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.error, {
+                "error_code": EvaluationRunErrorCode.VALIDATOR_INTERNAL_ERROR.value,
+                "error_message": f"{EvaluationRunErrorCode.VALIDATOR_INTERNAL_ERROR.get_error_message()}: {e}\n\nTraceback:\n{traceback.format_exc()}"
+            })
+
+        logger.info(f"Finished evaluation run {evaluation_run_id} for problem {problem_name}")
+
+    except Exception as e:
+        logger.error(f"Error in _run_evaluation_run(): {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        os._exit(1)
+    
+
 
 # Run an evaluation, automatically dispatches all runs to either _simulate_run_evaluation_run or _run_evaluation_run
 async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluationResponse):
@@ -263,10 +312,10 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     for evaluation_run in request_evaluation_response.evaluation_runs:
         evaluation_run_id = evaluation_run.evaluation_run_id
         problem_name = evaluation_run.problem_name
-        SIMULATE_EVALUATION_RUNS = True
+        SIMULATE_EVALUATION_RUNS = False
         if SIMULATE_EVALUATION_RUNS:
-            #tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))
-            tasks.append(asyncio.create_task(_simulate_run_evaluation_run_affine(evaluation_run_id, problem_name)))            
+            tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))
+            #tasks.append(asyncio.create_task(_simulate_run_evaluation_run_affine(evaluation_run_id, problem_name)))            
         else:
             tasks.append(asyncio.create_task(_run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)))
 
