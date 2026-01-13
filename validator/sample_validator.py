@@ -1,4 +1,5 @@
 import os
+import secrets
 import sys
 import time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -166,7 +167,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             af_mode = "docker"            
             af_hostname = "localhost"
             af_container_port = 8081
+            af_run_token = secrets.token_hex(16)
             af_env_vars = {
+                "BITRECS_RUN_TOKEN": af_run_token,
                 "BITRECS_RUN_ID": str(evaluation_run_id),
                 "OPENROUTER_API_KEY": openrouter_api_key,
                 "CHUTES_API_KEY": chutes_api_key
@@ -190,14 +193,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 raise Exception("Failed to get heartbeat from Docker environment")
             if af_health["status"] != "healthy":
                 raise Exception(f"Docker environment is not healthy: {af_health}")
-
-            # yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_input.yaml")
-            # with open(yaml_file_path, "r") as f:
-            #     miner_input_data = yaml.safe_load(f)
-
-            #yaml_content = yaml.dump(miner_agent)            
+        
             yaml_content = Agent.to_yaml(miner_agent)
-            logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")            
+            logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")
             logger.info("Triggering evaluation in Affine environment...")
 
             # Move from running_agent -> initializing_eval
@@ -214,31 +212,32 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             async with httpx.AsyncClient(timeout=EVAL_TIMEOUT) as client:
                 response = await client.post(
                     f"http://{af_hostname}:{af_container_port}/evaluate",
-                    json={"yaml_content": yaml_content},
+                    json={"yaml_content": yaml_content, "run_token": af_run_token},
                     headers={"Content-Type": "application/json"}
                 )
                 logger.info(f"Received response: {response.text}")
                 response.raise_for_status()
-                result = response.json()    
-            
+                result = response.json()
+
+            #logger.debug(f"RAW Evaluation result: {result}")
             tak_name = result.get("task_name", "N/A")
             run_id = result.get("run_id", "N/A")
             score = result.get("score", "N/A")
             success = result.get("success", "N/A")
             time_taken = result.get("time_taken", "N/A")
             extra = ""
-            print("Evaluation Result:")
-            print(f"  Task Name: {tak_name}")
-            print(f"  Run ID: {run_id}")
-            print(f"  Score: {score}")
-            print(f"  Success: {success}")
-            print(f"  Time Taken: {time_taken} seconds")           
-            print("  Extra:")
+            logger.info("Evaluation Result:")
+            logger.info(f"  Task Name: {tak_name}")
+            logger.info(f"  Run ID: {run_id}")
+            logger.info(f"  Score: {score}")
+            logger.info(f"  Success: {success}")
+            logger.info(f"  Time Taken: {time_taken} seconds")           
+            logger.info("  Extra:")
             if 'extra' in result and 'result' in result['extra']:
-                print(result['extra']['result'])
+                logger.info(result['extra']['result'])
                 extra = result['extra']['result']
             else:
-                print("    No extra details available")   
+                logger.info("    No extra details available")   
             
             # Cleanup
             await env.cleanup()    
@@ -413,9 +412,7 @@ async def main():
             
             await asyncio.sleep(RETRY_SLEEP_ON_ERROR)
 
-    
-
-
+ 
 
 if __name__ == "__main__":
     try:
