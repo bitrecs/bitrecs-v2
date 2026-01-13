@@ -142,28 +142,30 @@ async def get_num_successful_validator_evaluations_for_agent_id(conn: DatabaseCo
     )
 
 
-# @db_operation
-# async def set_all_unfinished_evaluation_runs_to_errored(conn: DatabaseConnection, error_message: str) -> None:
-#     await conn.execute(
-#         f"""
-#         UPDATE evaluation_runs
-#         SET
-#             status = '{EvaluationRunStatus.error.value}',
-#             error_code = CASE
-#                 WHEN status = '{EvaluationRunStatus.pending.value}' THEN {EvaluationRunErrorCode.VALIDATOR_FAILED_PENDING.value}
-#                 WHEN status = '{EvaluationRunStatus.initializing_agent.value}' THEN {EvaluationRunErrorCode.VALIDATOR_FAILED_INIT_AGENT.value}
-#                 WHEN status = '{EvaluationRunStatus.running_agent.value}' THEN {EvaluationRunErrorCode.VALIDATOR_FAILED_RUNNING_AGENT.value}
-#                 WHEN status = '{EvaluationRunStatus.initializing_eval.value}' THEN {EvaluationRunErrorCode.VALIDATOR_FAILED_INIT_EVAL.value}
-#                 WHEN status = '{EvaluationRunStatus.running_eval.value}' THEN {EvaluationRunErrorCode.VALIDATOR_FAILED_RUNNING_EVAL.value}
-#                 ELSE {EvaluationRunErrorCode.VALIDATOR_INTERNAL_ERROR.value}
-#             END,
-#             error_message = $1,
-#             finished_or_errored_at = NOW()
-#         WHERE
-#             status NOT IN ('{EvaluationRunStatus.finished.value}', '{EvaluationRunStatus.error.value}')
-#         """,
-#         error_message
-#     )
+@db_operation
+async def set_all_unfinished_evaluation_runs_to_errored(conn: DatabaseConnection, error_message: str) -> None:
+    await conn.execute(
+        f"""
+        UPDATE evaluation_runs
+        SET
+            status = '{EvaluationRunStatus.error.value}',
+            error_code = CASE
+                WHEN status = '{EvaluationRunStatus.pending.value}' THEN {EvaluationRunErrorCode.VALIDATOR_FAILED_PENDING.value}
+                WHEN status = '{EvaluationRunStatus.initializing_agent.value}' THEN {EvaluationRunErrorCode.VALIDATOR_FAILED_INIT_AGENT.value}
+                WHEN status = '{EvaluationRunStatus.running_agent.value}' THEN {EvaluationRunErrorCode.VALIDATOR_FAILED_RUNNING_AGENT.value}
+                WHEN status = '{EvaluationRunStatus.initializing_eval.value}' THEN {EvaluationRunErrorCode.VALIDATOR_FAILED_INIT_EVAL.value}
+                WHEN status = '{EvaluationRunStatus.running_eval.value}' THEN {EvaluationRunErrorCode.VALIDATOR_FAILED_RUNNING_EVAL.value}
+                ELSE {EvaluationRunErrorCode.VALIDATOR_INTERNAL_ERROR.value}
+            END,
+            error_message = $1,
+            finished_or_errored_at = NOW()
+        WHERE
+            status NOT IN ('{EvaluationRunStatus.finished.value}', '{EvaluationRunStatus.error.value}')
+        """,
+        error_message
+    )
+
+    
 
 @db_operation
 async def update_unfinished_evaluation_runs_in_evaluation_id_to_errored(conn: DatabaseConnection, evaluation_id: UUID, error_message: str) -> None:

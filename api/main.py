@@ -1,5 +1,7 @@
 import os
 import sys
+
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
@@ -31,6 +33,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id
+from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
 from utils.network import get_client_ip
 from api.endpoints.validator import router as validator_router
@@ -183,6 +186,8 @@ async def lifespan(app: FastAPI):
 
     try:
         logger.info(f"V2 API STARTED version: {this_version}")
+        await set_all_unfinished_evaluation_runs_to_errored(error_message="Platform crashed while running this evaluation")
+
         yield
     finally:
         logger.info("Starting shutdown...")

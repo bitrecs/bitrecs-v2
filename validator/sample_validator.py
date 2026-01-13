@@ -159,6 +159,10 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 raise Exception(f"Agent not found for evaluation run {evaluation_run_id}")            
 
             logger.info("Loaded miner input YAML file successfully")
+            logger.info(f"Miner Agent ID: {miner_agent.agent_id}")
+            logger.info(f"Miner Agent Name: {miner_agent.name}")
+            logger.info(f"Miner Agent Status: {miner_agent.status}")
+
             logger.info(f"Testing model: {miner_agent.model} with provider: {miner_agent.provider}")
 
             # Move from pending -> initializing_agent
@@ -208,7 +212,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
 
             #yaml_content = yaml.dump(miner_agent)            
             yaml_content = Agent.to_yaml(miner_agent)
-            
+
             logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")            
             logger.info("Triggering evaluation in Affine environment...")
 
