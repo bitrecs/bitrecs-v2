@@ -24,7 +24,7 @@ def upload_prompt():
     with open(MINER_YAML_PATH, 'r') as f:
         yaml_content = f.read()
 
-    artifact = Agent.load_from_yaml(yaml_content)
+    artifact = Agent.from_yaml(yaml_content)
     validated, reason = validate_artifact_template(artifact)
     if not validated:
         print(f"Artifact validation failed: {reason}")
@@ -40,7 +40,7 @@ def upload_prompt():
         "x-timestamp": "your_timestamp_here",
         "x-nonce": "your_nonce_here"
     }   
-    artifact.name = f"Yuma Recomender - Test {time.time()}"
+    artifact.name = f"Yuma Recomender - Test {int(time.time())}"
     with httpx.Client(base_url=SERVICE_URL, headers=headers) as client:
         response = client.post(
             "/artifact",

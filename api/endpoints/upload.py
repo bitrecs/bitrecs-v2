@@ -21,6 +21,7 @@ from api.utils.upload_agent_helpers import get_miner_hotkey, check_if_python_fil
 from models.agent import AgentStatus, Agent
 from utils.coingecko import get_tao_price
 from api import config 
+from utils.network import get_client_ip
 
 # TODO STEPHEN: we should have a global singleton
 subtensor = Subtensor(network=config.SUBTENSOR_NETWORK)
@@ -259,7 +260,7 @@ async def post_agent(
                 version_num=latest_agent.version_num + 1 if latest_agent else 0,
                 created_at=datetime.now(timezone.utc),
                 status=AgentStatus.screening_1,
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request),
             )
             await create_agent(agent, agent_text)
 

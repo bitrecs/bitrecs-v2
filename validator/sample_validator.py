@@ -16,6 +16,7 @@ from uuid import UUID
 from typing import Any, Dict
 from models.evaluation_run import EvaluationRunErrorCode, EvaluationRunStatus
 from models.problem import ProblemTestResultStatus
+from models.agent import Agent
 from api.endpoints.validator_models import (
     ScreenerRegistrationRequest, ScreenerRegistrationResponse, 
     ValidatorDisconnectRequest, ValidatorFinishEvaluationRequest, 
@@ -23,7 +24,7 @@ from api.endpoints.validator_models import (
     ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, 
     ValidatorRequestEvaluationResponse, ValidatorUpdateEvaluationRunRequest
 )
-from validator.http_utils import post_ridges_platform
+from validator.http_utils import get_ridges_platform, post_ridges_platform
 from evaluator.problem_suites.polygot.polyglot_suite import POLYGLOT_JS_SUITE, POLYGLOT_PY_SUITE
 from queries.problem_statistics import SWEBENCH_VERIFIED_SUITE
 from utils.git import COMMIT_HASH
@@ -80,6 +81,14 @@ async def get_health_from_docker(url: str) -> dict | None:
     except Exception as e:
         logger.error(f"Error fetching heartbeat from Docker: {e}")
     return None
+
+
+async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
+    """Load an agent by its evaluation run ID.    
+    """
+    thing = await get_ridges_platform(f"/agent/get-by-evaluation-run-id?evaluation_run_id={evaluation_run_id}", quiet=2)
+    agent = Agent(**thing)
+    return agent
 
 
 async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
@@ -145,6 +154,13 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             #problem = problem_suite.get_problem(problem_name)
             #logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
 
+            miner_agent = await load_agent_by_evaluation_run(evaluation_run_id)
+            if miner_agent is None:
+                raise Exception(f"Agent not found for evaluation run {evaluation_run_id}")            
+
+            logger.info("Loaded miner input YAML file successfully")
+            logger.info(f"Testing model: {miner_agent.model} with provider: {miner_agent.provider}")
+
             # Move from pending -> initializing_agent
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_agent)
             
@@ -186,14 +202,13 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             if af_health["status"] != "healthy":
                 raise Exception(f"Docker environment is not healthy: {af_health}")        
 
-            yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_input.yaml")
-            with open(yaml_file_path, "r") as f:
-                miner_input_data = yaml.safe_load(f)
-            logger.info("Loaded miner input YAML file successfully")
-            logger.info(f"Testing model: {miner_input_data.get('model', 'N/A')} with provider: {miner_input_data.get('provider', 'N/A')}")
+            # yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_input.yaml")
+            # with open(yaml_file_path, "r") as f:
+            #     miner_input_data = yaml.safe_load(f)
 
-            yaml_content = yaml.dump(miner_input_data)
-            logger.info(f"Loaded YAML content from : {yaml_file_path}")            
+            #yaml_content = yaml.dump(miner_agent)
+            yaml_content = miner_agent.to_yaml()
+            logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")            
             logger.info("Triggering evaluation in Affine environment...")
 
             # Move from running_agent -> initializing_eval

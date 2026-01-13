@@ -1,3 +1,4 @@
+import yaml
 from enum import Enum
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
@@ -43,10 +44,13 @@ class Agent(BaseModel):
     eval_scores: Dict[str, float] = Field(description="Evaluation scores claimed by the miner", default_factory=dict)
 
     @staticmethod
-    def load_from_yaml(yaml_content: str) -> "Agent":
-        import yaml
+    def from_yaml(yaml_content: str) -> "Agent":        
         data = yaml.safe_load(yaml_content)
         return Agent(**data)
+    
+    @staticmethod
+    def to_yaml(agent: "Agent") -> str:        
+        return yaml.safe_dump(agent.model_dump(mode='json'))
 
 
 class PossiblyBenchmarkAgent(Agent):

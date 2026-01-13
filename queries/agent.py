@@ -86,26 +86,23 @@ async def get_possibly_benchmark_agent_by_id(conn: DatabaseConnection, agent_id:
     return PossiblyBenchmarkAgent(**result)
 
 
-
 @db_operation
 async def get_agent_by_evaluation_run_id(conn: DatabaseConnection, evaluation_run_id: UUID) -> Optional[Agent]:
-    result = await conn.fetchrow(
-        """
-        SELECT * FROM agents
-        WHERE agent_id = (
-            SELECT agent_id FROM evaluations WHERE evaluation_id = (
-                SELECT evaluation_id FROM evaluation_runs WHERE evaluation_run_id = $1 LIMIT 1
-            ) LIMIT 1
-        )
-        """,
-        evaluation_run_id
+    result = await conn.fetchrow("""
+    SELECT * FROM agents WHERE agent_id = (
+        SELECT agent_id FROM evaluation_runs WHERE evaluation_run_id = $1
     )
-    
+    """, evaluation_run_id)
     if result is None:
         return None
-
+    
+    # Parse JSON fields from strings to Python objects
+    result = dict(result)
+    result['sampling_params'] = json.loads(result['sampling_params']) if result['sampling_params'] else {}
+    result['fewshot_examples'] = json.loads(result['fewshot_examples']) if result['fewshot_examples'] else []
+    result['eval_scores'] = json.loads(result['eval_scores']) if result['eval_scores'] else {}
+    
     return Agent(**result)
-
 
 
 @db_operation

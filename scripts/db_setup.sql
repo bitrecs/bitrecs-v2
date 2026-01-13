@@ -48,15 +48,14 @@ BEGIN
     
 END $$;
 
-
 CREATE TABLE IF NOT EXISTS
   public.sessions (
-    id bigserial NOT NULL,
     session_id text NOT NULL,
     node_name text NOT NULL,
     node_hotkey text NULL,
     ip_address text NULL,
-    time_connected timestamp with time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text)   
+    created_at timestamp with time zone NOT NULL DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text),
+    id bigserial NOT NULL
   );
 
 ALTER TABLE
