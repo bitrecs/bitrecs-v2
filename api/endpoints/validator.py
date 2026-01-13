@@ -1,11 +1,9 @@
-
-from http import HTTPStatus
 import re
 import traceback
 import asyncio
 import api.config as config
-from queries.session import insert_validator_session
 import utils.logger as logger
+from http import HTTPStatus
 from functools import wraps
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
@@ -15,6 +13,7 @@ from utils.debug_lock import DebugLock
 from fastapi import Depends, APIRouter, HTTPException, Request
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
+from queries.session import insert_validator_session
 from queries.agent import get_top_agents, get_agent_by_id, update_agent_status, get_next_agent_id_awaiting_evaluation_for_validator_hotkey
 from queries.evaluation import get_hydrated_evaluation_by_id, update_evaluation_finished_at, create_new_evaluation_and_evaluation_runs, get_num_successful_validator_evaluations_for_agent_id, update_unfinished_evaluation_runs_in_evaluation_id_to_errored
 from queries.evaluation_run import get_evaluation_run_by_id, update_evaluation_run_by_id, \
@@ -26,6 +25,7 @@ from utils.s3 import download_text_file_from_s3
 from utils.system_metrics import SystemMetrics
 from utils.validator_hotkeys import is_validator_hotkey_whitelisted, validator_hotkey_to_name
 from api.endpoints.validator_models import *
+from utils.network import get_client_ip
 
 
 class Validator(BaseModel):
@@ -180,7 +180,8 @@ async def validator_register_as_validator(
 
     # Register the validator with a new session ID
     session_id = uuid4()
-    ip_address = request.client.host if request.client else None
+    #ip_address = request.client.host if request.client else None
+    ip_address = get_client_ip(request)
     SESSION_ID_TO_VALIDATOR[session_id] = Validator(
         session_id=session_id,
         name=validator_hotkey_to_name(registration_request.hotkey),
@@ -249,7 +250,8 @@ async def validator_register_as_screener(
 
     # Register the screener with a new session ID
     session_id = uuid4()
-    ip_address = request.client.host if request.client else None
+    #ip_address = request.client.host if request.client else None
+    ip_address = get_client_ip(request)
     SESSION_ID_TO_VALIDATOR[session_id] = Validator(
         session_id=session_id,
         name=registration_request.name,

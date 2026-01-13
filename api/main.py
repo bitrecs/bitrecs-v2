@@ -32,7 +32,7 @@ from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
-
+from api.utils.network import get_client_ip
 from api.endpoints.validator import router as validator_router
 from api.endpoints.debug import router as debug_router
 from api.endpoints.agent import router as agent_router
@@ -105,24 +105,24 @@ async def check_request_ip(
     return node["ip"] == request_ip if node else False
 
 
-def get_client_ip(request: Request) -> str:
-    logger.debug(
-        f"IP headers - x-real-ip: {request.headers.get('x-real-ip')}, "
-        f"x-forwarded-for: {request.headers.get('x-forwarded-for')}, "
-        f"do-connecting-ip: {request.headers.get('do-connecting-ip')}")
+# def get_client_ip(request: Request) -> str:
+#     logger.debug(
+#         f"IP headers - x-real-ip: {request.headers.get('x-real-ip')}, "
+#         f"x-forwarded-for: {request.headers.get('x-forwarded-for')}, "
+#         f"do-connecting-ip: {request.headers.get('do-connecting-ip')}")
      
-    if "do-connecting-ip" in request.headers:
-        return request.headers.get('do-connecting-ip').strip()
-    if "x-forwarded-for" in request.headers:
-        forwarded_for = request.headers.get('x-forwarded-for')
-        ips = [ip.strip() for ip in forwarded_for.split(",")]
-        if ips:
-            return ips[0]
-    if "x-real-ip" in request.headers:
-        return request.headers["x-real-ip"].strip()
-    if request.client:
-        return str(request.client.host)
-    return "unknown"
+#     if "do-connecting-ip" in request.headers:
+#         return request.headers.get('do-connecting-ip').strip()
+#     if "x-forwarded-for" in request.headers:
+#         forwarded_for = request.headers.get('x-forwarded-for')
+#         ips = [ip.strip() for ip in forwarded_for.split(",")]
+#         if ips:
+#             return ips[0]
+#     if "x-real-ip" in request.headers:
+#         return request.headers["x-real-ip"].strip()
+#     if request.client:
+#         return str(request.client.host)
+#     return "unknown"
 
 
 async def refresh_provider_pings():
