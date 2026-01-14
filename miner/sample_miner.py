@@ -7,6 +7,7 @@ from pathlib import Path
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 import validator.config as config
+import utils.logger as logger
 
 
 ROOT_DIR = Path(__file__).parent.parent
@@ -63,7 +64,9 @@ def upload_prompt():
             #print(f"Fetched artifact data: {fetch_response.json()}")
             agent_json = fetch_response.json()
             agent = Agent(**agent_json)
-            print(f"Reconstructed Agent ID: {agent.agent_id}")
+            print(f"Reconstructed Artifact ID: {agent.agent_id}")
+            logger.info(f"\033[32mSuccess submitted new Artifact: {agent.name} \033[0m")
+            logger.info(f"\033[32mArtifact ID: {agent.agent_id} \033[0m")
 
 
 if __name__ == "__main__":

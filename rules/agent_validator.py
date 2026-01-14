@@ -10,11 +10,11 @@ MAX_SYSTEM_PROMPT_TOKENS = 10_000
 
 VALID_TEMPLATE_VARIABLES = {
     'current_date',
+    'product_catalog',
     'sku',
-    'num_recs',
-    'persona',
-    'product_catalog',        
     'sku_info',
+    'num_recs',    
+    'persona',
     'cart_json',
     'order_json'
 }

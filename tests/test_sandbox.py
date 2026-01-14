@@ -1,6 +1,8 @@
 import os
 import secrets
+import uuid
 import httpx
+from pydantic import UUID4
 import pytest
 import affinetes as af_env
 import logging
@@ -54,17 +56,23 @@ async def test_calculator_env():
 @pytest.mark.asyncio
 async def test_bitrecs_eval_yaml():
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv()   
     
-    provider_keys = {
-        "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
-        "CHUTES_API_KEY": os.environ.get("CHUTES_API_KEY"),
-    }
-    assert all(provider_keys.values()), "Provider API keys must be set in environment variables"
+    af_run_token = os.environ.get("BITRECS_RUN_TOKEN")
+    af_run_token = secrets.token_hex(16) if not af_run_token else af_run_token    
+    evaluation_run_id = uuid.uuid4()
+
+    af_env_vars = {
+            "BITRECS_RUN_TOKEN": af_run_token,
+            "BITRECS_RUN_ID": str(evaluation_run_id),
+            "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
+            "CHUTES_API_KEY": os.environ.get("CHUTES_API_KEY")
+        }
+    assert all(af_env_vars.values()), "Provider API keys must be set in environment variables"
 
     env = af_env.load_env(
         image="ghcr.io/bitrecs/bitrecs-evals:main",
-        env_vars=provider_keys,
+        env_vars=af_env_vars,
         mode="docker",
         host_network=True,
         cleanup=False,
@@ -86,22 +94,25 @@ async def test_bitrecs_eval_yaml():
     logger.info(f"Loaded YAML content from : {yaml_file_path}")
     
     timeout = (30, 600)    
+
+    data = {"yaml_content": yaml_content, "run_token": af_run_token }
+
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(
             "http://localhost:8081/evaluate",
-            json={"yaml_content": yaml_content},
+            json=data,
             headers={"Content-Type": "application/json"}
         )
         #logger.info(f"Received response: {response.text}")
-        response.raise_for_status()
+        #response.raise_for_status()
         result = response.json()
     
     
     print("Evaluation Result:")
     print(f"  Task Name: {result.get('task_name', 'N/A')}")
-    print(f"  Run ID: {result.get('run_id', 'N/A')}")
-    print(f"  Score: {result.get('score', 'N/A')}")
     print(f"  Success: {result.get('success', 'N/A')}")
+    print(f"  Run ID: {result.get('run_id', 'N/A')}")
+    print(f"  Score: {result.get('score', 'N/A')}")    
     print(f"  Time Taken: {result.get('time_taken', 'N/A')}")
     print("  Extra:")
     if 'extra' in result and 'result' in result['extra']:
@@ -110,4 +121,4 @@ async def test_bitrecs_eval_yaml():
         print("    No extra details available")   
     
     # Cleanup
-    await env.cleanup()
+    #await env.cleanup()

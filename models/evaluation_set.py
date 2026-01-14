@@ -1,5 +1,6 @@
 import datetime
 from enum import Enum
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -22,5 +23,6 @@ class EvaluationSetGroup(str, Enum):
 class EvaluationSetProblem(BaseModel):
     set_id: int
     set_group: EvaluationSetGroup
-    problem_name: str
+    problem_name: str  #mapped to BitrecsEvaluationType
     created_at: datetime.datetime
+    bitrecs_eval_type: Optional[str]  #mapped to BitrecsEvaluationType
