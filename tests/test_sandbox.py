@@ -2,7 +2,6 @@ import os
 import secrets
 import uuid
 import httpx
-from pydantic import UUID4
 import pytest
 import affinetes as af_env
 import logging
@@ -52,11 +51,47 @@ async def test_calculator_env():
 
 
 
+async def try_get_run_log(run_id: str) -> str | None:
+    # @app.get("/run_log/{run_id}")
+    timeout = (10, 60)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.get(
+            f"http://localhost:8081/run_log/{run_id}",
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            log = response.json()
+            return log
+        else:
+            logger.error(f"Failed to get run log for {run_id}: {response.status_code}")
+            return None
+
+
+async def try_get_eval_db(run_id: str) -> str | None:
+    # download remote sqlite file and save to local disk
+
+    timeout = (10, 60)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.get(
+            f"http://localhost:8081/db",
+            headers={"Content-Type": "application/octet-stream"}
+        )
+        if response.status_code == 200:
+            
+            db_path = os.path.join(PARENT_DIR, "data", f"evals_db_{run_id}.sqlite")
+            with open(db_path, "wb") as f:
+                f.write(response.content)
+            logger.info(f"Downloaded evals DB to {db_path}")
+            return db_path
+        else:
+            logger.error(f"Failed to download evals DB: {response.status_code}")
+            return None   
+
+    
+
 
 @pytest.mark.asyncio
-async def test_bitrecs_eval_yaml():
-    from dotenv import load_dotenv
-    load_dotenv()   
+async def test_bitrecs_eval_sandbox(): 
     
     af_run_token = os.environ.get("BITRECS_RUN_TOKEN")
     af_run_token = secrets.token_hex(16) if not af_run_token else af_run_token    
@@ -103,7 +138,7 @@ async def test_bitrecs_eval_yaml():
             json=data,
             headers={"Content-Type": "application/json"}
         )
-        #logger.info(f"Received response: {response.text}")
+        logger.info(f"Received response: {response.text}")
         #response.raise_for_status()
         result = response.json()
     
@@ -112,13 +147,33 @@ async def test_bitrecs_eval_yaml():
     print(f"  Task Name: {result.get('task_name', 'N/A')}")
     print(f"  Success: {result.get('success', 'N/A')}")
     print(f"  Run ID: {result.get('run_id', 'N/A')}")
+    print(f"  Bitrecs Run ID: {result.get('bitrecs_run_id', 'N/A')}")    
     print(f"  Score: {result.get('score', 'N/A')}")    
     print(f"  Time Taken: {result.get('time_taken', 'N/A')}")
     print("  Extra:")
     if 'extra' in result and 'result' in result['extra']:
         print(result['extra']['result'])
     else:
-        print("    No extra details available")   
+        print("    No extra details available")
+
+    run_id = result.get("run_id")
+    logger.info(f"Completed evaluation run with ID: {run_id}")
+
+    log = await try_get_run_log(run_id)
+    assert log is not None, "Failed to retrieve run log"
     
-    # Cleanup
-    #await env.cleanup()
+    docker_run_id = log["run_id"]
+    report = log["report"]
+    print(f"Run Log - Docker Run ID: {docker_run_id}")
+    print("Run Log - Report:")
+    print(report)
+
+    sql_db = await try_get_eval_db(run_id)
+    assert sql_db is not None, "Failed to download evals DB"
+    print(f"Downloaded evals DB to: {sql_db}")    
+
+    # log_dict = json.loads(log)
+    # print(log_dict) 
+
+    await env.cleanup()
+
