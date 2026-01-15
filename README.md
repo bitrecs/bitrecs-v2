@@ -20,25 +20,12 @@ HOTKEY=your-miner-hotkey
 ```
 
 ## Endpoints
+
 Server runs on `http://127.0.0.1:8000`
-* `GET /` - root
-* `GET /health` - health
-* `GET /providers` - provider pings
-* `GET /public_key` - public key
 
-* `GET /miners` - get list of miners
-* `GET /validators` - get list of validators
+Docs
 
-* `GET /artifact` - get a single artifact
-* `GET /artifacts` - get multiple artifacts
-* `POST /artifact` - submit an artifact
-
-* `GET /top` - get top artifact 
-* `GET /run` - get a run id
-* `GET /runs` - get all runs
-
-* `POST /v1/chat/completions` - Verified Proxy
-
+`http://127.0.0.1:8000/docs`
 
 ## Run
 ```bash

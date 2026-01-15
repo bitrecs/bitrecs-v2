@@ -48,6 +48,18 @@ class Validator(BaseModel):
 # Map of session IDs to validator objects
 SESSION_ID_TO_VALIDATOR: Dict[UUID, Validator] = {}
 
+def get_connected_validators_info() -> Dict[str, int]:
+    """Returns summary info about connected validators for health checks."""
+    total_validators = len(SESSION_ID_TO_VALIDATOR)
+    # You can add more details if needed, e.g., counts by type
+    screeners = sum(1 for v in SESSION_ID_TO_VALIDATOR.values() if v.hotkey.startswith("screener"))
+    validators = total_validators - screeners
+    return {
+        "total_connected_validators": total_validators,
+        "connected_screeners": screeners,
+        "connected_validators": validators,
+    }
+
 # Returns True if a validator with the given hotkey is currently registered
 def is_validator_registered(validator_hotkey: str) -> bool:
     return validator_hotkey in [validator.hotkey for validator in SESSION_ID_TO_VALIDATOR.values()]

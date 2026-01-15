@@ -32,7 +32,7 @@ from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit
 from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
 from utils.network import get_client_ip
-from api.endpoints.validator import router as validator_router
+from api.endpoints.validator import get_connected_validators_info, router as validator_router
 from api.endpoints.debug import router as debug_router
 from api.endpoints.agent import router as agent_router
 from api.endpoints.evaluation_run import router as evaluation_run_router
@@ -267,6 +267,8 @@ async def health(request: Request):
     db_health = await check_database_health()
     db_status = "OK" if db_health else "ERROR"
     agent_count = await get_agent_count()
+    validator_info = get_connected_validators_info()
+     
     return {
         "status": "healthy",
         "nodes": node_count,
@@ -274,6 +276,7 @@ async def health(request: Request):
         "total_requests": app.state.total_requests,
         "exceptions": app.state.exceptions,
         "agent_count": agent_count,
+        "validators": validator_info,
         "threads": thread_count,
         "metagraph_last_synced": int(synced_at) if synced_at else None,
         "metagraph_age_seconds": round(time.time() - synced_at, 2) if synced_at else None,        
@@ -281,7 +284,7 @@ async def health(request: Request):
         "memory_current_mb": round(current / 1024 / 1024, 2),
         "memory_peak_mb": round(peak / 1024 / 1024, 2),        
         "message": message,
-        "version": version_file.strip() if version_file else "N/A"
+        "version": version_file.strip() if version_file else "N/A"        
     }
 
 

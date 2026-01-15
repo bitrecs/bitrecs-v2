@@ -11,6 +11,16 @@ from models.agent import Agent, AgentStatus, AgentScored, BenchmarkAgentScored, 
 
 NUM_EVALS_PER_AGENT = 3
 
+# @db_operation
+# async def get_evaluation_set_groups(conn: DatabaseConnection) -> List[EvaluationSetGroup]:
+#     results = await conn.fetch(
+#         """
+#         SELECT DISTINCT evaluation_set_group
+#         FROM evaluations
+#         """
+#     )
+#     return [EvaluationSetGroup(result['evaluation_set_group']) for result in results]
+
 @db_operation
 async def get_agent_count(conn: DatabaseConnection) -> int:
     result = await conn.fetchval(
@@ -101,34 +111,9 @@ async def get_agent_by_evaluation_run_id(conn: DatabaseConnection, evaluation_ru
     )
     
     if result is None:
-        return None
-
-    # Parse JSON fields from strings to Python objects
-    result = dict(result)
-    result['sampling_params'] = json.loads(result['sampling_params']) if result['sampling_params'] else {}
-    result['fewshot_examples'] = json.loads(result['fewshot_examples']) if result['fewshot_examples'] else []
-    result['eval_scores'] = json.loads(result['eval_scores']) if result['eval_scores'] else {}
+        return None  
     
-    return Agent(**result)
-
-
-# @db_operation
-# async def get_agent_by_evaluation_run_id(conn: DatabaseConnection, evaluation_run_id: UUID) -> Optional[Agent]:
-#     result = await conn.fetchrow("""
-#     SELECT * FROM agents WHERE agent_id = (
-#         SELECT agent_id FROM evaluation_runs WHERE evaluation_run_id = $1
-#     )
-#     """, evaluation_run_id)
-#     if result is None:
-#         return None
-    
-#     # Parse JSON fields from strings to Python objects
-#     result = dict(result)
-#     result['sampling_params'] = json.loads(result['sampling_params']) if result['sampling_params'] else {}
-#     result['fewshot_examples'] = json.loads(result['fewshot_examples']) if result['fewshot_examples'] else []
-#     result['eval_scores'] = json.loads(result['eval_scores']) if result['eval_scores'] else {}
-    
-#     return Agent(**result)
+    return Agent.parse_agent_from_db_row(result)
 
 
 @db_operation
@@ -142,7 +127,7 @@ async def get_all_agents_by_miner_hotkey(conn: DatabaseConnection, miner_hotkey:
         miner_hotkey
     )
     
-    return [Agent(**agent) for agent in result]
+    return [Agent.parse_agent_from_db_row(row) for row in result]
 
 
 
@@ -161,7 +146,7 @@ async def get_latest_agent_for_miner_hotkey(conn: DatabaseConnection, miner_hotk
     if result is None:
         return None 
     
-    return Agent(**result)
+    return Agent.parse_agent_from_db_row(result)
 
 
 

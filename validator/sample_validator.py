@@ -70,7 +70,7 @@ async def get_health_from_docker(url: str) -> dict | None:
 
 
 async def try_get_run_log(run_id: str) -> str | None:
-    # @app.get("/run_log/{run_id}")
+    """ Fetch run log from Docker container """
     af_hostname = "localhost"
     af_container_port = 8081
     timeout = (10, 60)
@@ -85,8 +85,6 @@ async def try_get_run_log(run_id: str) -> str | None:
         else:
             logger.error(f"Failed to get run log for {run_id}: {response.status_code}")
             return None
-
-
 
 
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
