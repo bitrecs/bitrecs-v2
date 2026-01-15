@@ -1,5 +1,7 @@
 import os
 import secrets
+import sqlite3
+import pandas as pd
 import uuid
 import httpx
 import pytest
@@ -95,11 +97,11 @@ async def test_bitrecs_eval_sandbox():
     
     af_run_token = os.environ.get("BITRECS_RUN_TOKEN")
     af_run_token = secrets.token_hex(16) if not af_run_token else af_run_token    
-    evaluation_run_id = uuid.uuid4()
+    bitrecs_run_id = str(uuid.uuid4())
 
     af_env_vars = {
             "BITRECS_RUN_TOKEN": af_run_token,
-            "BITRECS_RUN_ID": str(evaluation_run_id),
+            "BITRECS_RUN_ID": bitrecs_run_id,
             "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
             "CHUTES_API_KEY": os.environ.get("CHUTES_API_KEY")
         }
@@ -168,12 +170,16 @@ async def test_bitrecs_eval_sandbox():
     print("Run Log - Report:")
     print(report)
 
-    sql_db = await try_get_eval_db(run_id)
+    sql_db = await try_get_eval_db(bitrecs_run_id)
     assert sql_db is not None, "Failed to download evals DB"
-    print(f"Downloaded evals DB to: {sql_db}")    
-
-    # log_dict = json.loads(log)
-    # print(log_dict) 
+    print(f"Downloaded evals DB to: {sql_db}")
+ 
+    conn = sqlite3.connect(sql_db)
+    df = pd.read_sql_query("SELECT eval_name, score, success, rows_evaluated FROM evaluation", conn)
+    conn.close()
+    
+    print("Evals DB - Evaluations Table:")
+    print(df.head())
 
     await env.cleanup()
 

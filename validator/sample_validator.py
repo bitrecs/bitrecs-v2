@@ -69,6 +69,26 @@ async def get_health_from_docker(url: str) -> dict | None:
     return None
 
 
+async def try_get_run_log(run_id: str) -> str | None:
+    # @app.get("/run_log/{run_id}")
+    af_hostname = "localhost"
+    af_container_port = 8081
+    timeout = (10, 60)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.get(
+            f"http://{af_hostname}:{af_container_port}/run_log/{run_id}",
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            log = response.json()
+            return log
+        else:
+            logger.error(f"Failed to get run log for {run_id}: {response.status_code}")
+            return None
+
+
+
+
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
     """Load an agent by its evaluation run ID."""
     response = await get_ridges_platform(f"/agent/get-by-evaluation-run-id?evaluation_run_id={evaluation_run_id}", quiet=2)
@@ -239,13 +259,19 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             else:
                 logger.info("    No extra details available")   
             
+            run_log = await try_get_run_log(run_id)
+            if run_log is None:
+                logger.error("Failed to retrieve run log")
+            this_log = run_log["report"] if run_log and "report" in run_log else "No report available"
+            #extra = this_log
+
             # Cleanup
             await env.cleanup()    
 
             status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL          
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
                 "test_results": [{"name": tak_name, "category": "default", "status": f"{status.value}"}],
-                "eval_logs": extra
+                "eval_logs": this_log
             })
         except EvaluationRunException as e:
             logger.error(f"Evaluation run {evaluation_run_id} for problem {problem_name} errored: {e}")
