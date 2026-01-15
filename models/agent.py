@@ -1,3 +1,4 @@
+import json
 import yaml
 from enum import Enum
 from typing import Dict, List, Optional
@@ -51,7 +52,16 @@ class Agent(BaseModel):
     @staticmethod
     def to_yaml(agent: "Agent") -> str:        
         return yaml.safe_dump(agent.model_dump(mode='json'))
-
+    
+    @staticmethod
+    def parse_agent_from_db_row(row: dict) -> "Agent":
+        """Parse JSON fields from a DB row and return an Agent instance."""
+        result = dict(row)
+        result['sampling_params'] = json.loads(result['sampling_params']) if result['sampling_params'] else {}
+        result['fewshot_examples'] = json.loads(result['fewshot_examples']) if result['fewshot_examples'] else []
+        result['eval_scores'] = json.loads(result['eval_scores']) if result['eval_scores'] else {}
+        return Agent(**result)
+    
 
 class PossiblyBenchmarkAgent(Agent):
     is_benchmark_agent: bool

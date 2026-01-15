@@ -315,8 +315,6 @@ async def get_top_agents(
 
 @db_operation
 async def get_agents_in_queue(conn: DatabaseConnection, queue_stage: EvaluationSetGroup) -> list[Agent]:
-    # TODO ALEX from ADAM: Modify this in the view itself rather than branching explicitly here.
-    # The view apparently does not sort by created_at.
     queue_to_query = f"{queue_stage.value}_queue"
 
     if queue_stage == EvaluationSetGroup.screener_1:
@@ -326,8 +324,7 @@ async def get_agents_in_queue(conn: DatabaseConnection, queue_stage: EvaluationS
             join {queue_to_query} q on q.agent_id = a.agent_id
             order by a.created_at asc
         """)
-
-        return [Agent(**agent) for agent in queue]
+        return [Agent.parse_agent_from_db_row(agent) for agent in queue]
     elif queue_stage == EvaluationSetGroup.screener_2:
         queue = await conn.fetch(f"""
             SELECT a.*
@@ -335,16 +332,16 @@ async def get_agents_in_queue(conn: DatabaseConnection, queue_stage: EvaluationS
             join {queue_to_query} q on q.agent_id = a.agent_id
             order by a.created_at asc
         """)
-
-        return [Agent(**agent) for agent in queue]
+        return [Agent.parse_agent_from_db_row(agent) for agent in queue]
     else:
         queue = await conn.fetch(f"""
             SELECT a.*
             from agents a
             join {queue_to_query} q on q.agent_id = a.agent_id
         """)
+        return [Agent.parse_agent_from_db_row(agent) for agent in queue]
 
-        return [Agent(**agent) for agent in queue]
+      
 
 @db_operation
 async def get_next_agent_id_awaiting_evaluation_for_validator_hotkey(conn: DatabaseConnection, validator_hotkey: str) -> Optional[UUID]:
