@@ -328,14 +328,23 @@ async def get_agents_in_queue(conn: DatabaseConnection, queue_stage: EvaluationS
         """)
 
         return [Agent(**agent) for agent in queue]
+    elif queue_stage == EvaluationSetGroup.screener_2:
+        queue = await conn.fetch(f"""
+            SELECT a.*
+            from agents a
+            join {queue_to_query} q on q.agent_id = a.agent_id
+            order by a.created_at asc
+        """)
 
-    queue = await conn.fetch(f"""
-        SELECT a.*
-        from agents a
-        join {queue_to_query} q on q.agent_id = a.agent_id
-    """)
+        return [Agent(**agent) for agent in queue]
+    else:
+        queue = await conn.fetch(f"""
+            SELECT a.*
+            from agents a
+            join {queue_to_query} q on q.agent_id = a.agent_id
+        """)
 
-    return [Agent(**agent) for agent in queue]
+        return [Agent(**agent) for agent in queue]
 
 @db_operation
 async def get_next_agent_id_awaiting_evaluation_for_validator_hotkey(conn: DatabaseConnection, validator_hotkey: str) -> Optional[UUID]:
