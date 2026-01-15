@@ -1,6 +1,8 @@
+
 import utils.logger as logger
 from typing import Tuple
 from models.agent import Agent
+from llm.llm_provider import LLM
 from utils.token import get_token_count
 from jinja2 import Template, TemplateSyntaxError, Environment, nodes
 
@@ -46,6 +48,9 @@ def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
     
     if agent.status != 'screening_1':
         return False, "status must be 'screening_1' upon submission"
+    
+    if LLM.is_valid(agent.provider) == False:
+        return False, f"provider '{agent.provider}' is not a supported LLM provider"
     
     try:
         Template(agent.system_prompt_template)

@@ -66,13 +66,8 @@ async def get_agent_by_id(conn: DatabaseConnection, agent_id: UUID) -> Optional[
 
     if result is None:
         return None
-    
-    result = dict(result)
-    result['sampling_params'] = json.loads(result['sampling_params']) if result['sampling_params'] else {}
-    result['fewshot_examples'] = json.loads(result['fewshot_examples']) if result['fewshot_examples'] else []
-    result['eval_scores'] = json.loads(result['eval_scores']) if result['eval_scores'] else {}
 
-    return Agent(**result)
+    return Agent.parse_agent_from_db_row(result)
 
 @db_operation
 async def get_possibly_benchmark_agent_by_id(conn: DatabaseConnection, agent_id: UUID) -> Optional[PossiblyBenchmarkAgent]:
