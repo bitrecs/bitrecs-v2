@@ -1,22 +1,21 @@
-from datetime import datetime, timezone
 import os
-import secrets
 import sys
 import time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import yaml
 import httpx
 import random
+import secrets
 import asyncio
 import traceback
+import validator.config as config
+import affinetes as af_env
 import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
-import validator.config as config
-import affinetes as af_env
 from uuid import UUID
 from typing import Any, Dict
-from models.evaluation_run import EvaluationRunErrorCode, EvaluationRunStatus
+from datetime import datetime, timezone
 from models.problem import ProblemTestResultStatus
 from models.agent import Agent
 from api.endpoints.validator_models import (
@@ -26,6 +25,7 @@ from api.endpoints.validator_models import (
     ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, 
     ValidatorRequestEvaluationResponse, ValidatorUpdateEvaluationRunRequest
 )
+from models.evaluation_run import EvaluationRunErrorCode, EvaluationRunStatus
 from validator.http_utils import get_ridges_platform, post_ridges_platform
 from evaluator.problem_suites.polygot.polyglot_suite import POLYGLOT_JS_SUITE, POLYGLOT_PY_SUITE
 from queries.problem_statistics import SWEBENCH_VERIFIED_SUITE
@@ -53,7 +53,7 @@ async def send_heartbeat_loop():
             except Exception as e:
                 logger.error(f"Heartbeat failed: {type(e).__name__}: {e}. Retrying in 10 seconds...")
                 logger.error(traceback.format_exc())
-                await asyncio.sleep(10)  # Retry delay to avoid rapid failures
+                await asyncio.sleep(10)
     except Exception as e:
         logger.error(f"Error in send_heartbeat_loop(): {type(e).__name__}: {e}")
         logger.error(traceback.format_exc())
@@ -307,11 +307,20 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     logger.info("Received evaluation:")
     logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
 
+    SIMULATE_EVALUATION_RUNS = False
+    #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNS
+
+    if len(request_evaluation_response.evaluation_runs) == 0:        
+        logger.warning("No evaluation runs to process, finishing evaluation immediately.")
+        logger.error("No evaluation runs to process.")
+        await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
+        return
+
     for evaluation_run in request_evaluation_response.evaluation_runs:
         logger.info(f"    {evaluation_run.problem_name}")
 
     logger.info("Starting evaluation...")
-    SIMULATE_EVALUATION_RUNS = False
+  
 
     tasks = []
     for evaluation_run in request_evaluation_response.evaluation_runs:
@@ -319,20 +328,18 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
         problem_name = evaluation_run.problem_name
       
         if SIMULATE_EVALUATION_RUNS:
-            tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))
-            #tasks.append(asyncio.create_task(_simulate_run_evaluation_run_affine(evaluation_run_id, problem_name)))            
+            tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))            
         else:
             tasks.append(asyncio.create_task(_run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)))
 
-    await asyncio.gather(*tasks)
-
-    if SIMULATE_EVALUATION_RUNS:
-        logger.info("Finished SIMULATED evaluation")
-    else:
-        logger.info("Finished evaluation")
+    await asyncio.gather(*tasks) 
 
     try:
         await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
+        if SIMULATE_EVALUATION_RUNS:
+            logger.info("Finished SIMULATED evaluation")
+        else:
+            logger.info("Finished evaluation")
     except Exception as e:
         logger.error(f"Error finishing evaluation: {type(e).__name__}: {e}")
         logger.error(traceback.format_exc())
@@ -436,6 +443,8 @@ async def main():
             await asyncio.sleep(config.REQUEST_EVALUATION_INTERVAL_SECONDS)
             continue
         try:
+            logger.info(f"Received evaluation with {request_evaluation_response_data}")
+
             await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))
         except Exception as e:
             logger.error(f"Error running evaluation: {type(e).__name__}: {e}")
