@@ -8,8 +8,9 @@ from models.evaluation import EvaluationStatus
 from models.evaluation_set import EvaluationSetGroup
 from utils.database import db_operation, DatabaseConnection
 from models.agent import Agent, AgentStatus, AgentScored, BenchmarkAgentScored, PossiblyBenchmarkAgent
+import api.config as config
 
-NUM_EVALS_PER_AGENT = 3
+NUM_EVALS_PER_AGENT = config.NUM_EVALS_PER_AGENT
 
 # @db_operation
 # async def get_evaluation_set_groups(conn: DatabaseConnection) -> List[EvaluationSetGroup]:
