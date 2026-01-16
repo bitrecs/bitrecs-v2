@@ -638,6 +638,9 @@ async def handle_evaluation_if_finished(evaluation_id: UUID) -> None:
     await update_evaluation_finished_at(evaluation_id)
 
     hydrated_evaluation = await get_hydrated_evaluation_by_id(evaluation_id)
+    if hydrated_evaluation is None:
+        logger.warning(f"Evaluation {evaluation_id} not found, skipping status transition.")
+        return
 
     # Transition agent state if this evaluation was successful
     if hydrated_evaluation.status == EvaluationStatus.success:
