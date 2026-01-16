@@ -7,8 +7,8 @@ WHITELISTED_VALIDATORS = [
     {"hotkey": "5CZoa8Uw2GjkHfg3vybiiG5iGGAqqbDR6BdvhqJbj2Avs122", "name": "Rizzo", "short_name": "Rizzo" },  
 
     # Developer validators, used for testing    
-    {"hotkey": "5DHtcX5EVi741Boi1ixAG8fpyV1kNku86D6oswjMkUGMAzTB", "name": "Dimi Test1", "short_name": "Dimi1" },  
-    {"hotkey": "5F26aNVC3rZVNbH36DWdZzxPVH17iBNGD14Wtb4nQem742Q7", "name": "Max", "short_name": "Max" }
+    {"hotkey": "5DHtcX5EVi741Boi1ixAG8fpyV1kNku86D6oswjMkUGMAzTB", "name": "DimiTestValidator1", "short_name": "Dimi1" },  
+    {"hotkey": "5HBjiUTERUJuAzXEeinA43Ffcwh9MMXPHz3FFEJ9eYgLwJaK", "name": "DimiTestValidator2", "short_name": "Dimi2" }
 
 ]
 
