@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import os
 import secrets
 import sys
@@ -43,10 +44,16 @@ async def send_heartbeat_loop():
     try:
         logger.info("Starting send heartbeat loop...")
         while True:
-            logger.info("Sending heartbeat...")
-            system_metrics = await get_system_metrics()
-            await post_ridges_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
-            await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
+            try:
+                logger.info(f"Sending heartbeat at {datetime.now(timezone.utc)}...")
+                system_metrics = await get_system_metrics()
+                await post_ridges_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
+                logger.info("Heartbeat sent successfully.")
+                await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
+            except Exception as e:
+                logger.error(f"Heartbeat failed: {type(e).__name__}: {e}. Retrying in 10 seconds...")
+                logger.error(traceback.format_exc())
+                await asyncio.sleep(10)  # Retry delay to avoid rapid failures
     except Exception as e:
         logger.error(f"Error in send_heartbeat_loop(): {type(e).__name__}: {e}")
         logger.error(traceback.format_exc())
