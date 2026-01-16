@@ -269,7 +269,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
 
             status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL          
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
-                "test_results": [{"name": tak_name, "category": "default", "status": f"{status.value}"}],
+                "test_results": [{"name": tak_name, "category": "default", "status": f"{status.value}", "final_score": score}],
                 "eval_logs": this_log
             })
         except EvaluationRunException as e:
