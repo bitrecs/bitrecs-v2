@@ -206,9 +206,9 @@ logger.info("-------------------------")
 logger.info(f"S3 Bucket Name: {S3_BUCKET_NAME}")
 logger.info("-------------------------")
 
-logger.info(f"Database Username: {DATABASE_USERNAME}")
-logger.info(f"Database Host: {DATABASE_HOST}")
-logger.info(f"Database Port: {DATABASE_PORT}")
+#logger.info(f"Database Username: {DATABASE_USERNAME}")
+#logger.info(f"Database Host: {DATABASE_HOST}")
+#logger.info(f"Database Port: {DATABASE_PORT}")
 logger.info(f"Database Name: {DATABASE_NAME}")
 logger.info("-------------------------")
 

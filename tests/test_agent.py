@@ -2,7 +2,9 @@ import os
 import pytest
 import uuid
 import logging
+import numpy as np
 from dotenv import load_dotenv
+from rules.agent_comparer import AgentComparer
 load_dotenv()
 from rules.agent_validator import validate_artifact_template
 from tests.test_template import MINER_YAML_PATH
@@ -101,3 +103,70 @@ async def test_load_agent_template_and_validate(db_setup):
 
 
 
+
+
+@pytest.fixture
+def sample_agent1():
+    return Agent(
+        agent_id=uuid.uuid4(),
+        created_at=datetime.now(timezone.utc),
+        miner_hotkey="hotkey1",
+        name="Agent1",
+        version_num=1,
+        status=AgentStatus.screening_1,
+        ip_address="127.0.0.1",
+        miner_uid=1,
+        provider="openai",
+        model="gpt-3.5-turbo",
+        system_prompt_template="You are a helpful assistant.",
+        user_prompt_template="Answer the question: {{question}}",
+        sampling_params=SamplingParams(temperature=0.7, top_p=0.9, max_tokens=100),
+        fewshot_examples=[
+            MessageExample(role="user", content="Hello"),
+            MessageExample(role="assistant", content="Hi there")
+        ],
+        eval_scores={}
+    )
+
+@pytest.fixture
+def sample_agent2():
+    return Agent(
+        agent_id=uuid.uuid4(),
+        created_at=datetime.now(timezone.utc),
+        miner_hotkey="hotkey2",
+        name="Agent2",
+        version_num=1,
+        status=AgentStatus.screening_1,
+        ip_address="127.0.0.1",
+        miner_uid=2,
+        provider="openai",
+        model="gpt-3.5-turbo",
+        system_prompt_template="You are a helpful assistant.",
+        user_prompt_template="Answer the question: {{question}}",
+        sampling_params=SamplingParams(temperature=0.7, top_p=0.9, max_tokens=100),
+        fewshot_examples=[
+            MessageExample(role="user", content="Hello"),
+            MessageExample(role="assistant", content="Hi there")
+        ],
+        eval_scores={}
+    )
+
+@pytest.mark.asyncio
+async def test_agent_comparator_cosine_distance(sample_agent1, sample_agent2):
+    """
+    Simple unit test for AgentComparator.cosine_distance.
+    Tests that distance is a float between 0 and 2, and identical agents have distance ~0.
+    Assumes the embedding server is running at http://localhost:8080.
+    """
+    comparator = AgentComparer()
+    
+    # Test distance between identical agents (should be ~0)
+    distance_self = await comparator.cosine_distance(sample_agent1, sample_agent1)
+    assert isinstance(distance_self, float)
+    assert np.isclose(distance_self, 0.0, atol=1e-6), f"Self-distance should be ~0, got {distance_self}"
+    
+    # Test distance between similar agents (should be low)
+    distance_similar = await comparator.cosine_distance(sample_agent1, sample_agent2)
+    assert isinstance(distance_similar, float)
+    assert 0 <= distance_similar <= 2, f"Distance should be between 0 and 2, got {distance_similar}"
+    assert distance_similar < 0.1, f"Similar agents should have low distance, got {distance_similar}"  # Adjust threshold as needed

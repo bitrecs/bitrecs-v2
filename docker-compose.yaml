@@ -1,5 +1,9 @@
 version: '3.8'
 
+volumes:
+  hf_cache:
+    driver: local
+
 services:
   api:
     build: .
@@ -10,7 +14,9 @@ services:
     volumes:
       - ./api:/app/api  # Mount API code for development (optional)
     restart: unless-stopped
-    # If you have a local database, add a db service here, e.g.:
+    depends_on:
+      - embedding-server  # Ensure embedding server starts first
+   
     # depends_on:
     #   - db
     # db:
@@ -21,3 +27,20 @@ services:
     #     POSTGRES_PASSWORD: your_password
     #   ports:
     #     - "5432:5432"
+
+  embedding-server:
+    image: ghcr.io/huggingface/text-embeddings-inference:cuda-latest
+    ports:
+      - "8080:80"
+    volumes:
+      - hf_cache:/data
+    command: ["--model-id", "sentence-transformers/all-mpnet-base-v2", "--pooling", "mean", "--dtype", "float16"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]  # Enable GPU access
+    restart: unless-stopped
+    pull_policy: always  # Equivalent to --pull always

@@ -80,7 +80,7 @@ def test_submit_artifact_valid_vars():
         "created_at": datetime.now(timezone.utc).isoformat(),
         "miner_hotkey": "test_hotkey",
         "miner_uid": 123,
-        "provider": "test_provider",
+        "provider": "OPEN_ROUTER",
         "model": "test_model",
         "system_prompt_template": "System prompt Unit Test",
         "user_prompt_template": "User prompt {{sku}} Unit Test",
