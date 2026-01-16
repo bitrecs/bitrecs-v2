@@ -1,23 +1,15 @@
-# List of whitelisted validators (including their names and hotkeys)
-WHITELISTED_VALIDATORS = [
-    # {"name": "RoundTable 21",         "short_name": "RT21",     "hotkey": "5Djyacas3eWLPhCKsS3neNSJonzfxJmD3gcrMTFDc4eHsn62"},
-    # {"name": "Uncle Tao",                                       "hotkey": "5FF1rU17iEYzMYS7V59P6mK2PFtz9wDUoUKrpFd3yw1wBcfq"},
-    # {"name": "Yuma",                                            "hotkey": "5Eho9y6iF5aTdKS28Awn2pKTd4dFsJ2o3shGtj1vjnLiaKJ1"},
-    # {"name": "Rizzo",                                           "hotkey": "5GuRsre3hqm6WKWRCqVxXdM4UtGs457nDhPo9F5wvJ16Ys62"},
-    # {"name": "Ridges",                                          "hotkey": "5GgJptBaUiWwb8SQDinZ9rDQoVw47mgduXaCLHeJGTtA4JMS"},
-    # {"name": "Crucible Labs",         "short_name": "Crucible", "hotkey": "5HmkM6X1D3W3CuCSPuHhrbYyZNBy2aGAiZy9NczoJmtY25H7"},
-    # {"name": "tao.bot",                                         "hotkey": "5E2LP6EnZ54m3wS8s1yPvD5c3xo71kQroBw7aUVK32TKeZ5u"},
-    # {"name": "Opentensor Foundation", "short_name": "OTF",      "hotkey": "5FZ1BFw8eRMAFK5zwJdyefrsn51Lrm217WKbo3MmdFH65YRr"},
-    # {"name": "Kraken",                                          "hotkey": "5G8iwBWxPjCfu9Fc3jFP37j1Ax5KypDDmUPUSoS9aWAsSCGT"},
-    # {"name": "TAO.com",                                         "hotkey": "5DP7gcGeTfGfmCzxVNCXQvWBxu58TrrkdikuHQNnGDYb7THU"},
-    # {"name": "TAOApp",                                          "hotkey": "5F4U4P2j3ctdDS45naSUCxzYAHWTHarsY5JQdcRmMkc8UQZM"},
 
-    # Developer validators, used for testing
-    {"name": "Adam's Validator",      "hotkey": "5Dy9FDg5jshHS7MirAFrRsKiFa6GPRMaiHC4Zng4HAgyi8yf"},
-    {"name": "Alex's Validator (1)",  "hotkey": "5HpMvcM593HmizCA3ARLNifxjPSLbN3M5RHYy4GiEqmB3x9n"},
-    {"name": "Alex's Validator (2)",  "hotkey": "5HNpAXVzWaW4yD9UqH5sXFPt1gPFqNTViDy61NdiViyDQiTQ"},
-    {"name": "Alex's Validator (3)",  "hotkey": "5GgqnYQ3QwnCcmxiGatXS3rrHGmkqU3cMSjQFSdLKHDmxyB6"},
-    {"name": "Shak's Validator",      "hotkey": "5F26aNVC3rZVNbH36DWdZzxPVH17iBNGD14Wtb4nQem742Q7"}
+WHITELISTED_VALIDATORS = [
+    {"hotkey": "5E7ooDPMFb8FMrnVD7z3B6ebkaNZRA5ksi87azE5okJsn122", "name": "RT21", "short_name": "RT21" },
+    {"hotkey": "5C8DLjXNinbfJwgSxWGZTDKWYCpXSnjveB5Ng1ZJ2P7jEGUo", "name": "OTF", "short_name": "OTF" },
+    {"hotkey": "5CXEbmzg7SD9dAsxep8MpjE28PbHxPotE63UnzLqu9VB99Tr", "name": "Bitrecs", "short_name": "Bitrecs" },
+    {"hotkey": "5Dd76FfntpDjfYJK8Mwnq1yPTAw9QW7vHfxNQdiWxVgmkfk6", "name": "Yuma", "short_name": "Yuma" },
+    {"hotkey": "5CZoa8Uw2GjkHfg3vybiiG5iGGAqqbDR6BdvhqJbj2Avs122", "name": "Rizzo", "short_name": "Rizzo" },  
+
+    # Developer validators, used for testing    
+    {"hotkey": "5DHtcX5EVi741Boi1ixAG8fpyV1kNku86D6oswjMkUGMAzTB", "name": "Dimi Test1", "short_name": "Dimi1" },  
+    {"hotkey": "5F26aNVC3rZVNbH36DWdZzxPVH17iBNGD14Wtb4nQem742Q7", "name": "Max", "short_name": "Max" }
+
 ]
 
 def is_validator_hotkey_whitelisted(validator_hotkey: str) -> bool:

@@ -44,16 +44,10 @@ async def send_heartbeat_loop():
     try:
         logger.info("Starting send heartbeat loop...")
         while True:
-            try:
-                logger.info(f"Sending heartbeat at {datetime.now(timezone.utc)}...")
-                system_metrics = await get_system_metrics()
-                await post_ridges_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
-                logger.info("Heartbeat sent successfully.")
-                await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
-            except Exception as e:
-                logger.error(f"Heartbeat failed: {type(e).__name__}: {e}. Retrying in 10 seconds...")
-                logger.error(traceback.format_exc())
-                await asyncio.sleep(10)
+            logger.info("Sending heartbeat...")
+            system_metrics = await get_system_metrics()
+            await post_ridges_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
+            await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
     except Exception as e:
         logger.error(f"Error in send_heartbeat_loop(): {type(e).__name__}: {e}")
         logger.error(traceback.format_exc())
@@ -76,7 +70,7 @@ async def get_health_from_docker(url: str) -> dict | None:
     return None
 
 
-async def try_get_run_log(run_id: str) -> str | None:
+async def get_run_log_from_docker(run_id: str) -> str | None:
     """ Fetch run log from Docker container """
     af_hostname = "localhost"
     af_container_port = 8081
@@ -264,7 +258,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             else:
                 logger.info("    No extra details available")   
             
-            run_log = await try_get_run_log(run_id)
+            run_log = await get_run_log_from_docker(run_id)
             if run_log is None:
                 logger.error("Failed to retrieve run log")
             this_log = run_log["report"] if run_log and "report" in run_log else "No report available"
@@ -310,17 +304,16 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     SIMULATE_EVALUATION_RUNS = False
     #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNS
 
-    if len(request_evaluation_response.evaluation_runs) == 0:        
-        logger.warning("No evaluation runs to process, finishing evaluation immediately.")
-        logger.error("No evaluation runs to process.")
-        await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
-        return
+    # if len(request_evaluation_response.evaluation_runs) == 0:        
+    #     logger.warning("No evaluation runs to process, finishing evaluation immediately.")
+    #     logger.error("No evaluation runs to process.")
+    #     await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
+    #     return
 
     for evaluation_run in request_evaluation_response.evaluation_runs:
         logger.info(f"    {evaluation_run.problem_name}")
 
     logger.info("Starting evaluation...")
-  
 
     tasks = []
     for evaluation_run in request_evaluation_response.evaluation_runs:
