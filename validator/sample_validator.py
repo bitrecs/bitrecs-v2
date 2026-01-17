@@ -182,6 +182,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             if not openrouter_api_key or not chutes_api_key:
                 raise Exception("Missing required API keys for Affine ENV evaluation run")
 
+            bitrecs_run_id = str(evaluation_run_id)
             af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
             af_mode = "docker"            
             af_hostname = "localhost"
@@ -189,7 +190,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             af_run_token = secrets.token_hex(16)
             af_env_vars = {
                 "BITRECS_RUN_TOKEN": af_run_token,
-                "BITRECS_RUN_ID": str(evaluation_run_id),
+                "BITRECS_RUN_ID": bitrecs_run_id,
                 "OPENROUTER_API_KEY": openrouter_api_key,
                 "CHUTES_API_KEY": chutes_api_key
             }
@@ -218,13 +219,13 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info("Triggering evaluation in Affine environment...")
 
             # Move from running_agent -> initializing_eval
-            await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
+            await asyncio.sleep(random.random() * 3)
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_eval, {
-                "patch": "FAKE PATCH",
-                "agent_logs": "FAKE AGENT LOGS"
+                "patch": "initializing_eval",
+                "agent_logs": f"run_id: {bitrecs_run_id}\nDocker container port: {af_container_port}\nDocker environment health: {af_health}"
             })
 
-            await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
+            await asyncio.sleep(random.random() * 2)
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_eval)            
             
             logger.info(f"Run timeout set to: {EVAL_TIMEOUT[1]} seconds")
@@ -248,7 +249,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info("Evaluation Result:")
             logger.info(f"  Task Name: {tak_name}")
             logger.info(f"  Run ID: {run_id}")
-            logger.info(f"  Score: {score}")
+            logger.info(f"\033[32m  Score: {score} \033[0m")
             logger.info(f"  Success: {success}")
             logger.info(f"  Time Taken: {time_taken} seconds")           
             logger.info("  Extra:")

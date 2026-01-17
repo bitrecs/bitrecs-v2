@@ -1,7 +1,7 @@
 name: "yuma recommender"
 version_num: "1"
 status: "screening_1"
-miner_hotkey: "5FtH6Aj3xKbkNdgbZUghkTeJrkJexn6eBRZSnS8Zgc3oo4GX"
+miner_hotkey: "5HWJ4i1K88EwWn6wSsmEqHh37Gd9miTJCDqdGeko8QCbX3EV"
 miner_uid: 42
 ip_address: ""
 provider: "OPEN_ROUTER"
