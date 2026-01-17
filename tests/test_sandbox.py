@@ -170,6 +170,10 @@ async def test_bitrecs_eval_sandbox():
     print("Run Log - Report:")
     print(report)
 
+    final_score = result.get("score")
+    assert final_score is not None, "Final score is missing in the result"
+    assert final_score >= 0.0 and final_score <= 1.0, "Final score is out of expected range [0.0, 1.0]"
+
     sql_db = await try_get_eval_db(bitrecs_run_id)
     assert sql_db is not None, "Failed to download evals DB"
     print(f"Downloaded evals DB to: {sql_db}")
