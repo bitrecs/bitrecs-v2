@@ -1,7 +1,5 @@
 # V2 Validator Setup
 
---Screener
-
 sudo apt-get update
 sudo apt-get upgrade
 
@@ -29,7 +27,45 @@ reactivate shell:
 
 source $HOME/.local/bin/env
 
+# CLone Repo
+
+git@github.com:bitrecs/bitrecs-v2.git
+
+cd ~/bitrecs-v2
 uv sync
 
+
+ # PM2
+ 
+ sudo apt install -y nodejs npm
+ sudo npm install -g pm2
+ 
+ pm2 init ecosystem
+ 
+ edit the ecosystem.config.js
+ 
+ module.exports = {
+  apps: [{
+    name:        "screener-2",
+    script:      "sample_validator.py",
+    cwd:         "/root/bitrecs-v2/validator",
+    interpreter: "/root/.local/bin/uv",
+    interpreter_args: "run",
+    args:        "",
+    exec_mode:   "fork",
+    instances:   1,
+    autorestart: true,
+    watch:       false,
+    max_memory_restart: "600M",
+    env: {
+      PYTHONUNBUFFERED: "1"
+    }
+  }]
+};
+ 
+pm2 start ecosystem
+pm2 startup
+
+pm2 logs 0
 
  
