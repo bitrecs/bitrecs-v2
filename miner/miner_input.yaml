@@ -1,7 +1,7 @@
 name: "bitrecs test recommender"
 version_num: "1"
 status: "screening_1"
-miner_hotkey: "5HWJ4i1K88EwWn6wSsmEqHh37Gd9miTJCDqdGeko8QCbX3EV"
+miner_hotkey: "5HSzPeBqt6fxqQMZU9971nP6N1rijv6CuKaXgSHi9Ychf7gA"
 miner_uid: 42
 ip_address: ""
 provider: "CHUTES"
@@ -10,7 +10,7 @@ system_prompt_template: |
   You are an ecommerce helpful assistant, today's date is {{current_date}}.
 user_prompt_template: |
     # SCENARIO
-    A shopper is currently viewing a product detail page with SKU <sku>{{sku}}</sku> named <sku_info>{{sku_info}}</sku_info> on your e-commerce store.
+    A person is currently viewing a product detail page with SKU <sku>{{sku}}</sku> named <sku_info>{{sku_info}}</sku_info> on your e-commerce store.
     They are looking for {{num_recs}} products to add to their shopping cart.
     You will build a {{num_recs}} product recommendation set with no duplicates based on the provided context and utilizing your persona attributes.
         

@@ -32,6 +32,8 @@ from queries.problem_statistics import SWEBENCH_VERIFIED_SUITE
 from utils.git import COMMIT_HASH
 from utils.system_metrics import get_system_metrics
 from evaluator.models import EvaluationRunException
+from models.eval_type import BitrecsEvaluationType
+
 
 session_id: str | None = None
 
@@ -176,6 +178,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
              # Get the problem
             #problem = problem_suite.get_problem(problem_name)
             #logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
+            eval_type = BitrecsEvaluationType(problem_name)
 
             miner_agent = await load_agent_by_evaluation_run(evaluation_run_id)
             if miner_agent is None:
@@ -248,13 +251,19 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             })
 
             await asyncio.sleep(random.random() * 2)
-            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_eval)            
+            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_eval)     
+
+            run_data = {"yaml_content": yaml_content, 
+                        "run_token": af_run_token,
+                        "problem_name": eval_type.value}
             
             logger.info(f"Run timeout set to: {EVAL_TIMEOUT[1]} seconds")
+            logger.info(f"\033[32mRunning: {eval_type.value} evaluation... \033[0m")
+
             async with httpx.AsyncClient(timeout=EVAL_TIMEOUT) as client:
                 response = await client.post(
                     f"http://{af_hostname}:{af_container_port}/evaluate",
-                    json={"yaml_content": yaml_content, "run_token": af_run_token},
+                    json=run_data,
                     headers={"Content-Type": "application/json"}
                 )
                 logger.info(f"Received response: {response.text}")

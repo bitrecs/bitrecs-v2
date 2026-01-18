@@ -247,3 +247,22 @@ async def test_bitrecs_sandbox_contains_valid_eval_types():
 
     await env.cleanup()
 
+
+
+async def test_problem_names_to_types():
+    problem_names = [
+        "bitrecs_basic_daily",
+        "bitrecs_prompt_daily",
+        "bitrecs_reason_daily",
+        "bitrecs_sku_daily",
+        "amazon_prompt_100",
+        "amazon_prompt_500",
+        "amazon_prompt_1000"
+    ]
+    
+    for name in problem_names:
+        try:
+            eval_type = BitrecsEvaluationType(name)
+            logger.info(f"Problem name '{name}' maps to evaluation type: {eval_type}")
+        except ValueError:
+            assert False, f"Problem name '{name}' does not map to any known evaluation type"
