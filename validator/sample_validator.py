@@ -331,13 +331,12 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
 
 
 # Run an evaluation, automatically dispatches all runs to either _simulate_run_evaluation_run or _run_evaluation_run
-async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluationResponse):
+async def _run_evaluation2(request_evaluation_response: ValidatorRequestEvaluationResponse):
     logger.info("Received evaluation:")
     logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
 
     SIMULATE_EVALUATION_RUNS = False
     #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNS
-
     # if len(request_evaluation_response.evaluation_runs) == 0:        
     #     logger.warning("No evaluation runs to process, finishing evaluation immediately.")
     #     logger.error("No evaluation runs to process.")
@@ -348,7 +347,6 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
         logger.info(f"    {evaluation_run.problem_name}")
 
     logger.info("Starting evaluation...")
-
     tasks = []
     for evaluation_run in request_evaluation_response.evaluation_runs:
         evaluation_run_id = evaluation_run.evaluation_run_id
@@ -372,6 +370,46 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
         logger.error(traceback.format_exc())
         await disconnect(f"Error finishing evaluation: {type(e).__name__}: {e}")
         
+
+
+# Run an evaluation, automatically dispatches all runs to either _simulate_run_evaluation_run or _run_evaluation_run
+async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluationResponse):
+    logger.info("Received evaluation:")
+    logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
+
+    SIMULATE_EVALUATION_RUNS = False
+    #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNS
+
+    # if len(request_evaluation_response.evaluation_runs) == 0:        
+    #     logger.warning("No evaluation runs to process, finishing evaluation immediately.")
+    #     logger.error("No evaluation runs to process.")
+    #     await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
+    #     return
+
+    for evaluation_run in request_evaluation_response.evaluation_runs:
+        logger.info(f"    {evaluation_run.problem_name}")
+
+    logger.info("Starting evaluation...")
+
+    for evaluation_run in request_evaluation_response.evaluation_runs:
+        evaluation_run_id = evaluation_run.evaluation_run_id
+        problem_name = evaluation_run.problem_name
+      
+        if SIMULATE_EVALUATION_RUNS:
+            await _simulate_run_evaluation_run(evaluation_run_id, problem_name)            
+        else:
+            await _run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)
+
+    try:
+        await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
+        if SIMULATE_EVALUATION_RUNS:
+            logger.info("Finished SIMULATED evaluation")
+        else:
+            logger.info("Finished evaluation")
+    except Exception as e:
+        logger.error(f"Error finishing evaluation: {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        await disconnect(f"Error finishing evaluation: {type(e).__name__}: {e}")
 
 
 # Disconnect from the Bitrecs platform (called when the program exits)
@@ -464,7 +502,7 @@ async def main():
     while True:
         try:
 
-            logger.info("Requesting an evaluation...")        
+            logger.info("Requesting an evaluation...")
             request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
             # If no evaluation is available, wait and try again
             if request_evaluation_response_data is None:
@@ -473,13 +511,14 @@ async def main():
                 continue
           
             logger.info(f"Received evaluation with {request_evaluation_response_data}")
-            await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))          
+            await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))
 
         except Exception as e:
             logger.error(f"Error running evaluation: {type(e).__name__}: {e}")
             logger.error(traceback.format_exc())            
             await asyncio.sleep(RETRY_SLEEP_ON_ERROR)
  
+
 
 if __name__ == "__main__":
     try:
