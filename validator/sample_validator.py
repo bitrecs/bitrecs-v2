@@ -173,7 +173,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
         #     })
         #     return
         test = 1 + 1
-        container_ports = [8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089]
+        #container_ports = [8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089]
+        container_ports = [8091]
 
         try:
              # Get the problem
@@ -224,8 +225,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 env_vars=af_env_vars,                
                 host_port=af_container_port,
                 host_network=True,
-                cleanup=False,
-                force_recreate=True,                
+                cleanup=True,
+                force_recreate=False,                
                 pull=True
             )
             if env is None:
