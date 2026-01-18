@@ -132,7 +132,7 @@ async def test_bitrecs_eval_sandbox():
     logger.info(f"Loaded YAML content from : {yaml_file_path}")    
     
     timeout = (30, 600)
-    data = {"yaml_content": yaml_content, "run_token": af_run_token }
+    data = {"yaml_content": yaml_content, "run_token": af_run_token, "problem_name": "bitrecs_basic_daily"}
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(
             "http://localhost:8081/evaluate",

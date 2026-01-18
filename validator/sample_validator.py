@@ -164,23 +164,22 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
     try:
         # Figure out what problem suite this problem belongs to
         #problem_suite = next((suite for suite in problem_suites if suite.has_problem_name(problem_name)), None)
-
+        eval_type = BitrecsEvaluationType(problem_name)
         # If we don't have a problem suite that supports this problem, mark the evaluation run as errored
-        # if problem_suite is None:
+        # if problem_name is None:
         #     await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.error, {
         #         "error_code": EvaluationRunErrorCode.VALIDATOR_UNKNOWN_PROBLEM.value,
         #         "error_message": f"The problem '{problem_name}' was not found in any problem suite"
         #     })
         #     return
-        test = 1 + 1
-        #container_ports = [8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089]
-        container_ports = [8091]
+        # test = 1 + 1
+        # #container_ports = [8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089]
+        # container_ports = [8091]
 
         try:
              # Get the problem
             #problem = problem_suite.get_problem(problem_name)
             #logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
-            eval_type = BitrecsEvaluationType(problem_name)
 
             miner_agent = await load_agent_by_evaluation_run(evaluation_run_id)
             if miner_agent is None:
@@ -211,7 +210,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             af_mode = "docker"            
             af_hostname = "localhost"
             #af_container_port = 8081
-            af_container_port = secrets.choice(container_ports)
+            af_container_port = 8081
             af_run_token = secrets.token_hex(16)
             af_env_vars = {
                 "BITRECS_RUN_TOKEN": af_run_token,
@@ -223,15 +222,16 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 image=af_image,
                 mode=af_mode,
                 env_vars=af_env_vars,                
-                host_port=af_container_port,
                 host_network=True,
-                cleanup=True,
-                force_recreate=False,                
+                cleanup=False,
+                force_recreate=True,
+                host_port=af_container_port,
                 pull=True
             )
             if env is None:
                 raise Exception("Failed to load Docker environment")
             logger.info("Loaded Docker environment successfully")
+            env.start_logging("bitrecs_eval.log")
 
             af_health = await get_health_from_docker(f"http://{af_hostname}:{af_container_port}/health")
             if af_health is None:
