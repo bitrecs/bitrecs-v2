@@ -161,25 +161,11 @@ async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: st
 
 # Run an evaluation run
 async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_code: str):
-    try:
-        # Figure out what problem suite this problem belongs to
-        #problem_suite = next((suite for suite in problem_suites if suite.has_problem_name(problem_name)), None)
+    try:        
+        
         eval_type = BitrecsEvaluationType(problem_name)
-        # If we don't have a problem suite that supports this problem, mark the evaluation run as errored
-        # if problem_name is None:
-        #     await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.error, {
-        #         "error_code": EvaluationRunErrorCode.VALIDATOR_UNKNOWN_PROBLEM.value,
-        #         "error_message": f"The problem '{problem_name}' was not found in any problem suite"
-        #     })
-        #     return
-        # test = 1 + 1
-        # #container_ports = [8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089]
-        # container_ports = [8091]
 
-        try:
-             # Get the problem
-            #problem = problem_suite.get_problem(problem_name)
-            #logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
+        try:        
 
             miner_agent = await load_agent_by_evaluation_run(evaluation_run_id)
             if miner_agent is None:
@@ -207,9 +193,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
 
             bitrecs_run_id = str(evaluation_run_id)
             af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
-            af_mode = "docker"            
-            af_hostname = "localhost"
-            #af_container_port = 8081
+            af_mode = "docker"
+            af_hostname = "localhost"            
             af_container_port = 8081
             af_run_token = secrets.token_hex(16)
             af_env_vars = {
@@ -331,49 +316,49 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
     
 
 
-# Run an evaluation, automatically dispatches all runs to either _simulate_run_evaluation_run or _run_evaluation_run
-async def _run_evaluation2(request_evaluation_response: ValidatorRequestEvaluationResponse):
-    logger.info("Received evaluation:")
-    logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
+# # Run an evaluation, automatically dispatches all runs to either _simulate_run_evaluation_run or _run_evaluation_run
+# async def _run_evaluation2(request_evaluation_response: ValidatorRequestEvaluationResponse):
+#     logger.info("Received evaluation:")
+#     logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
 
-    SIMULATE_EVALUATION_RUNS = False
-    #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNS
-    # if len(request_evaluation_response.evaluation_runs) == 0:        
-    #     logger.warning("No evaluation runs to process, finishing evaluation immediately.")
-    #     logger.error("No evaluation runs to process.")
-    #     await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
-    #     return
+#     SIMULATE_EVALUATION_RUNS = False
+#     #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNS
+#     # if len(request_evaluation_response.evaluation_runs) == 0:        
+#     #     logger.warning("No evaluation runs to process, finishing evaluation immediately.")
+#     #     logger.error("No evaluation runs to process.")
+#     #     await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
+#     #     return
 
-    for evaluation_run in request_evaluation_response.evaluation_runs:
-        logger.info(f"    {evaluation_run.problem_name}")
+#     for evaluation_run in request_evaluation_response.evaluation_runs:
+#         logger.info(f"    {evaluation_run.problem_name}")
 
-    logger.info("Starting evaluation...")
-    tasks = []
-    for evaluation_run in request_evaluation_response.evaluation_runs:
-        evaluation_run_id = evaluation_run.evaluation_run_id
-        problem_name = evaluation_run.problem_name
+#     logger.info("Starting evaluation...")
+#     tasks = []
+#     for evaluation_run in request_evaluation_response.evaluation_runs:
+#         evaluation_run_id = evaluation_run.evaluation_run_id
+#         problem_name = evaluation_run.problem_name
       
-        if SIMULATE_EVALUATION_RUNS:
-            tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))            
-        else:
-            tasks.append(asyncio.create_task(_run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)))
+#         if SIMULATE_EVALUATION_RUNS:
+#             tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))            
+#         else:
+#             tasks.append(asyncio.create_task(_run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)))
 
-    await asyncio.gather(*tasks) 
+#     await asyncio.gather(*tasks) 
 
-    try:
-        await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
-        if SIMULATE_EVALUATION_RUNS:
-            logger.info("Finished SIMULATED evaluation")
-        else:
-            logger.info("Finished evaluation")
-    except Exception as e:
-        logger.error(f"Error finishing evaluation: {type(e).__name__}: {e}")
-        logger.error(traceback.format_exc())
-        await disconnect(f"Error finishing evaluation: {type(e).__name__}: {e}")
+#     try:
+#         await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
+#         if SIMULATE_EVALUATION_RUNS:
+#             logger.info("Finished SIMULATED evaluation")
+#         else:
+#             logger.info("Finished evaluation")
+#     except Exception as e:
+#         logger.error(f"Error finishing evaluation: {type(e).__name__}: {e}")
+#         logger.error(traceback.format_exc())
+#         await disconnect(f"Error finishing evaluation: {type(e).__name__}: {e}")
         
 
 
-# Run an evaluation, automatically dispatches all runs to either _simulate_run_evaluation_run or _run_evaluation_run
+# Run an evaluation - serially
 async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluationResponse):
     logger.info("Received evaluation:")
     logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
