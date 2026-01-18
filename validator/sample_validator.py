@@ -173,6 +173,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
         #     })
         #     return
         test = 1 + 1
+        container_ports = [8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089]
 
         try:
              # Get the problem
@@ -208,7 +209,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
             af_mode = "docker"            
             af_hostname = "localhost"
-            af_container_port = 8081
+            #af_container_port = 8081
+            af_container_port = secrets.choice(container_ports)
             af_run_token = secrets.token_hex(16)
             af_env_vars = {
                 "BITRECS_RUN_TOKEN": af_run_token,
