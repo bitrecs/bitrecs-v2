@@ -266,11 +266,13 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             time_taken = result.get("time_taken", "N/A")
             extra = ""
             logger.info("Evaluation Result:")
-            logger.info(f"  Task Name: {tak_name}")
             logger.info(f"  Run ID: {run_id}")
+            logger.info(f"  Task Name: \033[32m{tak_name}\033[0m")
+            logger.info(f"  Problem Name: \033[32m{problem_name}\033[0m")
+            logger.info(f"  Eval Type: \033[32m{eval_type.value}\033[0m")            
             logger.info(f"\033[32m  Score: {score} \033[0m")
             logger.info(f"  Success: {success}")
-            logger.info(f"  Time Taken: {time_taken} seconds")           
+            logger.info(f"  Time Taken: {time_taken} seconds")
             logger.info("  Extra:")
             if 'extra' in result and 'result' in result['extra']:
                 logger.info(result['extra']['result'])
@@ -364,7 +366,7 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
 
     SIMULATE_EVALUATION_RUNS = False
-    #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNS
+    #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNSF
 
     # if len(request_evaluation_response.evaluation_runs) == 0:        
     #     logger.warning("No evaluation runs to process, finishing evaluation immediately.")
