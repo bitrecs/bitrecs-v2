@@ -69,23 +69,42 @@ async def get_health_from_docker(url: str) -> dict | None:
         logger.error(f"Error fetching heartbeat from Docker: {e}")
     return None
 
+async def get_evals_from_docker(url: str) -> dict | None:
+    """Fetch evals from a Docker container."""
+    try:
+        timeout = (5, 10)    
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(url, headers={"Content-Type": "application/json"})
+            response.raise_for_status()
+            data = response.json()
+            return data
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error fetching evals from Docker: {e.response.status_code} - {e.response.text}")
+    except Exception as e:
+        logger.error(f"Error fetching evals from Docker: {e}")
+    return None
 
 async def get_run_log_from_docker(run_id: str) -> str | None:
     """ Fetch run log from Docker container """
     af_hostname = "localhost"
     af_container_port = 8081
     timeout = (10, 60)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.get(
-            f"http://{af_hostname}:{af_container_port}/run_log/{run_id}",
-            headers={"Content-Type": "application/json"}
-        )
-        if response.status_code == 200:
-            log = response.json()
-            return log
-        else:
-            logger.error(f"Failed to get run log for {run_id}: {response.status_code}")
-            return None
+    try:        
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(
+                f"http://{af_hostname}:{af_container_port}/run_log/{run_id}",
+                headers={"Content-Type": "application/json"}
+            )
+            if response.status_code == 200:
+                return response.json()                
+            else:
+                logger.error(f"Failed to get run log for {run_id}: {response.status_code}")
+                return None
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error fetching evals from Docker: {e.response.status_code} - {e.response.text}")
+    except Exception as e:
+        logger.error(f"Error fetching evals from Docker: {e}")
+    return None   
 
 
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
@@ -174,7 +193,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             
             # Move from initializing_agent -> running_agent
             await asyncio.sleep(random.random() * config.SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
-            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_agent)           
+            await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.running_agent)
 
             # Start initializing the agent sandbox
             openrouter_api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -212,7 +231,10 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             if af_health is None:
                 raise Exception("Failed to get heartbeat from Docker environment")
             if af_health["status"] != "healthy":
-                raise Exception(f"Docker environment is not healthy: {af_health}")
+                raise Exception(f"Docker environment is not healthy: {af_health}")            
+            
+            eval_battery = await get_evals_from_docker(f"http://{af_hostname}:{af_container_port}/evals")
+            logger.info(f"EVALS: {eval_battery}")
         
             yaml_content = Agent.to_yaml(miner_agent)
             logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")

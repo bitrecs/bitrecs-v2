@@ -9,6 +9,8 @@ import affinetes as af_env
 import logging
 import yaml
 from dotenv import load_dotenv
+
+from models.eval_type import BitrecsEvaluationType
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 @pytest.mark.asyncio
-async def test_calculator_env():    
+async def test_calculator_sandbox_example():    
     try:
         import docker
         client = docker.from_env()
@@ -126,14 +128,11 @@ async def test_bitrecs_eval_sandbox():
         miner_input_data = yaml.safe_load(f)
 
     logger.info(f"Testing model: {miner_input_data.get('model', 'N/A')} with provider: {miner_input_data.get('provider', 'N/A')}")
-
     yaml_content = yaml.dump(miner_input_data)
-    logger.info(f"Loaded YAML content from : {yaml_file_path}")
+    logger.info(f"Loaded YAML content from : {yaml_file_path}")    
     
-    timeout = (30, 600)    
-
+    timeout = (30, 600)
     data = {"yaml_content": yaml_content, "run_token": af_run_token }
-
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(
             "http://localhost:8081/evaluate",
@@ -142,8 +141,7 @@ async def test_bitrecs_eval_sandbox():
         )
         logger.info(f"Received response: {response.text}")
         #response.raise_for_status()
-        result = response.json()
-    
+        result = response.json()    
     
     print("Evaluation Result:")
     print(f"  Task Name: {result.get('task_name', 'N/A')}")
@@ -184,6 +182,68 @@ async def test_bitrecs_eval_sandbox():
     
     print("Evals DB - Evaluations Table:")
     print(df.head())
+
+    await env.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_bitrecs_sandbox_contains_valid_eval_types():
+    af_run_token = os.environ.get("BITRECS_RUN_TOKEN")
+    af_run_token = secrets.token_hex(16) if not af_run_token else af_run_token    
+    bitrecs_run_id = str(uuid.uuid4())
+    af_hostname = "localhost"
+    af_container_port = 8081
+
+    af_env_vars = {
+            "BITRECS_RUN_TOKEN": af_run_token,
+            "BITRECS_RUN_ID": bitrecs_run_id,
+            "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
+            "CHUTES_API_KEY": os.environ.get("CHUTES_API_KEY")
+        }
+    assert all(af_env_vars.values()), "Provider API keys must be set in environment variables"
+
+    env = af_env.load_env(
+        image="ghcr.io/bitrecs/bitrecs-evals:main",
+        env_vars=af_env_vars,
+        mode="docker",
+        host_network=True,
+        cleanup=False,
+        force_recreate=True,
+        host_port=af_container_port,
+        pull=True
+    )
+    
+    assert env is not None
+    logger.info("Loaded Docker environment successfully")
+
+    async def get_evals_from_docker(url: str) -> dict | None:
+        """Fetch evals from a Docker container."""
+        try:
+            timeout = (5, 10)    
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(url, headers={"Content-Type": "application/json"})
+                response.raise_for_status()
+                data = response.json()
+                return data
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error fetching evals from Docker: {e.response.status_code} - {e.response.text}")
+        except Exception as e:
+            logger.error(f"Error fetching evals from Docker: {e}")
+        return None    
+    
+   
+    evals = await get_evals_from_docker(f"http://{af_hostname}:{af_container_port}/evals")
+    assert evals is not None, "Failed to fetch evals from Docker container"
+    logger.info(f"Fetched evals from Docker container: {evals}")
+
+    assert "enabled_evaluations" in evals, "Eval data missing 'enabled_evaluations' key"
+    enabled_evaluations = evals["enabled_evaluations"]
+    for eval in enabled_evaluations:
+        logger.info(f"Enabled Evaluation: {eval}")
+        try:
+            BitrecsEvaluationType(eval)
+        except ValueError:
+            assert False, f"Unknown evaluation type: {eval}"
 
     await env.cleanup()
 
