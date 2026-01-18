@@ -86,10 +86,10 @@ async def get_evals_from_docker(url: str) -> dict | None:
         logger.error(f"Error fetching evals from Docker: {e}")
     return None
 
-async def get_run_log_from_docker(run_id: str) -> str | None:
+async def get_run_log_from_docker(run_id: str, port: int) -> str | None:
     """ Fetch run log from Docker container """
     af_hostname = "localhost"
-    af_container_port = 8081
+    af_container_port = port
     timeout = (10, 60)
     try:        
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -292,7 +292,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             else:
                 logger.info("    No extra details available")   
             
-            run_log = await get_run_log_from_docker(run_id)
+            run_log = await get_run_log_from_docker(run_id, af_container_port)
             if run_log is None:
                 logger.error("Failed to retrieve run log")
             this_log = run_log["report"] if run_log and "report" in run_log else "No report available"
