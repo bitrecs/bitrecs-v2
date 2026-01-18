@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 class BitrecsAPIClient:
-    def __init__(self, base_url="https://v2.testnet.api.bitrecs.ai"):
+    def __init__(self, base_url="http://localhost"):
         self.base_url = base_url
         self.client = httpx.Client(timeout=10)
 
