@@ -555,3 +555,46 @@ AFTER INSERT OR UPDATE OR DELETE
 ON unapproved_agent_ids FOR EACH ROW
 EXECUTE PROCEDURE refresh_agent_scores();
 
+
+
+-- Enable pgvector extension for vector operations
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Store agent embeddings (one row per agent)
+CREATE TABLE public.agent_embeddings (
+    embedding_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID NOT NULL UNIQUE, -- One embedding per agent
+    agent_text TEXT NOT NULL, -- The concatenated text that was embedded
+    embedding_provider TEXT NOT NULL, -- 'openrouter', 'chutes'
+    embedding_model TEXT NOT NULL, -- 'qwen/qwen3-embedding-8b'
+    embedding_vector vector(768) NOT NULL, -- 768-dimensional embedding
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Index for vector similarity search
+CREATE INDEX idx_agent_embeddings_vector 
+    ON agent_embeddings 
+    USING ivfflat (embedding_vector vector_cosine_ops)
+    WITH (lists = 100);
+
+-- Index for agent lookup
+CREATE INDEX idx_agent_embeddings_agent_id 
+    ON agent_embeddings(agent_id);
+
+-- Optional: Embedding API request logs
+CREATE TABLE public.embedding_requests (
+    request_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    input_text TEXT NOT NULL,
+    dimensions INTEGER NOT NULL DEFAULT 768,
+    status_code INTEGER NULL,
+    num_tokens INTEGER NULL,
+    cost_usd DOUBLE PRECISION NULL,
+    request_received_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    response_sent_at TIMESTAMP WITH TIME ZONE NULL
+);
+
+CREATE INDEX idx_embedding_requests_timestamp 
+    ON embedding_requests(request_received_at);

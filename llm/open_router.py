@@ -13,7 +13,8 @@ class OpenRouter:
                  key,
                  model="google/gemini-flash-1.5-8b", 
                  system_prompt="You are a helpful assistant.", 
-                 temp=0.0
+                 temp=0.0,
+                 embedding_dimensions=768  # Default to 768 for efficiency
         ):
 
         self.OPENROUTER_API_KEY = key
@@ -21,7 +22,8 @@ class OpenRouter:
             raise ValueError("OPENROUTER_API_KEY is not set")
         self.model = model       
         self.system_prompt = system_prompt
-        self.temp = temp        
+        self.temp = temp
+        self.embedding_dimensions = embedding_dimensions
         self.provider = LLM.OPEN_ROUTER.name
 
     def get_embeddings(self, text: str | list[str]) -> list[float] | list[list[float]]:
@@ -48,7 +50,8 @@ class OpenRouter:
         }
         data = {
             "model": self.model,
-            "input": text  # OpenRouter API accepts both str and list[str]
+            "input": text,
+            "dimensions": self.embedding_dimensions  # Request specific dimensions
         }
         timeout = (5, 30) #connect, read timeout
         try:

@@ -12,14 +12,17 @@ class Chutes:
                  key, 
                  model="deepseek-ai/DeepSeek-V3", 
                  system_prompt="You are a helpful assistant.", 
-                 temp=0.0):
+                 temp=0.0,
+                 embedding_dimensions=768  # Default to 768 for efficiency
+        ):
         
         self.CHUTES_API_KEY = key
         if not self.CHUTES_API_KEY:
             raise ValueError("CHUTES_API_KEY is not set")
         self.model = model
         self.system_prompt = system_prompt
-        self.temp = temp      
+        self.temp = temp
+        self.embedding_dimensions = embedding_dimensions
         self.provider = LLM.CHUTES.name
                 
     def get_embeddings(self, text: str | list[str]) -> list[float] | list[list[float]]:
@@ -33,9 +36,7 @@ class Chutes:
             - If input is str: returns list[float] (single embedding)
             - If input is list[str]: returns list[list[float]] (multiple embeddings)
         """
-        url = "https://chutes-qwen-qwen3-embedding-8b.chutes.ai/v1/embeddings"       
-        if "qwen3-embedding-8b" not in self.model:
-            raise ValueError("Only qwen/qwen3-embedding-8b model is supported for embeddings")
+        url = "https://chutes-qwen-qwen3-embedding-8b.chutes.ai/v1/embeddings"
         
         headers = {
             "Authorization": f"Bearer {self.CHUTES_API_KEY}",
@@ -43,10 +44,22 @@ class Chutes:
             "HTTP-Referer": "https://bitrecs.ai",
             "X-Title": "bitrecs"
         }
+        
+        # Chutes API uses minimal schema - model is in URL, so can be null
+        # data = {
+        #     "input_args": {
+        #         "input": text,
+        #         "model": None,  # Model is in the URL path
+        #         "dimensions": self.embedding_dimensions
+        #     }
+        # }
         data = {
-            "model": None,
-            "input": text  # Accepts both str and list[str]
+            "input_args": {
+                "input": text,
+                "model": None               
+            }
         }
+        
         timeout = (5, 30) #connect, read timeout
         try:
             with httpx.Client(timeout=timeout) as client:
