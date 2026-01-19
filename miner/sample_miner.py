@@ -40,9 +40,7 @@ def upload_prompt():
         "x-signature": "your_signature_here",
         "x-timestamp": "your_timestamp_here",
         "x-nonce": "your_nonce_here"
-    }   
-    #RE_PRODUCT_NAME = re.compile(r"[^A-Za-z0-9 |-]")
-    #artifact.name = f"Yuma Recomender - Test {int(time.time())}"
+    }      
     artifact.name = f"{artifact.name} - Test {int(time.time())}"
     with httpx.Client(base_url=SERVICE_URL, headers=headers) as client:
         response = client.post(

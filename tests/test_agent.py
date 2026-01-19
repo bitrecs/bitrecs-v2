@@ -4,6 +4,8 @@ import uuid
 import logging
 import numpy as np
 from dotenv import load_dotenv
+from llm.chutes import Chutes
+from llm.open_router import OpenRouter
 from rules.agent_comparer import AgentComparer
 load_dotenv()
 from rules.agent_validator import validate_artifact_template
@@ -151,6 +153,60 @@ def sample_agent2():
         eval_scores={}
     )
 
+
+@pytest.fixture
+def sample_agent3():
+    return Agent(
+        agent_id=uuid.uuid4(),
+        created_at=datetime.now(timezone.utc),
+        miner_hotkey="hotkey3",
+        name="Agent3",
+        version_num=1,
+        status=AgentStatus.screening_1,
+        ip_address="192.0.0.1",
+        miner_uid=42,
+        provider="openai",
+        model="mistral-nemo",
+        system_prompt_template="You are a helpful assistant.",
+        user_prompt_template="Answer the question: {{question}} to the best of your ability",
+        sampling_params=SamplingParams(temperature=0.1, top_p=0.9, max_tokens=2048),
+        fewshot_examples=[
+            MessageExample(role="user", content="Hello sir"),
+            MessageExample(role="assistant", content="Hi would you like to redeem?")
+        ],
+        eval_scores={}
+    )
+
+@pytest.mark.asyncio
+async def test_open_router_embedding():
+    """Test OpenRouter embedding generation."""
+    api_key = os.getenv("OPENROUTER_API_KEY", "")
+    open_router = OpenRouter(key=api_key, model="qwen/qwen3-embedding-8b")
+    embeddings = open_router.get_embeddings("Test embedding")
+    
+    assert isinstance(embeddings, list), "Embeddings should be a list"
+    assert len(embeddings) > 0, "Embeddings should not be empty"
+    assert all(isinstance(x, (float, int)) for x in embeddings), \
+        f"All embedding values should be numeric, got types: {set(type(x).__name__ for x in embeddings[:10])}"        
+    assert 4096 == len(embeddings), f"Unexpected embedding dimension: {len(embeddings)}"    
+    logger.info(f"✓ Obtained embedding of length {len(embeddings)} from OpenRouter")
+
+@pytest.mark.asyncio
+async def test_chutes_embedding():
+    """Test Chutes embedding generation."""  
+    api_key = os.getenv("CHUTES_API_KEY", "")
+    chutes = Chutes(key=api_key, model="qwen/qwen3-embedding-8b")
+    embeddings = chutes.get_embeddings("Test embedding")
+
+    assert isinstance(embeddings, list), "Embeddings should be a list"
+    assert len(embeddings) > 0, "Embeddings should not be empty"
+    assert all(isinstance(x, (float, int)) for x in embeddings), \
+        f"All embedding values should be numeric, got types: {set(type(x).__name__ for x in embeddings[:10])}"        
+    assert 4096 == len(embeddings), f"Unexpected embedding dimension: {len(embeddings)}"    
+    logger.info(f"✓ Obtained embedding of length {len(embeddings)} from Chutes")
+
+
+
 @pytest.mark.asyncio
 async def test_agent_comparator_cosine_distance(sample_agent1, sample_agent2):
     """
@@ -158,7 +214,8 @@ async def test_agent_comparator_cosine_distance(sample_agent1, sample_agent2):
     Tests that distance is a float between 0 and 2, and identical agents have distance ~0.
     Assumes the embedding server is running at http://localhost:8080.
     """
-    comparator = AgentComparer()
+    chutes = Chutes(key=os.getenv("CHUTES_API_KEY", ""), model="qwen/qwen3-embedding-8b")
+    comparator = AgentComparer(provider=chutes)
     
     # Test distance between identical agents (should be ~0)
     distance_self = await comparator.cosine_distance(sample_agent1, sample_agent1)
@@ -170,3 +227,20 @@ async def test_agent_comparator_cosine_distance(sample_agent1, sample_agent2):
     assert isinstance(distance_similar, float)
     assert 0 <= distance_similar <= 2, f"Distance should be between 0 and 2, got {distance_similar}"
     assert distance_similar < 0.1, f"Similar agents should have low distance, got {distance_similar}"  # Adjust threshold as needed
+
+
+@pytest.mark.asyncio
+async def test_agent_comparator_embedding_distance(sample_agent1, sample_agent3):    
+    #provider = OpenRouter(key=os.getenv("OPENROUTER_API_KEY", ""), model="qwen/qwen3-embedding-8b")
+    provider = Chutes(key=os.getenv("CHUTES_API_KEY", ""), model="qwen/qwen3-embedding-8b")
+    comparer = AgentComparer(provider=provider)
+    threshold = 0.08
+
+    # diff agents
+    distance = await comparer.cosine_distance(sample_agent1, sample_agent3)
+    assert isinstance(distance, float)
+    assert 0 <= distance <= 2, f"Distance should be between 0 and 2, got {distance}"
+    assert distance > threshold, f"Different agents should have higher distance, got {distance}"  # Adjust threshold as needed
+    
+
+

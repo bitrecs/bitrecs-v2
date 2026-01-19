@@ -14,8 +14,7 @@ services:
     volumes:
       - ./api:/app/api  # Mount API code for development (optional)
     restart: unless-stopped
-    depends_on:
-      - embedding-server  # Ensure embedding server starts first
+    
    
     # depends_on:
     #   - db
@@ -28,19 +27,3 @@ services:
     #   ports:
     #     - "5432:5432"
 
-  embedding-server:
-    image: ghcr.io/huggingface/text-embeddings-inference:cuda-latest
-    ports:
-      - "8080:80"
-    volumes:
-      - hf_cache:/data
-    command: ["--model-id", "sentence-transformers/all-mpnet-base-v2", "--pooling", "mean", "--dtype", "float16"]
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]  # Enable GPU access
-    restart: unless-stopped
-    pull_policy: always  # Equivalent to --pull always

@@ -1,111 +1,88 @@
+import os
+import hashlib
 import numpy as np
-import httpx
-from typing import List
+from typing import List, Dict
 from models.agent import Agent
 
 class AgentComparer:
     """
-    A class to calculate cosine distance between two Agent instances.  
-    
-    Only specific fields are considered for comparison: provider, model, 
-    system_prompt_template, user_prompt_template, sampling_params, and fewshot_examples.   
-    
-    Uses a local embedding server at the provided URL.
-    Default URL: 'http://localhost:8080' (defined in docker-compose setup).
+    A class to calculate cosine distance between two Agent instances.
     """
     
-    def __init__(self, embedding_server_url: str = 'http://localhost:8080'):
-        """
-        Initialize the comparator with the URL of the local embedding server.
+    def __init__(self, provider):
+        if not provider:
+            raise ValueError("Provider instance is required")
         
-        Args:
-            embedding_server_url: URL of the local embedding server (e.g., 'http://localhost:8080').
-        """
-        self.embedding_server_url = embedding_server_url
-        self.embedding_dim = 768  #'sentence-transformers/all-mpnet-base-v2';
+        self.provider = provider
+        self.embedding_dim = 4096
+        self._embedding_cache: Dict[str, np.ndarray] = {}
     
-    async def _get_embeddings(self, texts: List[str]) -> List[np.ndarray]:       
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
-                f"{self.embedding_server_url}/embed",
-                json={"inputs": texts}
-            )
-            if response.status_code != 200:
-                raise RuntimeError(f"Embedding server error: {response.status_code} - {response.text}")
-            embeddings = response.json()
-            return [np.array(emb) for emb in embeddings]
-        
-    async def _check_embedding_server(self) -> bool:
+    def _get_agent_key(self, agent: Agent) -> str:
+        """Generate a unique cache key for an agent based on compared fields."""
+        key = f"{agent.miner_hotkey}.{agent.agent_id}.{agent.provider}.{agent.model}.{agent.system_prompt_template}.{agent.user_prompt_template}.{agent.sampling_params.temperature}"
+        sha = hashlib.sha256()
+        sha.update(key.encode('utf-8'))
+        return sha.hexdigest()
+    
+    async def _get_embeddings(self, texts: List[str]) -> List[np.ndarray]:
         """
-        Check if the embedding server is reachable and responding.
-        
-        Returns:
-            True if the server responds with status 200, False otherwise.
+        Get embeddings for a list of texts using batch API.
+        Each text gets its own embedding vector, preserving semantic separation.
         """
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(f"{self.embedding_server_url}/health")
-                return response.status_code == 200
-        except httpx.RequestError:
-            return False
+        # Convert all to strings
+        text_strs = [str(text) for text in texts]
+        
+        # Use batch embedding API (returns list[list[float]])
+        embeddings = self.provider.get_embeddings(text_strs)
+        
+        # Convert each embedding to numpy array
+        return [np.array(emb) for emb in embeddings]
     
     async def _vectorize_agent(self, agent: Agent) -> np.ndarray:
         """
         Vectorize the relevant fields of an Agent into a single numerical vector.
         
-        - Text fields (provider, model, system_prompt_template, user_prompt_template): 
-          Get embeddings from the server.
-        - sampling_params: Flatten the dict values (temperature, top_p, max_tokens, etc.) 
-          into a list of floats.
-        - fewshot_examples: Average embeddings of the 'content' fields from each example.
-        
-        Returns a concatenated numpy array.
+        Each field gets its own embedding, then all are concatenated.
+        This preserves the semantic meaning of each field independently.
         """
-        vectors = []
-        # if not await self._check_embedding_server():
-        #     return vectors
+        cache_key = self._get_agent_key(agent)
         
-        # Text fields: provider, model, system_prompt_template, user_prompt_template
+        # Return cached embedding if available
+        if cache_key in self._embedding_cache:
+            return self._embedding_cache[cache_key]
+        
+        # Text fields: each will get its own embedding
         text_fields = [
             agent.provider,
             agent.model,
             agent.system_prompt_template,
             agent.user_prompt_template,
-            agent.sampling_params.temperature if agent.sampling_params.temperature is not None else "",
+            str(agent.sampling_params.temperature) if agent.sampling_params.temperature is not None else "0.0",
         ]
+        
+        # Get individual embeddings for each field (batch API call)
         embeddings = await self._get_embeddings(text_fields)
-        vectors.extend(embeddings)
         
-        # sampling_params: Extract numerical values
-        # sampling_vec = [
-        #     agent.sampling_params.temperature,
-        #     agent.sampling_params.top_p or 0.0,  # Default to 0 if None
-        #     agent.sampling_params.max_tokens or 0,  # Default to 0 if None
-        #     len(agent.sampling_params.stop_sequences) if agent.sampling_params.stop_sequences else 0  # Count of stop sequences
-        # ]
-        # vectors.append(np.array(sampling_vec))
+        # Concatenate all embeddings into one long vector
+        # Result: [provider_emb (4096) + model_emb (4096) + sys_prompt_emb (4096) + ...]
+        vector = np.concatenate(embeddings)
         
-        # fewshot_examples: Average embeddings of content
-        # if agent.fewshot_examples:
-        #     contents = [ex.content for ex in agent.fewshot_examples]
-        #     example_embeddings = await self._get_embeddings(contents)
-        #     avg_embedding = np.mean(example_embeddings, axis=0)
-        # else:
-        #     # If no examples, use a zero vector
-        #     avg_embedding = np.zeros(self.embedding_dim)
-        # vectors.append(avg_embedding)
+        # Cache the result
+        self._embedding_cache[cache_key] = vector
         
-        # Concatenate all vectors into one
-        return np.concatenate(vectors)
+        return vector
     
     async def cosine_distance(self, agent1: Agent, agent2: Agent) -> float:
         """
         Calculate the cosine distance between two Agent instances.
         
         Cosine distance = 1 - cosine_similarity.
-        Cosine similarity is computed using numpy: (a · b) / (|a| |b|).
-        Returns a float between 0 (identical) and 2 (opposite).
+        Returns 0.0 for identical agents.
         """
+        # Short-circuit for identical agents
+        if agent1.agent_id == agent2.agent_id:
+            return 0.0
+        
         vec1 = await self._vectorize_agent(agent1)
         vec2 = await self._vectorize_agent(agent2)
         
@@ -115,17 +92,17 @@ class AgentComparer:
         norm2 = np.linalg.norm(vec2)
         
         if norm1 == 0 or norm2 == 0:
-            # Handle zero vectors (e.g., identical empty agents)
             similarity = 1.0 if np.allclose(vec1, vec2) else 0.0
         else:
             similarity = dot_product / (norm1 * norm2)
         
-        # Cosine distance
         distance = 1 - similarity
         return float(distance)
     
     def get_embedding_dimension(self) -> int:
-        """
-        Returns the embedding dimension (hardcoded for the model).
-        """
-        return self.embedding_dim
+        """Returns the total embedding dimension (5 fields × 4096)."""
+        return self.embedding_dim * 5  # 5 text fields
+    
+    def clear_cache(self):
+        """Clear the embedding cache."""
+        self._embedding_cache.clear()
