@@ -62,6 +62,9 @@ if not B64_PRIVATE_KEY:
 PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(base64.b64decode(B64_PRIVATE_KEY))
 PUBLIC_KEY = PRIVATE_KEY.public_key()
 
+#COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
+COSINE_COMPARE_ENABLED = True  # Force enabled for v2
+
 http_client = httpx.AsyncClient(
     timeout=httpx.Timeout(30.0),
     limits=httpx.Limits(
@@ -400,59 +403,55 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
         # Assign UUID before similarity check (needed for embedding)
         artifact_instance.agent_id = uuid.uuid4()
         
-        SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.001"))
-        # Check for similar agents
-        is_too_similar, similar_agents = await check_similar_agents(
-            artifact_instance,
-            similarity_threshold=SIMILARITY_THRESHOLD,
-            max_results=5
-        )
-        
-        if is_too_similar:
-            # Convert UUIDs to strings for JSON serialization
-            similar_details = [
-                {
-                    "agent_id": str(agent_id),  # Convert UUID to string
-                    "similarity_score": f"{1 - distance:.4f}",  # Convert distance to similarity
-                    "distance": f"{distance:.4f}"
-                }
-                for agent_id, distance in similar_agents
-            ]
-            
-            logger.warning(
-                f"Artifact submission rejected due to similarity: "
-                f"{[{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]}"
+        if COSINE_COMPARE_ENABLED:
+            logger.info("Cosine similarity check is ENABLED for artifact submissions")
+            SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.001"))            
+            # Check for similar agents
+            is_too_similar, similar_agents = await check_similar_agents(
+                artifact_instance,
+                similarity_threshold=SIMILARITY_THRESHOLD,
+                max_results=5
             )
             
-            return JSONResponse(
-                status_code=409,  # Conflict
-                content={
-                    "error": "Agent is too similar to existing agents",
-                    "message": "This agent appears to be a duplicate or very similar to existing submissions",
-                    "similar_agents": similar_details,
-                    "threshold": SIMILARITY_THRESHOLD
-                }
-            )
-        
+            if is_too_similar:                
+                similar_details = [
+                    {
+                        "agent_id": str(agent_id),
+                        "similarity_score": f"{1 - distance:.4f}",
+                        "distance": f"{distance:.4f}"
+                    }
+                    for agent_id, distance in similar_agents
+                ]                
+                logger.warning(
+                    f"Artifact submission rejected due to similarity: "
+                    f"{[{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]}"
+                )                
+                return JSONResponse(
+                    status_code=409,  # Conflict
+                    content={
+                        "error": "Agent is too similar to existing agents",
+                        "message": "This agent appears to be a duplicate or very similar to existing submissions",
+                        "similar_agents": similar_details,
+                        "threshold": SIMILARITY_THRESHOLD
+                    }
+                )
+            
         # Create the agent in database
         #artifact_instance.agent_id = uuid.uuid4()
-        artifact_id = await create_agent(artifact_instance)        
-        logger.info(
-            f"Artifact submitted successfully with ID: {artifact_id} "
-            f"(closest similarity: {'N/A' if not similar_agents else f'{similar_agents[0][1]:.4f}'})"
-        )
+        artifact_id = await create_agent(artifact_instance)
+        logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
         
         response_content = {
             "message": "Artifact submitted successfully",
-            "artifact_id": str(artifact_id)  # Convert UUID to string
+            "artifact_id": str(artifact_id)
         }
         
         # Optionally include similarity info even on success
-        if similar_agents:
-            response_content["similarity_info"] = {
-                "closest_match_distance": f"{similar_agents[0][1]:.4f}",
-                "is_unique": True
-            }
+        # if similar_agents:
+        #     response_content["similarity_info"] = {
+        #         "closest_match_distance": f"{similar_agents[0][1]:.4f}",
+        #         "is_unique": True
+        #     }
         
         return JSONResponse(status_code=201, content=response_content)
     

@@ -175,7 +175,7 @@ async def get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(conn: Da
 @db_operation
 async def create_agent(conn: DatabaseConnection, agent: Agent) -> UUID:
 
-
+    
     result = await conn.fetchval(
         """
         INSERT INTO agents (
