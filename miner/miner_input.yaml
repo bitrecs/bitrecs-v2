@@ -1,11 +1,11 @@
 name: "bitrecs test recommender"
 version_num: "1"
 status: "screening_1"
-miner_hotkey: "5CQ9hzw1PTcnwob7J5ZR4t5hAC5fjgDcSEMh948qcVdrg3VR"
+miner_hotkey: "5ExpKJJrPKSKbxUb2Naoj29ogGu46HLCHPoF6phdxTpPtsHB"
 miner_uid: 42
 ip_address: ""
 provider: "OPEN_ROUTER"
-model: "amazon/nova-2-lite-v1"
+model: "x-ai/grok-4.1-fast"
 system_prompt_template: |
   You are an ecommerce personal shopping assistant, today's date is {{current_date}}.
 user_prompt_template: |

@@ -1,44 +1,31 @@
 import httpx
 import secrets
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from api.endpoints.scoring import latest_set_info, screener_info
+from api.endpoints.validator import get_connected_validators_info
+from models.evaluation_set import EvaluationSetGroup
+from queries.agent import get_agents_in_queue
+from utils.network import get_client_ip
 
 router = APIRouter()
 
-
-class BitrecsAPIClient:
-    def __init__(self, base_url="http://localhost"):
-        self.base_url = base_url
-        self.client = httpx.Client(timeout=10)
-
-    def _get(self, endpoint, params=None):
-        url = f"{self.base_url}{endpoint}"
-        response = self.client.get(url, params=params)
-        response.raise_for_status()
-        return response.json()
-
-    def get_queue(self, stage):
-        """GET /retrieval/queue"""
-        params = {"stage": stage}
-        return self._get("/retrieval/queue", params)
-  
-    def get_latest_set_info(self):
-        """GET /scoring/latest-set-info"""
-        return self._get("/scoring/latest-set-info")    
-    
-    def get_connected_validators_info(self):
-        """GET /validator/connected-validators-info"""
-        return self._get("/validator/connected-validators-info")
-    
-    def get_screener_info(self):
-        """GET /scoring/screener-info"""
-        return self._get("/scoring/screener-info")
-
+# Create a local limiter instance this has its own storage separate from the main app
+_limiter = Limiter(key_func=get_client_ip)
 
 # /dashboard
 @router.get("/")
-async def dashboard():
+@_limiter.limit("30/minute")
+async def dashboard(request: Request):
+    #return HTMLResponse(content="<h1>Bitrecs V2 Dashboard API is running.</h1>")    
+    sg = EvaluationSetGroup("validator")
+    queue = await get_agents_in_queue(sg)
+    set_info = await latest_set_info()
+    validators = get_connected_validators_info()
+    screener = await screener_info()
+
     schemes = {
         "modern": {
             "bg": "#1e1e2e",
@@ -72,18 +59,10 @@ async def dashboard():
             "set": "#bc4749",
             "bars": ["#6a994e", "#a7c957", "#f2cc8f"]
         }
-    }
+    }    
     
-    # Choose random scheme
     scheme = secrets.choice(list(schemes.keys()))
     colors = schemes[scheme]
-    
-    # Fetch data from API
-    client = BitrecsAPIClient()
-    queue = client.get_queue(stage="validator")
-    set_info = client.get_latest_set_info()
-    validators = client.get_connected_validators_info()
-    screener = client.get_screener_info()
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -168,43 +147,37 @@ async def dashboard():
         </div>
         <div class="card set">
             <h2>Latest Set</h2>
-            <div class="value">#{set_info['latest_set_id']}</div>
-            <div class="label">{set_info['latest_set_created_at'][:10]}</div>
+            <div class="value">#{set_info.latest_set_id}</div>
+            <div class="label">{str(set_info.latest_set_created_at)[:10]}</div>
         </div>
         <div class="card scores">
             <h2>Average Scores</h2>
             <div class="score-bar">
                 <div class="score-item">
                     <div class="bar" style="background-color: {colors['bars'][0]}22;">
-                        <div class="fill" style="background-color: {colors['bars'][0]}; height: {screener['screener_1_average_score']*100}%;"></div>
+                        <div class="fill" style="background-color: {colors['bars'][0]}; height: {screener.screener_1_average_score*100}%;"></div>
                     </div>
-                    <div>{screener['screener_1_average_score']:.2f}</div>
+                    <div>{screener.screener_1_average_score:.2f}</div>
                     <div class="label">S1</div>
                 </div>
                 <div class="score-item">
                     <div class="bar" style="background-color: {colors['bars'][1]}22;">
-                        <div class="fill" style="background-color: {colors['bars'][1]}; height: {screener['screener_2_average_score']*100}%;"></div>
+                        <div class="fill" style="background-color: {colors['bars'][1]}; height: {screener.screener_2_average_score*100}%;"></div>
                     </div>
-                    <div>{screener['screener_2_average_score']:.2f}</div>
+                    <div>{screener.screener_2_average_score:.2f}</div>
                     <div class="label">S2</div>
                 </div>
                 <div class="score-item">
                     <div class="bar" style="background-color: {colors['bars'][2]}22;">
-                        <div class="fill" style="background-color: {colors['bars'][2]}; height: {screener['validator_average_score']*100}%;"></div>
+                        <div class="fill" style="background-color: {colors['bars'][2]}; height: {screener.validator_average_score*100}%;"></div>
                     </div>
-                    <div>{screener['validator_average_score']:.2f}</div>
+                    <div>{screener.validator_average_score:.2f}</div>
                     <div class="label">Val</div>
                 </div>
             </div>
         </div>
     </div>
 </body>
-</html>"""
-    
+</html>"""    
     return HTMLResponse(content=html)
-    # output_path = path.join(CURRENT_DIR, f"v2_dash_{JANUS.random_string(5)}.html")
-    # with open(output_path, 'w', encoding='utf-8') as f:
-    #     f.write(html)    
-    # return output_path
-    
-        
+

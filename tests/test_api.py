@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import logging
 from datetime import datetime, timezone
@@ -103,3 +104,36 @@ def test_submit_artifact_valid_vars():
     result = response.json()
     assert "message" in result
     assert result["message"] == "Artifact submitted successfully"
+
+
+
+
+async def test_dashboard_rate_limit():
+    """Test that dashboard endpoint rate limiting works"""
+    base_url = SERVICE_URL
+    
+    async with httpx.AsyncClient() as client:
+        # Make 31 requests to /dashboard/ (limit is 30/minute)
+        print("Making 31 requests to /dashboard/...")
+        responses = []
+        
+        for i in range(31):
+            response = await client.get(f"{base_url}/dashboard/")
+            responses.append(response.status_code)
+            print(f"Request {i+1}: Status {response.status_code}")
+            
+            # Small delay to avoid connection issues
+            await asyncio.sleep(0.1)
+        
+        # Count 200s and 429s
+        success_count = responses.count(200)
+        rate_limited_count = responses.count(429)
+        
+        print(f"\nResults:")
+        print(f"Successful (200): {success_count}")
+        print(f"Rate Limited (429): {rate_limited_count}")
+        
+        # Should have 30 successful and 1 rate limited
+        assert success_count == 30, f"Expected 30 successful requests, got {success_count}"
+        assert rate_limited_count == 1, f"Expected 1 rate limited request, got {rate_limited_count}"
+        print("\n✅ Test passed! Rate limiting is working correctly.")
