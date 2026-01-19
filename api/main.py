@@ -45,6 +45,9 @@ from api.endpoints.upload import router as upload_router
 from api.endpoints.dashboard import router as dashboard_router
 from api.heartbeat import validator_heartbeat_timeout_loop
 from api.metagraph_sync_manager import MetagraphSyncManager
+from llm.open_router import OpenRouter
+from rules.agent_comparer import AgentComparer
+
 from version import __version__ as this_version
 
 METAGRAPH_CACHE_DURATION = 3600
@@ -384,18 +387,74 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
     try:        
         artifact_instance = Agent(**artifact)
         artifact_instance.ip_address = client_ip
+        
+        if artifact_instance.agent_id is not None:
+            return JSONResponse(content={"error": "agent_id must not be set by the client"}, status_code=400)
+            
+        # Validate artifact template
         validated, reason = validate_artifact_template(artifact_instance)
         if not validated:
             logger.warning(reason)
             return JSONResponse(content={"error": reason}, status_code=400)
         
+        # Assign UUID before similarity check (needed for embedding)
         artifact_instance.agent_id = uuid.uuid4()
-        artifact_id = await create_agent(artifact_instance)
-        logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
-        return JSONResponse(status_code=201, content={
+        
+        SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.001"))
+        # Check for similar agents
+        is_too_similar, similar_agents = await check_similar_agents(
+            artifact_instance,
+            similarity_threshold=SIMILARITY_THRESHOLD,
+            max_results=5
+        )
+        
+        if is_too_similar:
+            # Convert UUIDs to strings for JSON serialization
+            similar_details = [
+                {
+                    "agent_id": str(agent_id),  # Convert UUID to string
+                    "similarity_score": f"{1 - distance:.4f}",  # Convert distance to similarity
+                    "distance": f"{distance:.4f}"
+                }
+                for agent_id, distance in similar_agents
+            ]
+            
+            logger.warning(
+                f"Artifact submission rejected due to similarity: "
+                f"{[{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]}"
+            )
+            
+            return JSONResponse(
+                status_code=409,  # Conflict
+                content={
+                    "error": "Agent is too similar to existing agents",
+                    "message": "This agent appears to be a duplicate or very similar to existing submissions",
+                    "similar_agents": similar_details,
+                    "threshold": SIMILARITY_THRESHOLD
+                }
+            )
+        
+        # Create the agent in database
+        #artifact_instance.agent_id = uuid.uuid4()
+        artifact_id = await create_agent(artifact_instance)        
+        logger.info(
+            f"Artifact submitted successfully with ID: {artifact_id} "
+            f"(closest similarity: {'N/A' if not similar_agents else f'{similar_agents[0][1]:.4f}'})"
+        )
+        
+        response_content = {
             "message": "Artifact submitted successfully",
-            "artifact_id": str(artifact_id)
-        })
+            "artifact_id": str(artifact_id)  # Convert UUID to string
+        }
+        
+        # Optionally include similarity info even on success
+        if similar_agents:
+            response_content["similarity_info"] = {
+                "closest_match_distance": f"{similar_agents[0][1]:.4f}",
+                "is_unique": True
+            }
+        
+        return JSONResponse(status_code=201, content=response_content)
     
     except Exception as e:
         logger.error(f"Error submitting artifact: {e}")
@@ -403,6 +462,63 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
 
 
 
+async def check_similar_agents(
+    submitted_agent: Agent,
+    similarity_threshold: float = 0.1,  # Cosine distance threshold (lower = more similar)
+    max_results: int = 5
+) -> tuple[bool, list[tuple[str, float]]]:
+    """
+    Check if the submitted agent is too similar to existing agents.
+    
+    Args:
+        submitted_agent: The agent to check
+        similarity_threshold: Maximum allowed cosine distance (0.0 = identical, 0.1 = very similar)
+        max_results: Maximum number of similar agents to return
+    
+    Returns:
+        Tuple of (is_too_similar: bool, similar_agents: list[(agent_id, distance)])
+    """   
+    
+    EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
+    embedding_provider = OpenRouter(key=os.environ.get("OPENROUTER_API_KEY", ""),
+                                   model=EMBEDDING_MODEL,
+                                   embedding_dimensions=768)
+    # Initialize agent comparer with caching enabled
+    agent_comparer = AgentComparer(provider=embedding_provider, use_db_cache=True)
+    try:
+        logger.info(f"Checking for similar agents to {submitted_agent.agent_id}")
+        
+        # Find similar agents using vector similarity search
+        similar_agents = await agent_comparer.find_similar_agents(
+            agent=submitted_agent,
+            threshold=similarity_threshold,
+            limit=max_results
+        )
+        
+        if not similar_agents:
+            logger.info(f"No similar agents found for {submitted_agent.agent_id}")
+            return False, []
+        
+        # Check if any are too similar (below threshold)
+        is_too_similar = any(distance < similarity_threshold for _, distance in similar_agents)
+        
+        if is_too_similar:
+            logger.warning(
+                f"Agent {submitted_agent.agent_id} is too similar to existing agents: "
+                f"{[(agent_id, f'{dist:.4f}') for agent_id, dist in similar_agents]}"
+            )
+        else:
+            logger.info(
+                f"Agent {submitted_agent.agent_id} is unique enough. "
+                f"Closest match: {similar_agents[0][1]:.4f}"
+            )
+        
+        return is_too_similar, similar_agents
+        
+    except Exception as e:
+        logger.error(f"Error checking for similar agents: {e}")
+        # On error, allow submission (fail open)
+        return False, []
 
 
 if __name__ == "__main__":

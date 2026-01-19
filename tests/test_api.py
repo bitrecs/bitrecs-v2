@@ -82,10 +82,10 @@ def test_submit_artifact_valid_vars():
         "miner_hotkey": "test_hotkey",
         "miner_uid": 123,
         "provider": "OPEN_ROUTER",
-        "model": "test_model",
-        "system_prompt_template": "System prompt Unit Test",
-        "user_prompt_template": "User prompt {{sku}} Unit Test",
-        "sampling_params": {"temperature": 0.7},
+        "model": "z-ai/glm-4.7-flash",
+        "system_prompt_template": "System prompt Unit Test with more characters",
+        "user_prompt_template": "User prompt {{sku}} Unit Test with more characters",
+        "sampling_params": {"temperature": 0.1},
         "fewshot_examples": [{"role": "user", "content": "Hello"}],
         "eval_scores": {"accuracy": 0.95},
         "version_num": 1,
@@ -98,10 +98,11 @@ def test_submit_artifact_valid_vars():
     assert validated == True, f"Artifact validation failed: {reason}"
     
     response = client.post("/artifact", json=sample_artifact)
-    logger.info("Submit artifact response: %s", response.json())
+    result = response.json()
+    logger.info(f"Submit artifact response: {result}")
     
     assert response.status_code == 201
-    result = response.json()
+    
     assert "message" in result
     assert result["message"] == "Artifact submitted successfully"
 
