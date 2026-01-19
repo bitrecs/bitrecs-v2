@@ -52,7 +52,7 @@ from version import __version__ as this_version
 
 METAGRAPH_CACHE_DURATION = 3600
 PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
-REQUEST_HASH_HISTORY = TTLCache(maxsize=500_000, ttl=60 * 60 * 24)
+REQUEST_HASH_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
 NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
 BT_NETUID = int(os.environ.get("BT_NETUID", 296))
@@ -63,7 +63,8 @@ PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(base64.b64decode(B64_PRIVATE_
 PUBLIC_KEY = PRIVATE_KEY.public_key()
 
 #COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
-COSINE_COMPARE_ENABLED = True  # Force enabled for v2
+COSINE_COMPARE_ENABLED = True
+
 
 http_client = httpx.AsyncClient(
     timeout=httpx.Timeout(30.0),
@@ -463,7 +464,7 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
 
 async def check_similar_agents(
     submitted_agent: Agent,
-    similarity_threshold: float = 0.1,  # Cosine distance threshold (lower = more similar)
+    similarity_threshold: float = 0.05,
     max_results: int = 5
 ) -> tuple[bool, list[tuple[str, float]]]:
     """
@@ -481,13 +482,10 @@ async def check_similar_agents(
     EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
     embedding_provider = OpenRouter(key=os.environ.get("OPENROUTER_API_KEY", ""),
                                    model=EMBEDDING_MODEL,
-                                   embedding_dimensions=768)
-    # Initialize agent comparer with caching enabled
+                                   embedding_dimensions=768)    
     agent_comparer = AgentComparer(provider=embedding_provider, use_db_cache=True)
     try:
         logger.info(f"Checking for similar agents to {submitted_agent.agent_id}")
-        
-        # Find similar agents using vector similarity search
         similar_agents = await agent_comparer.find_similar_agents(
             agent=submitted_agent,
             threshold=similarity_threshold,

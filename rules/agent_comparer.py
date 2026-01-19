@@ -1,11 +1,13 @@
 import os
 import hashlib
+from turtle import distance
 import numpy as np
 import logging
 import json
 from typing import Optional
 from datetime import datetime, timezone
 from models.agent import Agent
+from utils.token import get_token_count
 
 logger = logging.getLogger(__name__)
 
@@ -165,9 +167,10 @@ class AgentComparer:
                     str(embedding_list)  # Convert to string for pgvector
                 )
                 logger.info(f"Successfully stored embedding for agent {agent_id}")
-        except Exception as e:
-            # If database is unavailable, just skip storing (embedding still in memory cache)
+        except Exception as e:            
             logger.error(f"Could not store embedding in database: {e}", exc_info=True)
+            # crash if DB is down
+            raise
     
     async def _vectorize_agent(self, agent: Agent) -> np.ndarray:
         """
@@ -203,7 +206,8 @@ class AgentComparer:
             response_end = datetime.now(timezone.utc)
             
             # Estimate tokens (rough approximation: ~4 chars per token)
-            estimated_tokens = len(agent_text) // 4
+            #estimated_tokens = len(agent_text) // 4
+            estimated_tokens = get_token_count(agent_text)
             
             # Log the successful API request
             await self._log_embedding_request(
@@ -270,6 +274,9 @@ class AgentComparer:
         # Clamp distance to [0, 2] and handle tiny negative values from floating point errors
         distance = max(0.0, min(2.0, distance))
         
+        # After computing distance        
+        logger.debug(f"Cosine distance between {agent1.agent_id} and {agent2.agent_id}: {distance:.6f}")
+
         return float(distance)
     
     async def find_similar_agents(
