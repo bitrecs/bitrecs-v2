@@ -8,7 +8,8 @@ WHITELISTED_VALIDATORS = [
 
     # Developer validators, used for testing    
     {"hotkey": "5DHtcX5EVi741Boi1ixAG8fpyV1kNku86D6oswjMkUGMAzTB", "name": "DimiTestValidator1", "short_name": "Dimi1" },  
-    {"hotkey": "5HBjiUTERUJuAzXEeinA43Ffcwh9MMXPHz3FFEJ9eYgLwJaK", "name": "DimiTestValidator2", "short_name": "Dimi2" }
+    {"hotkey": "5HBjiUTERUJuAzXEeinA43Ffcwh9MMXPHz3FFEJ9eYgLwJaK", "name": "DimiTestValidator2", "short_name": "Dimi2" },
+    {"hotkey": "5GMu2Pg4TP6yxQx6NA17XpkJZSb6Q7XdHqDgEpYTNR7DtgLD", "name": "MaxTestValidator1", "short_name": "Max1" }
 
 ]
 
