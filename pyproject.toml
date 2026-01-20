@@ -5,8 +5,7 @@ description = "Bitrecs V2 - Prompt Evolution Subnet"
 readme = "README.md"
 requires-python = ">=3.13, <3.14"
 dependencies = [
-    "bittensor>=10.0.1",
-    "bittensor-cli>=9.17.0",
+    "bittensor>=10.0.1",    
     "bittensor-wallet>=4.0.1",
     "cryptography>=45.0.5",
     "async-substrate-interface>=1.5.15",
