@@ -110,7 +110,7 @@ def generate_random_sentences(num_sentences=5, words_per_sentence=10):
     return " ".join(sentences)
 
 def test_submit_artifact_valid_vars_local():
-    """Test submitting an artifact via POST /artifact."""
+    """Test submitting an artifact to LOCALHOST"""
     
     prompt = generate_random_sentences(2, 12)
     miner_uid = random.randint(1, 255)
@@ -148,15 +148,15 @@ def test_submit_artifact_valid_vars_local():
 
 
 def test_submit_artifact_valid_vars_pub():
-    """Test submitting an artifact via POST /artifact."""
+    """Test submitting an artifact to PRODUCTION"""
     
     prompt = generate_random_sentences(6, 16)
     miner_uid = random.randint(1, 255)
         
     system_prompt = "System prompt {{sku}} Unit Test with more characters"    
     #user_prompt = "User prompt {{sku}} Unit Test {{fake_variable}} with random text:" + prompt
-    user_prompt = "User prompt {{sku}} Unit Test with random text:" + prompt
-    #user_prompt = "User prompt {{sku}} Unit Test"
+    #user_prompt = "User prompt {{sku}} Unit Test with random text:" + prompt
+    user_prompt = "User prompt {{sku}} Unit Test"
     
     sample_artifact = {
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -166,7 +166,7 @@ def test_submit_artifact_valid_vars_pub():
         "model": "google/gemini-2.5-flash-lite",
         "system_prompt_template": system_prompt,
         "user_prompt_template": user_prompt,
-        "sampling_params": {"temperature": 1.1},
+        "sampling_params": {"temperature": 0.3},
         "fewshot_examples": [{"role": "user", "content": "Hello"}],
         "eval_scores": {"accuracy": 0.95},
         "version_num": 1,
