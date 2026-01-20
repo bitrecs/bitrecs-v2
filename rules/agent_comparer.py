@@ -288,6 +288,8 @@ class AgentComparer:
         """
         Find agents similar to the given agent using vector similarity search.
         
+        #TODO: dimi check join on agent table logic
+
         Args:
             agent: The agent to compare against
             threshold: Maximum cosine distance (0.0 = identical, 1.0 = opposite)
@@ -312,14 +314,15 @@ class AgentComparer:
             async with DB_POOL.acquire() as conn:
                 rows = await conn.fetch("""
                     SELECT 
-                        agent_id,
-                        1 - (embedding_vector <=> $1::vector) as similarity,
-                        embedding_vector <=> $1::vector as distance
-                    FROM agent_embeddings
-                    WHERE agent_id != $2
-                      AND embedding_model = $3
-                      AND embedding_vector <=> $1::vector <= $4
-                    ORDER BY embedding_vector <=> $1::vector
+                        ae.agent_id,
+                        1 - (ae.embedding_vector <=> $1::vector) as similarity,
+                        ae.embedding_vector <=> $1::vector as distance
+                    FROM agent_embeddings ae
+                    JOIN agents a ON ae.agent_id = a.agent_id
+                    WHERE ae.agent_id != $2
+                      AND ae.embedding_model = $3
+                      AND ae.embedding_vector <=> $1::vector <= $4
+                    ORDER BY ae.embedding_vector <=> $1::vector
                     LIMIT $5
                 """, 
                     str(vec.tolist()),  # Convert to string for pgvector
@@ -334,7 +337,7 @@ class AgentComparer:
         except Exception as e:
             logger.error(f"Could not search for similar agents: {e}", exc_info=True)
             return []
-    
+
     def clear_cache(self):
         """Clear the memory cache."""
         logger.debug("Clearing memory cache")

@@ -112,7 +112,7 @@ def generate_random_sentences(num_sentences=5, words_per_sentence=10):
 def test_submit_artifact_valid_vars_local():
     """Test submitting an artifact to LOCALHOST"""
     
-    prompt = generate_random_sentences(2, 12)
+    prompt = generate_random_sentences(3, 12)
     miner_uid = random.randint(1, 255)
         
     system_prompt = "System prompt {{sku}} Unit Test with more characters"

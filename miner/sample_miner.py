@@ -47,14 +47,24 @@ def upload_prompt():
             "/artifact",
             json=artifact.model_dump(mode="json")
         )
-        response.raise_for_status()
-        if response.status_code != 201:
-            print(f"Failed to upload artifact: {response.status_code} - {response.text}")
-            return
         
-        print(f"Upload response status: {response.status_code}")
-        print(f"Upload response data: {response.json()}")
-
+        if response.status_code == 201:
+            print(f"Upload response status: {response.status_code}")
+            print(f"Upload response data: {response.json()}")
+        else:
+            # Print full error details for non-201, including 409
+            print(f"Failed to upload artifact: {response.status_code}")
+            try:
+                error_data = response.json()
+                print(f"Error details: {error_data}")
+                if response.status_code == 409:
+                    print("Similarity rejection details:")
+                    for agent in error_data.get("similar_agents", []):
+                        print(f"  - Agent ID: {agent['agent_id']}, Distance: {agent['distance']}, Similarity: {agent['similarity_score']}")
+            except Exception:
+                print(f"Response text: {response.text}")
+            return  # Or handle as needed
+        
     #fetch artifact
     artifact_id = response.json().get("artifact_id")
     if artifact_id:

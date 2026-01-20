@@ -64,7 +64,7 @@ PUBLIC_KEY = PRIVATE_KEY.public_key()
 
 #COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
 COSINE_COMPARE_ENABLED = True
-SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.1"))
+SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.0001"))
 
 
 http_client = httpx.AsyncClient(
