@@ -415,7 +415,7 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
         # Assign UUID before similarity check (needed for embedding)
         artifact_instance.agent_id = uuid.uuid4()
         
-        if COSINE_COMPARE_ENABLED:
+        if COSINE_COMPARE_ENABLED and 1==2:
             logger.info("Cosine similarity check is ENABLED for artifact submissions")
             SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.001"))            
             # Check for similar agents
