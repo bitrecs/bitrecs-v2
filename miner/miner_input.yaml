@@ -5,7 +5,7 @@ miner_hotkey: "5HSzPeBqt6fxqQMZU9971nP6N1rijv6CuKaXgSHi9Ychf7gA"
 miner_uid: 42
 ip_address: ""
 provider: "CHUTES"
-model: "Qwen/Qwen3-235B-A22B-Instruct-2507-TEE"
+model: "chutesai/Mistral-Small-3.1-24B-Instruct-2503"
 system_prompt_template: |
   You are an ecommerce helpful assistant to help the user find recommendations, today's date is {{current_date}}.
 user_prompt_template: |

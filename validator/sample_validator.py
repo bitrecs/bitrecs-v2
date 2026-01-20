@@ -318,47 +318,6 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
     
 
 
-# # Run an evaluation, automatically dispatches all runs to either _simulate_run_evaluation_run or _run_evaluation_run
-# async def _run_evaluation2(request_evaluation_response: ValidatorRequestEvaluationResponse):
-#     logger.info("Received evaluation:")
-#     logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
-
-#     SIMULATE_EVALUATION_RUNS = False
-#     #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNS
-#     # if len(request_evaluation_response.evaluation_runs) == 0:        
-#     #     logger.warning("No evaluation runs to process, finishing evaluation immediately.")
-#     #     logger.error("No evaluation runs to process.")
-#     #     await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
-#     #     return
-
-#     for evaluation_run in request_evaluation_response.evaluation_runs:
-#         logger.info(f"    {evaluation_run.problem_name}")
-
-#     logger.info("Starting evaluation...")
-#     tasks = []
-#     for evaluation_run in request_evaluation_response.evaluation_runs:
-#         evaluation_run_id = evaluation_run.evaluation_run_id
-#         problem_name = evaluation_run.problem_name
-      
-#         if SIMULATE_EVALUATION_RUNS:
-#             tasks.append(asyncio.create_task(_simulate_run_evaluation_run(evaluation_run_id, problem_name)))            
-#         else:
-#             tasks.append(asyncio.create_task(_run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)))
-
-#     await asyncio.gather(*tasks) 
-
-#     try:
-#         await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
-#         if SIMULATE_EVALUATION_RUNS:
-#             logger.info("Finished SIMULATED evaluation")
-#         else:
-#             logger.info("Finished evaluation")
-#     except Exception as e:
-#         logger.error(f"Error finishing evaluation: {type(e).__name__}: {e}")
-#         logger.error(traceback.format_exc())
-#         await disconnect(f"Error finishing evaluation: {type(e).__name__}: {e}")
-        
-
 
 # Run an evaluation - serially
 async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluationResponse):
@@ -425,76 +384,102 @@ async def main():
     global running_agent_timeout_seconds
     global running_eval_timeout_seconds
     global max_evaluation_run_log_size_bytes
-    #global sandbox_manager
-    global problem_suites
+    # global sandbox_manager  # Commented out as not used
+    global problem_suites  # Ensure this is defined globally if needed
     
-    logger.info("Registering validator...")
-    try:
-        if config.MODE == "validator":
-            # Get the current timestamp, and sign it with the validator hotkey
-            timestamp = int(time.time())
-            signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
+    # Retry configuration for registration
+    max_registration_retries = 10
+    registration_retry_delay = 60  # seconds
+    
+    # Registration with retries
+    for attempt in range(max_registration_retries):
+        try:
+            logger.info(f"Registering validator... (attempt {attempt + 1}/{max_registration_retries})")
             
-            register_response = ValidatorRegistrationResponse(**(await post_ridges_platform("/validator/register-as-validator", ValidatorRegistrationRequest(
-                timestamp=timestamp,
-                signed_timestamp=signed_timestamp,
-                hotkey=config.VALIDATOR_HOTKEY.ss58_address,
-                commit_hash=COMMIT_HASH
-            ))))
+            if config.MODE == "validator":
+                # Get the current timestamp, and sign it with the validator hotkey
+                timestamp = int(time.time())
+                signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
+                
+                register_response = ValidatorRegistrationResponse(**(await post_ridges_platform("/validator/register-as-validator", ValidatorRegistrationRequest(
+                    timestamp=timestamp,
+                    signed_timestamp=signed_timestamp,
+                    hotkey=config.VALIDATOR_HOTKEY.ss58_address,
+                    commit_hash=COMMIT_HASH
+                ))))
+            
+            elif config.MODE == "screener":
+                register_response = ScreenerRegistrationResponse(**(await post_ridges_platform("/validator/register-as-screener", ScreenerRegistrationRequest(
+                    name=config.SCREENER_NAME,
+                    password=config.SCREENER_PASSWORD,
+                    commit_hash=COMMIT_HASH
+                ))))
+            
+            # Success: Set globals and break
+            session_id = register_response.session_id
+            running_agent_timeout_seconds = register_response.running_agent_timeout_seconds
+            running_eval_timeout_seconds = register_response.running_eval_timeout_seconds
+            max_evaluation_run_log_size_bytes = register_response.max_evaluation_run_log_size_bytes
+            
+            logger.info("Registered validator:")
+            logger.info(f"  Session ID: {session_id}")
+            logger.info(f"  Running Agent Timeout: {running_agent_timeout_seconds} second(s)")
+            logger.info(f"  Running Evaluation Timeout: {running_eval_timeout_seconds} second(s)")
+            logger.info(f"  Max Evaluation Run Log Size: {max_evaluation_run_log_size_bytes} byte(s)")
+            
+            break  # Exit retry loop on success
         
-        elif config.MODE == "screener":
-            register_response = ScreenerRegistrationResponse(**(await post_ridges_platform("/validator/register-as-screener", ScreenerRegistrationRequest(
-                name=config.SCREENER_NAME,
-                password=config.SCREENER_PASSWORD,
-                commit_hash=COMMIT_HASH
-            ))))
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 409:
+                logger.warning(f"Registration failed with 409 Conflict (attempt {attempt + 1}): {e.response.text}")
+                if attempt < max_registration_retries - 1:
+                    logger.info(f"Retrying registration in {registration_retry_delay} seconds...")
+                    await asyncio.sleep(registration_retry_delay)
+                else:
+                    logger.error("Max registration retries reached. Exiting.")
+                    raise
+            elif config.UPDATE_AUTOMATICALLY and e.response.status_code == 426:
+                logger.info("Updating...")
+                # reset_local_repo(pathlib.Path(__file__).parent.parent, e.response.headers["X-Commit-Hash"])
+                sys.exit(0)
+            else:
+                # For other HTTP errors, re-raise immediately
+                raise
+        except Exception as e:
+            logger.error(f"Registration failed (attempt {attempt + 1}): {type(e).__name__}: {e}")
+            if attempt < max_registration_retries - 1:
+                logger.info(f"Retrying registration in {registration_retry_delay} seconds...")
+                await asyncio.sleep(registration_retry_delay)
+            else:
+                logger.error("Max registration retries reached. Exiting.")
+                raise
     
-    except httpx.HTTPStatusError as e:
-        if config.UPDATE_AUTOMATICALLY and e.response.status_code == 426:
-            logger.info("Updating...")
-            #reset_local_repo(pathlib.Path(__file__).parent.parent, e.response.headers["X-Commit-Hash"])
-            sys.exit(0)
-        else:
-            raise e
+    # Create the sandbox manager (commented out as not used)
+    # sandbox_manager = SandboxManager(config.RIDGES_INFERENCE_GATEWAY_URL)
     
-    session_id = register_response.session_id
-    running_agent_timeout_seconds = register_response.running_agent_timeout_seconds
-    running_eval_timeout_seconds = register_response.running_eval_timeout_seconds
-    max_evaluation_run_log_size_bytes = register_response.max_evaluation_run_log_size_bytes
-
-    logger.info("Registered validator:")
-    logger.info(f"  Session ID: {session_id}")
-    logger.info(f"  Running Agent Timeout: {running_agent_timeout_seconds} second(s)")
-    logger.info(f"  Running Evaluation Timeout: {running_eval_timeout_seconds} second(s)")
-    logger.info(f"  Max Evaluation Run Log Size: {max_evaluation_run_log_size_bytes} byte(s)")
-
-    # Create the sandbox manager
-   # sandbox_manager = SandboxManager(config.RIDGES_INFERENCE_GATEWAY_URL)
-
     # Load all problem suites
     problem_suites = [POLYGLOT_PY_SUITE, POLYGLOT_JS_SUITE, SWEBENCH_VERIFIED_SUITE]
-
-    # Get all the problems in the latest set
-    #latest_set_problems_data = await get_ridges_platform("/evaluation-sets/all-latest-set-problems", quiet=1)
-    #latest_set_problems = [EvaluationSetProblem(**prob) for prob in latest_set_problems_data]
-    #latest_set_problem_names = list({prob.problem_name for prob in latest_set_problems})
     
-    # Prebuild the images for the SWE-Bench Verified problems
-    #SWEBENCH_VERIFIED_SUITE.prebuild_problem_images(latest_set_problem_names)
-
+    # Get all the problems in the latest set (commented out as not used in loop)
+    # latest_set_problems_data = await get_ridges_platform("/evaluation-sets/all-latest-set-problems", quiet=1)
+    # latest_set_problems = [EvaluationSetProblem(**prob) for prob in latest_set_problems_data]
+    # latest_set_problem_names = list({prob.problem_name for prob in latest_set_problems})
+    
+    # Prebuild the images for the SWE-Bench Verified problems (commented out)
+    # SWEBENCH_VERIFIED_SUITE.prebuild_problem_images(latest_set_problem_names)
+    
     # Start the send heartbeat loop
     asyncio.create_task(send_heartbeat_loop())
-
+    
     if config.MODE == "validator":
-        # Start the set weights loop
-        #asyncio.create_task(set_weights_loop())
+        # Start the set weights loop (commented out)
+        # asyncio.create_task(set_weights_loop())
         logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")
         pass
-
+    
     # Loop forever, just keep requesting evaluations and running them
     while True:
         try:
-
             logger.info("Requesting an evaluation...")
             request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
             # If no evaluation is available, wait and try again
@@ -502,10 +487,10 @@ async def main():
                 logger.info(f"No evaluations available. Waiting for {config.REQUEST_EVALUATION_INTERVAL_SECONDS} seconds...")
                 await asyncio.sleep(config.REQUEST_EVALUATION_INTERVAL_SECONDS)
                 continue
-          
+            
             logger.info(f"Received evaluation with {request_evaluation_response_data}")
             await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))
-
+        
         except Exception as e:
             logger.error(f"Error running evaluation: {type(e).__name__}: {e}")
             logger.error(traceback.format_exc())            
