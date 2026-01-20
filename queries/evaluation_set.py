@@ -33,7 +33,10 @@ async def get_all_problem_names_in_set_group_in_set_id(conn: DatabaseConnection,
 async def get_all_evaluation_set_problems_for_set_id(conn: DatabaseConnection, set_id: int) -> List[EvaluationSetProblem]:
     results = await conn.fetch(
         """
-        SELECT *
+        SELECT set_id, 
+        set_group, 
+        problem_name, 
+        created_at
         FROM evaluation_sets
         WHERE set_id = $1
         """,

@@ -25,4 +25,4 @@ class EvaluationSetProblem(BaseModel):
     set_group: EvaluationSetGroup
     problem_name: str  #mapped to BitrecsEvaluationType
     created_at: datetime.datetime
-    bitrecs_eval_type: Optional[str]  #mapped to BitrecsEvaluationType
+    #bitrecs_eval_type: Optional[str]  #mapped to BitrecsEvaluationType

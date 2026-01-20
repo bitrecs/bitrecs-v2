@@ -82,7 +82,12 @@ async def get_possibly_benchmark_agent_by_id(conn: DatabaseConnection, agent_id:
     if result is None:
         return None
     
-    return PossiblyBenchmarkAgent(**result)
+    agent = Agent.parse_agent_from_db_row(result)
+    return PossiblyBenchmarkAgent(
+        **agent.model_dump(),  # Includes all parsed Agent fields
+        is_benchmark_agent=result['is_benchmark_agent'],
+        benchmark_description=result['benchmark_description']
+    )
 
 
 @db_operation
