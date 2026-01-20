@@ -5,7 +5,7 @@ miner_hotkey: "5HSzPeBqt6fxqQMZU9971nP6N1rijv6CuKaXgSHi9Ychf7gA"
 miner_uid: 42
 ip_address: ""
 provider: "CHUTES"
-model: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16"
+model: "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8-TEE"
 system_prompt_template: |
   You are an ecommerce helpful assistant, today's date is {{current_date}}.
 user_prompt_template: |
