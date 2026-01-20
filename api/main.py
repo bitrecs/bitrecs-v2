@@ -387,7 +387,18 @@ async def get_artifacts(request: Request, limit: int = 10):
 @limiter.limit("60/minute")
 async def submit_artifact(request: Request, artifact: Dict[str, Any]):
     client_ip = get_client_ip(request)
-    logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")    
+    logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")
+    
+    if config.DISALLOW_UPLOADS:
+        # raise HTTPException(
+        #     status_code=503,
+        #     detail=config.DISALLOW_UPLOADS_REASON
+        # )
+        return JSONResponse(
+            content={"error": "Artifact submissions are currently disabled"},
+            status_code=503
+        )
+    
     try:        
         artifact_instance = Agent(**artifact)
         artifact_instance.ip_address = client_ip

@@ -109,14 +109,14 @@ def generate_random_sentences(num_sentences=5, words_per_sentence=10):
     
     return " ".join(sentences)
 
-def test_submit_artifact_valid_vars():
+def test_submit_artifact_valid_vars_local():
     """Test submitting an artifact via POST /artifact."""
     
     prompt = generate_random_sentences(2, 12)
     miner_uid = random.randint(1, 255)
         
     system_prompt = "System prompt {{sku}} Unit Test with more characters"
-    user_prompt = "User prompt {{sku}} Unit Test with random text: {}".format(prompt)
+    user_prompt = "User prompt {{sku}} Unit Test with random text" + prompt
     
     sample_artifact = {
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -150,23 +150,23 @@ def test_submit_artifact_valid_vars():
 def test_submit_artifact_valid_vars_pub():
     """Test submitting an artifact via POST /artifact."""
     
-    prompt = generate_random_sentences(2, 12)
+    prompt = generate_random_sentences(6, 16)
     miner_uid = random.randint(1, 255)
         
-    system_prompt = "System prompt {{sku}} Unit Test with more characters"
-    
-    #user_prompt = "User prompt {{sku}} Unit Test with random text: {}".format(prompt)
-    user_prompt = "User prompt {{sku}} Unit Test"
+    system_prompt = "System prompt {{sku}} Unit Test with more characters"    
+    #user_prompt = "User prompt {{sku}} Unit Test {{fake_variable}} with random text:" + prompt
+    user_prompt = "User prompt {{sku}} Unit Test with random text:" + prompt
+    #user_prompt = "User prompt {{sku}} Unit Test"
     
     sample_artifact = {
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "miner_hotkey": "test_hotkey",
+        "miner_hotkey": "5HgU7B3xfSfisR1A7wDMt7FHX5Uizj6xtWWHwhwJMZSrdN7y",
         "miner_uid": miner_uid,
         "provider": "OPEN_ROUTER",
-        "model": "z-ai/glm-4.7-flash",
+        "model": "google/gemini-2.5-flash-lite",
         "system_prompt_template": system_prompt,
         "user_prompt_template": user_prompt,
-        "sampling_params": {"temperature": 0.9},
+        "sampling_params": {"temperature": 1.1},
         "fewshot_examples": [{"role": "user", "content": "Hello"}],
         "eval_scores": {"accuracy": 0.95},
         "version_num": 1,
