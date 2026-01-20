@@ -1,4 +1,5 @@
 import os
+import secrets
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
@@ -47,7 +48,6 @@ from api.heartbeat import validator_heartbeat_timeout_loop
 from api.metagraph_sync_manager import MetagraphSyncManager
 from llm.open_router import OpenRouter
 from rules.agent_comparer import AgentComparer
-
 from version import __version__ as this_version
 
 METAGRAPH_CACHE_DURATION = 3600
@@ -64,6 +64,7 @@ PUBLIC_KEY = PRIVATE_KEY.public_key()
 
 #COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
 COSINE_COMPARE_ENABLED = True
+SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.1"))
 
 
 http_client = httpx.AsyncClient(
@@ -286,6 +287,7 @@ async def health(request: Request):
         "exceptions": app.state.exceptions,
         "agent_count": agent_count,
         "validators": validator_info,
+        "similarity_threshold": str(SIMILARITY_THRESHOLD) if COSINE_COMPARE_ENABLED else "DISABLED",
         "threads": thread_count,
         "metagraph_last_synced": int(synced_at) if synced_at else None,
         "metagraph_age_seconds": round(time.time() - synced_at, 2) if synced_at else None,        
@@ -388,7 +390,9 @@ async def get_artifacts(request: Request, limit: int = 10):
 async def submit_artifact(request: Request, artifact: Dict[str, Any]):
     client_ip = get_client_ip(request)
     logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")
-    
+    request_id = secrets.token_hex(32)
+    logger.info(f"Request ID: {request_id}")
+
     if config.DISALLOW_UPLOADS:
         # raise HTTPException(
         #     status_code=503,
@@ -415,9 +419,12 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
         # Assign UUID before similarity check (needed for embedding)
         artifact_instance.agent_id = uuid.uuid4()
         
-        if COSINE_COMPARE_ENABLED and 1==2:
+        if COSINE_COMPARE_ENABLED and 1==1:
             logger.info("Cosine similarity check is ENABLED for artifact submissions")
-            SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.001"))            
+            logger.info(f"Checking similarity for artifact ID: {artifact_instance.agent_id}")
+            logger.info(f"Threshold: {SIMILARITY_THRESHOLD}")
+
+            #SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.1"))
             # Check for similar agents
             is_too_similar, similar_agents = await check_similar_agents(
                 artifact_instance,
@@ -450,20 +457,17 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
             
         # Create the agent in database
         #artifact_instance.agent_id = uuid.uuid4()
+        artifact_instance.ip_address = request_id
         artifact_id = await create_agent(artifact_instance)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
         
         response_content = {
+            "request_id": request_id,
             "message": "Artifact submitted successfully",
-            "artifact_id": str(artifact_id)
+            "artifact_id": str(artifact_id),
+            "similarity_check": "passed",
+            "similar_results": [{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]
         }
-        
-        # Optionally include similarity info even on success
-        # if similar_agents:
-        #     response_content["similarity_info"] = {
-        #         "closest_match_distance": f"{similar_agents[0][1]:.4f}",
-        #         "is_unique": True
-        #     }
         
         return JSONResponse(status_code=201, content=response_content)
     

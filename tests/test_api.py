@@ -116,17 +116,18 @@ def test_submit_artifact_valid_vars_local():
     miner_uid = random.randint(1, 255)
         
     system_prompt = "System prompt {{sku}} Unit Test with more characters"
-    user_prompt = "User prompt {{sku}} Unit Test with random text" + prompt
+    #user_prompt = "User prompt {{sku}} Unit Test with random text" + prompt
+    user_prompt = "User prompt {{sku}} Unit Test with random text"
     
     sample_artifact = {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "miner_hotkey": "test_hotkey",
         "miner_uid": miner_uid,
-        "provider": "OPEN_ROUTER",
+        "provider": "CHUTES",
         "model": "z-ai/glm-4.7-flash",
         "system_prompt_template": system_prompt,
         "user_prompt_template": user_prompt,
-        "sampling_params": {"temperature": 0.1},
+        "sampling_params": {"temperature": 1.1},
         "fewshot_examples": [{"role": "user", "content": "Hello"}],
         "eval_scores": {"accuracy": 0.95},
         "version_num": 1,
