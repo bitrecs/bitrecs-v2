@@ -388,6 +388,11 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
         else:
             await _run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)
 
+        sleeps = [2, 5, 9]
+        sleep = secrets.choice(sleeps)
+        logger.info(f"Sleeping for {sleep} seconds before next problem run...")
+        await asyncio.sleep(sleep)
+
     try:
         await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
         if SIMULATE_EVALUATION_RUNS:

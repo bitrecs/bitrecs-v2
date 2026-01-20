@@ -67,6 +67,8 @@ def upload_prompt():
             print(f"Reconstructed Artifact ID: {agent.agent_id}")
             logger.info(f"\033[32mSuccess submitted new Artifact: {agent.name} \033[0m")
             logger.info(f"\033[32mArtifact ID: {agent.agent_id} \033[0m")
+            logger.info(f"\033[32mArtifact Provider: {agent.provider} \033[0m")
+            logger.info(f"\033[32mArtifact Model: {agent.model} \033[0m")
 
 
 if __name__ == "__main__":
