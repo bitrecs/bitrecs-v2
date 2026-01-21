@@ -5,12 +5,12 @@ miner_hotkey: "5HSzPeBqt6fxqQMZU9971nP6N1rijv6CuKaXgSHi9Ychf7gA"
 miner_uid: 42
 ip_address: ""
 provider: "CHUTES"
-model: "chutesai/Mistral-Small-3.1-24B-Instruct-2503"
+model: "Qwen/Qwen3-Next-80B-A3B-Instruct"
 system_prompt_template: |
-  You are an ecommerce helpful assistant to help the user find recommendations, today's date is {{current_date}}.
+  You are a shopping assistant to help the user find recommendations, today's date is {{current_date}}.
 user_prompt_template: |
     # SCENARIO
-    A shopper is currently browsing a product detail page with SKU <sku>{{sku}}</sku> named <sku_info>{{sku_info}}</sku_info> on your e-commerce store.
+    A user is currently browsing an ecommerce product detail page with SKU <sku>{{sku}}</sku> named <sku_info>{{sku_info}}</sku_info> on your e-commerce store.
     They are looking for {{num_recs}} products to add to their shopping cart.
     You will build a {{num_recs}} product recommendation set with no duplicates based on the provided context and utilizing your persona attributes.
         
@@ -70,7 +70,7 @@ user_prompt_template: |
      {"sku": "DEF", "name": "Davek Elite Umbrella", "price": "159", "reason": "An Umbrella would go nicely with ABC Lightweight Hooded Rain Jacket and is often paired with it"}]
 
 sampling_params:
-  temperature: 0.2
+  temperature: 0.0
   top_p: 0.9
   max_tokens: 2048
   stop_sequences: ["\n\n"]

@@ -355,9 +355,9 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     try:
         await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
         if SIMULATE_EVALUATION_RUNS:
-            logger.info("Finished SIMULATED evaluation")
+            logger.info("\033[33mFinished SIMULATED evaluation\033[0m")
         else:
-            logger.info("Finished evaluation")
+            logger.info("\033[33mEVALUATION COMPLETE\033[0m")
     except Exception as e:
         logger.error(f"Error finishing evaluation: {type(e).__name__}: {e}")
         logger.error(traceback.format_exc())
