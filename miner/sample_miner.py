@@ -4,11 +4,11 @@ import time
 import httpx
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from pathlib import Path
+from utils.models import normalize_model_name
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 import validator.config as config
 import utils.logger as logger
-
 
 ROOT_DIR = Path(__file__).parent.parent
 MINER_YAML_PATH = os.path.join(ROOT_DIR, "miner", "miner_input.yaml")
@@ -40,8 +40,11 @@ def upload_prompt():
         "x-signature": "your_signature_here",
         "x-timestamp": "your_timestamp_here",
         "x-nonce": "your_nonce_here"
-    }      
-    artifact.name = f"{artifact.name} - Test {int(time.time())}"
+    }         
+
+    model_name = normalize_model_name(artifact.model, should_lower=True)
+    print(f"Normalized model name for upload: {model_name}")
+    artifact.name = f"Test {artifact.name} - {model_name} - {int(time.time())}"
     with httpx.Client(base_url=SERVICE_URL, headers=headers) as client:
         response = client.post(
             "/artifact",
@@ -64,7 +67,8 @@ def upload_prompt():
             except Exception:
                 print(f"Response text: {response.text}")
             return  # Or handle as needed
-        
+    
+    logger.info("Artifact uploaded successfully, proceeding to fetch.")
     #fetch artifact
     artifact_id = response.json().get("artifact_id")
     if artifact_id:
