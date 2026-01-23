@@ -159,12 +159,13 @@ def test_submit_artifact_valid_vars_pub():
     #user_prompt = "User prompt {{sku}} Unit Test with random text:" + prompt
     user_prompt = "User prompt {{sku}} Unit Test"
     
+    model = "google/gemini-2.5-flash-lite"
     sample_artifact = {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "miner_hotkey": "5HgU7B3xfSfisR1A7wDMt7FHX5Uizj6xtWWHwhwJMZSrdN7y",
         "miner_uid": miner_uid,
         "provider": "OPEN_ROUTER",
-        "model": "google/gemini-2.5-flash-lite",
+        "model": model,
         "system_prompt_template": system_prompt,
         "user_prompt_template": user_prompt,
         "sampling_params": {"temperature": 0.3},
@@ -172,7 +173,7 @@ def test_submit_artifact_valid_vars_pub():
         "eval_scores": {"accuracy": 0.95},
         "version_num": 1,
         "status": "screening_1",
-        "name": "Test Artifact Unit Test",
+        "name": f"Test Artifact Unit Test - {model}",
         "ip_address": "127.0.0.1"  
     }
 
