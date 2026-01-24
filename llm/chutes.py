@@ -36,6 +36,8 @@ class Chutes:
             - If input is str: returns list[float] (single embedding)
             - If input is list[str]: returns list[list[float]] (multiple embeddings)
         """
+        raise NotImplementedError("Chutes embeddings are currently disabled due to instability issues.")
+    
         url = "https://chutes-qwen-qwen3-embedding-8b.chutes.ai/v1/embeddings"
         
         headers = {
@@ -60,32 +62,55 @@ class Chutes:
             }
         }
         
-        timeout = (5, 30) #connect, read timeout
-        try:
-            with httpx.Client(timeout=timeout) as client:
-                response = client.post(
-                    url,
-                    headers=headers,
-                    json=data
-                )
-                response.raise_for_status()
-                result = response.json()
-                
-                # If single text input, return single embedding
-                if isinstance(text, str):
-                    return result['data'][0]['embedding']
-                
-                # If list input, return all embeddings
-                return [item['embedding'] for item in result['data']]
-                
-        except httpx.ConnectTimeout:
-            raise TimeoutError(f"Chutes connect timed out after {timeout[0]}s")
-        except httpx.ReadTimeout:
-            raise TimeoutError(f"Chutes read timed out after {timeout[1]}s")
-        except httpx.HTTPStatusError as e:
-            raise RuntimeError(f"Chutes request failed: {e}") from e 
-        except httpx.RequestError as e:
-            raise RuntimeError(f"Chutes request failed: {e}") from e
+        timeout = (5, 30)  # connect, read timeout
+        max_retries = 2  # 3 total attempts
+        for attempt in range(max_retries + 1):
+            try:
+                with httpx.Client(timeout=timeout) as client:
+                    response = client.post(
+                        url,
+                        headers=headers,
+                        json=data
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    
+                    # If single text input, return single embedding
+                    if isinstance(text, str):
+                        return result['data'][0]['embedding']
+                    
+                    # If list input, return all embeddings
+                    return [item['embedding'] for item in result['data']]
+                    
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429 and attempt < max_retries:
+                    wait_time = 1 * (attempt + 1)  # Linear backoff: 1s, 2s
+                    logger.warning(f"429 received, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries + 1})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    raise RuntimeError(f"Chutes request failed: {e}") from e
+            except httpx.ConnectTimeout:
+                if attempt < max_retries:
+                    wait_time = 1 * (attempt + 1)
+                    logger.warning(f"Connect timeout, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries + 1})")
+                    time.sleep(wait_time)
+                    continue
+                raise TimeoutError(f"Chutes connect timed out after {timeout[0]}s")
+            except httpx.ReadTimeout:
+                if attempt < max_retries:
+                    wait_time = 1 * (attempt + 1)
+                    logger.warning(f"Read timeout, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries + 1})")
+                    time.sleep(wait_time)
+                    continue
+                raise TimeoutError(f"Chutes read timed out after {timeout[1]}s")
+            except httpx.RequestError as e:
+                if attempt < max_retries:
+                    wait_time = 1 * (attempt + 1)
+                    logger.warning(f"Request error, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries + 1})")
+                    time.sleep(wait_time)
+                    continue
+                raise RuntimeError(f"Chutes request failed: {e}") from e
         
 
     def call_chutes(self, prompt) -> str:
