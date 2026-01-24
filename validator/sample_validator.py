@@ -16,7 +16,7 @@ load_dotenv()
 from uuid import UUID
 from typing import Any, Dict
 from datetime import datetime, timezone
-from models.problem import ProblemTestResultStatus
+from models.problem import ProblemTestResult, ProblemTestResultStatus
 from models.agent import Agent
 from api.endpoints.validator_models import (
     ScreenerRegistrationRequest, ScreenerRegistrationResponse, 
@@ -164,6 +164,10 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
     try:        
         
         eval_type = BitrecsEvaluationType(problem_name)
+        sleeps = [2, 5, 7]
+        sleep = secrets.choice(sleeps)
+        logger.info(f"Sleeping for {sleep} seconds before {eval_type.value} ...")
+        await asyncio.sleep(sleep)
 
         try:        
 
@@ -224,15 +228,15 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             if af_health["status"] != "healthy":
                 raise Exception(f"Docker environment is not healthy: {af_health}")            
             
-            eval_battery = await get_evals_from_docker(f"http://{af_hostname}:{af_container_port}/evals")
-            logger.info(f"EVALS: {eval_battery}")
+            # eval_battery = await get_evals_from_docker(f"http://{af_hostname}:{af_container_port}/evals")
+            # logger.info(f"EVALS: {eval_battery}")
         
             yaml_content = Agent.to_yaml(miner_agent)
             logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")
             logger.info("Triggering evaluation in Affine environment...")
 
             # Move from running_agent -> initializing_eval
-            await asyncio.sleep(random.random() * 3)
+            #await asyncio.sleep(random.random() * 3)
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_eval, {
                 "patch": "initializing_eval",
                 "agent_logs": f"run_id: {bitrecs_run_id}\nDocker container port: {af_container_port}\nDocker environment health: {af_health}"
@@ -289,9 +293,16 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             # Cleanup
             await env.cleanup()    
 
-            status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL          
+            eval_status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL        
+            eval_score = float(score) if isinstance(score, (int, float)) else None
+            problem_test_result = ProblemTestResult(
+                name=tak_name,
+                category="default",
+                status=eval_status,
+                score=eval_score
+            )
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
-                "test_results": [{"name": tak_name, "category": "default", "status": f"{status.value}", "final_score": score}],
+                "test_results": [problem_test_result.model_dump()],
                 "eval_logs": this_log
             })
         except EvaluationRunException as e:
@@ -347,11 +358,7 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
         else:
             await _run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)
 
-        sleeps = [2, 5, 9]
-        sleep = secrets.choice(sleeps)
-        logger.info(f"Sleeping for {sleep} seconds before next problem run...")
-        await asyncio.sleep(sleep)
-
+       
     try:
         await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
         if SIMULATE_EVALUATION_RUNS:
