@@ -265,9 +265,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             #logger.debug(f"RAW Evaluation result: {result}")
             tak_name = result.get("task_name", "N/A")
             run_id = result.get("run_id", "N/A")
-            score = result.get("score", "N/A")
-            success = result.get("success", "N/A")
-            time_taken = result.get("time_taken", "N/A")
+            score = result.get("score", 0.0)
+            success = result.get("success", False)
+            time_taken = result.get("time_taken", 0.0)
             extra = ""
             logger.info("Evaluation Result:")
             logger.info(f"  Run ID: {run_id}")

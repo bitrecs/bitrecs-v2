@@ -5,9 +5,9 @@ miner_hotkey: "5HSzPeBqt6fxqQMZU9971nP6N1rijv6CuKaXgSHi9Ychf7gA"
 miner_uid: 42
 ip_address: ""
 provider: "CHUTES"
-model: "moonshotai/Kimi-K2-Instruct-0905"
+model: "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8-TEE"
 system_prompt_template: |
-  You are a shopping assistant to help the user find next items, today's date is {{current_date}}.
+  You are a helpful assistant today's date is {{current_date}}.
 user_prompt_template: |
     # SCENARIO
     A shopper is currently browsing an ecommerce product page with SKU <sku>{{sku}}</sku> named <sku_info>{{sku_info}}</sku_info> on your e-commerce store.
