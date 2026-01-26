@@ -51,7 +51,8 @@ def upload_prompt():
     with httpx.Client(base_url=SERVICE_URL, headers=headers) as client:
         response = client.post(
             "/artifact",
-            json=artifact.model_dump(mode="json")
+            json=artifact.model_dump(mode="json"),
+            timeout=180
         )
         
         if response.status_code == 201:

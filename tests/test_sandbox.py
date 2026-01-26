@@ -251,13 +251,13 @@ async def test_bitrecs_sandbox_contains_valid_eval_types():
 
 async def test_problem_names_to_types():
     problem_names = [
+        "bitrecs_safe_daily",
+        "bitrecs_qos_daily",
+        "bitrecs_haystack_daily",
         "bitrecs_basic_daily",
-        "bitrecs_prompt_daily",
-        "bitrecs_reason_daily",
-        "bitrecs_sku_daily",
-        "amazon_prompt_100",
-        "amazon_prompt_500",
-        "amazon_prompt_1000"
+        "amazon_all_beauty_100",
+        "amazon_beauty_and_personal_care_100",
+        "amazon_industrial_and_scientific_100"
     ]
     
     for name in problem_names:
