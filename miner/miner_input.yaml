@@ -7,10 +7,10 @@ ip_address: ""
 provider: "CHUTES"
 model: "Qwen/Qwen3-Next-80B-A3B-Instruct"
 system_prompt_template: |
-  You are a helpful assistant today's date is {{current_date}}.
+  You are a helpful shopping assistant and today's date is {{current_date}}.
 user_prompt_template: |
     # SCENARIO
-    A shopper is currently browsing an ecommerce product page with SKU <sku>{{sku}}</sku> named <sku_info>{{sku_info}}</sku_info> on your e-commerce store.
+    A loyal customer is currently browsing an ecommerce product page with SKU <sku>{{sku}}</sku> named <sku_info>{{sku_info}}</sku_info> on your e-commerce store.
     They are looking for {{num_recs}} products to add to their shopping cart.
     You will build a {{num_recs}} product recommendation set with no duplicates based on the provided context and utilizing your persona attributes.
         

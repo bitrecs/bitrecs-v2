@@ -16,6 +16,9 @@ MINER_YAML_PATH = os.path.join(ROOT_DIR, "miner", "miner_input.yaml")
 #SERVICE_URL = "http://localhost:8000"
 SERVICE_URL =  config.RIDGES_PLATFORM_URL
 
+async def check():
+    pass
+
 
 def upload_prompt():
     #LOAD AND VALIDATE TEMPLATE
@@ -43,7 +46,7 @@ def upload_prompt():
     }         
 
     model_name = normalize_model_name(artifact.model, should_lower=True)
-    print(f"Normalized model name for upload: {model_name}")
+    print(f"Normalized model name for upload: \033[32m{model_name}\033[0m")
     artifact.name = f"Test {artifact.name} - {model_name} - {int(time.time())}"
     with httpx.Client(base_url=SERVICE_URL, headers=headers) as client:
         response = client.post(

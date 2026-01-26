@@ -48,7 +48,9 @@ from api.heartbeat import validator_heartbeat_timeout_loop
 from api.metagraph_sync_manager import MetagraphSyncManager
 from llm.open_router import OpenRouter
 from rules.agent_comparer import AgentComparer
+from utils.r2 import validate_r2_bucket_connection
 from version import __version__ as this_version
+
 
 METAGRAPH_CACHE_DURATION = 3600
 PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
@@ -139,6 +141,13 @@ async def lifespan(app: FastAPI):
         host=config.DATABASE_HOST,
         port=config.DATABASE_PORT,
         name=config.DATABASE_NAME
+    )
+
+    await validate_r2_bucket_connection(
+        bucket=config.R2_BUCKET_NAME,
+        access_key_id=config.R2_ACCESS_KEY_ID,
+        secret_access_key=config.R2_SECRET_ACCESS_KEY,
+        endpoint_url=config.R2_ENDPOINT_URL
     )
     
     # Background task to restart manager if dead

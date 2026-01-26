@@ -64,29 +64,25 @@ if DISALLOW_UPLOADS:
         logger.fatal("DISALLOW_UPLOADS_REASON is not set in .env")
 
 
-
-
-
-# Load AWS configuration
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-if not AWS_ACCESS_KEY_ID:
-    logger.fatal("AWS_ACCESS_KEY_ID is not set in .env")
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
+if not R2_ACCESS_KEY_ID:
+    logger.fatal("R2_ACCESS_KEY_ID is not set in .env")
     
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-if not AWS_SECRET_ACCESS_KEY:
-    logger.fatal("AWS_SECRET_ACCESS_KEY is not set in .env")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
+if not R2_SECRET_ACCESS_KEY:
+    logger.fatal("R2_SECRET_ACCESS_KEY is not set in .env")
 
-AWS_REGION = os.getenv("AWS_REGION")
-if not AWS_REGION:
-    logger.fatal("AWS_REGION is not set in .env")
+R2_REGION = os.getenv("R2_REGION")
+if not R2_REGION:
+    logger.fatal("R2_REGION is not set in .env")
 
+R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME")
+if not R2_BUCKET_NAME:
+    logger.fatal("R2_BUCKET_NAME is not set in .env")
 
-
-# Load S3 configuration
-S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
-if not S3_BUCKET_NAME:
-    logger.fatal("S3_BUCKET_NAME is not set in .env")
-
+R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL")
+if not R2_ENDPOINT_URL:
+    logger.fatal("R2_ENDPOINT_URL is not set in .env")
 
 
 # Load database configuration
@@ -201,10 +197,10 @@ if DISALLOW_UPLOADS:
 logger.info(f"Environment: {'Production' if ENV == 'prod' else 'Development'}")
 logger.info("-------------------------")
 
-logger.info(f"AWS Region: {AWS_REGION}")
+logger.info(f"R2 Region: {R2_REGION}")
 logger.info("-------------------------")
 
-logger.info(f"S3 Bucket Name: {S3_BUCKET_NAME}")
+logger.info(f"R2 Bucket Name: {R2_BUCKET_NAME}")
 logger.info("-------------------------")
 
 #logger.info(f"Database Username: {DATABASE_USERNAME}")

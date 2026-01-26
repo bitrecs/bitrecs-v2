@@ -21,7 +21,7 @@ from queries.evaluation_run import get_evaluation_run_by_id, update_evaluation_r
 from models.agent import Agent, AgentStatus
 from models.evaluation import Evaluation, EvaluationStatus
 from models.evaluation_run import EvaluationRunStatus, EvaluationRunLogType
-from utils.s3 import download_text_file_from_s3
+#from utils.r2 import download_text_file_from_s3
 from utils.system_metrics import SystemMetrics
 from utils.validator_hotkeys import is_validator_hotkey_whitelisted, validator_hotkey_to_name
 from api.endpoints.validator_models import *

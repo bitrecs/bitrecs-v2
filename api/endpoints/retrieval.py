@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from utils.ttl import ttl_cache
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
-from utils.s3 import download_text_file_from_s3
+#from utils.s3 import download_text_file_from_s3
 from models.evaluation_set import EvaluationSetGroup
 from queries.evaluation import get_evaluations_for_agent_id
 from models.evaluation import Evaluation, EvaluationWithRuns

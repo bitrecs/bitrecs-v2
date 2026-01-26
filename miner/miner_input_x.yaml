@@ -5,43 +5,17 @@ miner_hotkey: "5HWJ4i1K88EwWn6wSsmEqHh37Gd9miTJCDqdGeko8QCbX3EV"
 miner_uid: 21
 ip_address: ""
 provider: "OPEN_ROUTER"
-model: "meta-llama/llama-4-maverick"
+model: "openai/gpt-5-mini"
 system_prompt_template: |
-  You are a helpful assistant helping a customer, today's date is {{current_date}}.
+  You are a shopping assistant, today's date is {{current_date}}.
 user_prompt_template: |
-    # SCENARIO
-    A customer is browsing an ecommerce product page with SKU <sku>{{sku}}</sku> named <sku_info>{{sku_info}}</sku_info> on your e-commerce store.
-    They are looking for {{num_recs}} products to add to their shopping cart.
-    You will build a {{num_recs}} product recommendation set with no duplicates based on the provided context and utilizing your persona attributes.
-        
-    # YOUR PERSONA
-    <persona>{{persona}}</persona>
-
-    # YOUR ROLE
-    - Achievements: salesperson of the year, expert product recommender
-    - Recommend **{{num_recs}}** products (A -> B,Y,Z)
-    - Increase average order value and conversion rate
-    - Use deep product catalog knowledge
-    - Understand product attributes and revenue impact
-    - Avoid variant duplicates (same product in different colors/sizes)     
-
     # YOUR TASK
-    Given a product SKU <sku>{{sku}}</sku> named <sku_info>{{sku_info}}</sku_info> recommend **{{num_recs}}** unique products from the context.
-    Use your persona attributes to stay in character and think about which products to recommend, but return ONLY a JSON array.
-    Evaluate each product name and price fields before making your recommendations.
-    The name field is the most important attribute followed by price.
-    The product name can contain important information like which category it belongs to, sometimes denoted by | characters indicating the category hierarchy.    
-    Leverage the complete information ecosystem - product catalog, user context, seasonal trends, pricing considerations and your expert role as a {{persona}} - and return {{num_recs}} recommendations.
-    Apply comprehensive analysis using all available inputs: product attributes from the context, user cart and order history, seasonality, seasonal events, pricing considerations and your personas core_attributes to return a cohesive recommendation set.    
-    Do **not** recommend products that are already in the cart.
-
-    # INPUT    
-    Query SKU: <sku>{{sku}}</sku><sku_info>{{sku_info}}</sku_info>  
+    Given this sku <sku>{{sku}}</sku> named <sku_info>{{sku_info}}</sku_info> recommend {{num_recs}} products to add to the cart.
 
     Available products:
     <context>
     {{product_catalog}}
-    </context>   
+    </context>
 
     # OUTPUT REQUIREMENTS
     - Return ONLY a JSON array.

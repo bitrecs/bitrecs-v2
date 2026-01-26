@@ -5,6 +5,7 @@ from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
 #from utils.s3 import upload_text_file_to_s3
+from utils.r2 import upload_text_file_to_r2
 from models.evaluation import EvaluationStatus
 from models.evaluation_set import EvaluationSetGroup
 from utils.database import db_operation, DatabaseConnection
@@ -162,7 +163,7 @@ async def get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(conn: Da
 
 # @db_operation
 # async def create_agent(conn: DatabaseConnection, agent: Agent, agent_text: str) -> None:
-#     await upload_text_file_to_s3(f"{agent.agent_id}/agent.py", agent_text)
+#     await upload_text_file_to_r2(f"{agent.agent_id}/agent.py", agent_text)
 
 #     await conn.execute(
 #         f"""
@@ -179,8 +180,8 @@ async def get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(conn: Da
 
 @db_operation
 async def create_agent(conn: DatabaseConnection, agent: Agent) -> UUID:
-
     
+
     result = await conn.fetchval(
         """
         INSERT INTO agents (
