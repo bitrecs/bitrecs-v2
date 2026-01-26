@@ -195,8 +195,8 @@ if DISALLOW_UPLOADS:
 logger.info(f"Environment: {'Production' if ENV == 'prod' else 'Development'}")
 logger.info("-------------------------")
 
-logger.info(f"R2 Region: {R2_REGION}")
-logger.info("-------------------------")
+#logger.info(f"R2 Region: {R2_REGION}")
+#logger.info("-------------------------")
 
 logger.info(f"R2 Bucket Name: {R2_BUCKET_NAME}")
 logger.info("-------------------------")
