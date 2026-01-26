@@ -72,9 +72,7 @@ R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
 if not R2_SECRET_ACCESS_KEY:
     logger.fatal("R2_SECRET_ACCESS_KEY is not set in .env")
 
-R2_REGION = os.getenv("R2_REGION")
-if not R2_REGION:
-    logger.fatal("R2_REGION is not set in .env")
+
 
 R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME")
 if not R2_BUCKET_NAME:
