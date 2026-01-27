@@ -312,7 +312,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "affinetes", git = "https://github.com/AffineFoundation/affinetes.git?rev=main" },
-    { name = "aioboto3", specifier = ">=15.0.0" },
+    { name = "aioboto3", specifier = ">=15.5.0" },
     { name = "async-substrate-interface", specifier = ">=1.5.15" },
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "bittensor", specifier = ">=10.0.1" },
