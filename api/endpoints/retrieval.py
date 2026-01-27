@@ -97,7 +97,11 @@ async def agent_code(agent_id: UUID) -> str:
             detail=f"Agent {agent.agent_id} is still being screened/evaluated"
         )
     
-    return await download_text_file_from_s3(f"{agent_id}/agent.py")
+    raise HTTPException(
+        status_code=501,
+        detail="Downloading agent code from S3 is not implemented yet"
+    )
+    #return await download_text_file_from_s3(f"{agent_id}/agent.py")
 
 
 
