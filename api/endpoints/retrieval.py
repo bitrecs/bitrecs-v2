@@ -13,7 +13,7 @@ from queries.evaluation_run import get_all_evaluation_runs_in_evaluation_id
 from models.agent import Agent, AgentScored, AgentStatus, BenchmarkAgentScored, PossiblyBenchmarkAgent
 from queries.agent import get_top_agents, get_agent_by_id, get_agents_in_queue, get_benchmark_agents, get_all_agents_by_miner_hotkey, get_latest_agent_for_miner_hotkey, get_possibly_benchmark_agent_by_id
 from queries.statistics import top_score, TopScoreOverTime, agents_created_24_hrs, ProblemSetCreationTime, PerfectlySolvedOverTime, get_top_scores_over_time, score_improvement_24_hrs, get_perfectly_solved_over_time, get_problem_set_creation_times
-
+from utils.bittensor import is_hotkey_valid_format
 router = APIRouter()
 
 # /retrieval/queue?stage={screener_1|screener_2|validator}
@@ -52,6 +52,13 @@ async def agent_by_id(agent_id: UUID) -> PossiblyBenchmarkAgent:
 # /retrieval/agent-by-hotkey?miner_hotkey=
 @router.get("/agent-by-hotkey")
 async def agent_by_hotkey(miner_hotkey: str) -> Agent:
+
+    if not is_hotkey_valid_format(miner_hotkey):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Miner hotkey {miner_hotkey} is not a valid format"
+        )
+
     agent = await get_latest_agent_for_miner_hotkey(miner_hotkey=miner_hotkey)    
     if agent is None:
         raise HTTPException(
@@ -64,6 +71,11 @@ async def agent_by_hotkey(miner_hotkey: str) -> Agent:
 # /retrieval/all-agents-by-hotkey?miner_hotkey=
 @router.get("/all-agents-by-hotkey")
 async def all_agents_by_hotkey(miner_hotkey: str) -> List[Agent]:
+    if not is_hotkey_valid_format(miner_hotkey):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Miner hotkey {miner_hotkey} is not a valid format"
+        )
     agents = await get_all_agents_by_miner_hotkey(miner_hotkey=miner_hotkey)
     return agents
 

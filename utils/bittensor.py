@@ -1,3 +1,4 @@
+import re
 from bittensor.core.async_subtensor import AsyncSubtensor
 from bittensor_wallet.keypair import Keypair
 
@@ -16,3 +17,13 @@ def validate_signed_timestamp(timestamp: int, signed_timestamp: str, hotkey: str
     except Exception as e:
         logger.warning(f"Error in validate_signed_timestamp(timestamp={timestamp}, signed_timestamp={signed_timestamp}, hotkey={hotkey}): {e}")
         return False
+    
+    
+def is_hotkey_valid_format(hotkey: str) -> bool:
+    if not isinstance(hotkey, str) or len(hotkey) != 48:
+        return False
+    # regex s58 address
+    pattern = r"^5[1-9A-HJ-NP-Za-km-z]{47}$"
+    if re.match(pattern, hotkey):
+        return True
+    return False

@@ -34,7 +34,7 @@ def upload_prompt():
         print(f"Artifact validation failed: {reason}")
         return   
     
-    print(f"Valid, found variables: {reason}")
+    print(f"Valid, found variables: {reason}")  
     
     #UPLOAD TEMPLATE
     headers = {
