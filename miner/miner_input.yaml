@@ -7,7 +7,7 @@ ip_address: ""
 provider: "CHUTES"
 model: "Qwen/Qwen3-235B-A22B-Instruct-2507-TEE"
 system_prompt_template: |
-  You are a helpful shopping assistant and today's date is {{current_date}}.
+  You are a helpful assistant and today's date is {{current_date}}.
 user_prompt_template: |
    # SCENARIO
     You are an ecommerce product recommender with deep expertise in store catalog, product attributes, user behavior, and seasonal trends.

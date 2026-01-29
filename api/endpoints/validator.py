@@ -630,50 +630,96 @@ async def validator_connected_validators_info() -> List[ConnectedValidatorInfo]:
     return connected_validators
 
 
-async def handle_evaluation_if_finished(evaluation_id: UUID) -> None:
-    """
-    Adds the finished_at field to an evaluation. If the evaluation is marked as successful
-    (all evaluation runs completed successfully), transitions the corresponding agent into the next state.
-    """
-    await update_evaluation_finished_at(evaluation_id)
+# async def handle_evaluation_if_finished(evaluation_id: UUID) -> None:
+#     """
+#     Adds the finished_at field to an evaluation. If the evaluation is marked as successful
+#     (all evaluation runs completed successfully), transitions the corresponding agent into the next state.
+#     """
+#     await update_evaluation_finished_at(evaluation_id)
 
+#     hydrated_evaluation = await get_hydrated_evaluation_by_id(evaluation_id)
+#     if hydrated_evaluation is None:
+#         logger.warning(f"Evaluation {evaluation_id} not found, skipping status transition.")
+#         return
+
+#     # Transition agent state if this evaluation was successful
+#     if hydrated_evaluation.status == EvaluationStatus.success:
+#         agent = await get_agent_by_id(hydrated_evaluation.agent_id)
+#         new_agent_status = None
+
+#         match agent.status:
+#             case AgentStatus.screening_1:
+#                 if hydrated_evaluation.score >= config.SCREENER_1_THRESHOLD:
+#                     new_agent_status = AgentStatus.screening_2
+#                 else:
+#                     new_agent_status = AgentStatus.failed_screening_1
+
+#             case AgentStatus.screening_2:
+#                 top_agents = await get_top_agents(number_of_agents=1)
+#                 top_score = top_agents[0].final_score if top_agents else 0
+#                 pruning_threshold_score = top_score * config.PRUNE_THRESHOLD
+
+#                 if hydrated_evaluation.score >= max(config.SCREENER_2_THRESHOLD, pruning_threshold_score):
+#                     new_agent_status = AgentStatus.evaluating
+#                 else:
+#                     new_agent_status = AgentStatus.failed_screening_2
+
+#             case AgentStatus.evaluating:
+#                 num_validator_evaluations = await get_num_successful_validator_evaluations_for_agent_id(agent.agent_id)
+#                 if num_validator_evaluations >= config.NUM_EVALS_PER_AGENT:
+#                     new_agent_status = AgentStatus.finished
+#                 else:
+#                     new_agent_status = AgentStatus.evaluating
+
+#             case _:
+#                 # TODO ADAM: this could actually happen if someone manually messed with the database. we need to handle this better
+#                 # raise ValueError(f"Invalid agent status: {agent.status}, this should never happen")
+#                 return
+
+#         await update_agent_status(hydrated_evaluation.agent_id, new_agent_status)
+
+
+
+async def handle_evaluation_if_finished(evaluation_id: UUID) -> None:
+    await update_evaluation_finished_at(evaluation_id)
     hydrated_evaluation = await get_hydrated_evaluation_by_id(evaluation_id)
     if hydrated_evaluation is None:
         logger.warning(f"Evaluation {evaluation_id} not found, skipping status transition.")
         return
-
-    # Transition agent state if this evaluation was successful
+    agent = await get_agent_by_id(hydrated_evaluation.agent_id)
+    if agent is None:
+        logger.error(f"Agent {hydrated_evaluation.agent_id} not found, skipping status transition.")
+        return
+    
+    # ✅ FIX: Check evaluating agents FIRST, regardless of current eval status
+    if agent.status == AgentStatus.evaluating:
+        num = await get_num_successful_validator_evaluations_for_agent_id(agent.agent_id)
+        if num >= config.NUM_EVALS_PER_AGENT:
+            await update_agent_status(agent.agent_id, AgentStatus.finished)
+        return
+    
+    # For screening agents, only transition if THIS evaluation succeeded
     if hydrated_evaluation.status == EvaluationStatus.success:
-        agent = await get_agent_by_id(hydrated_evaluation.agent_id)
         new_agent_status = None
-
         match agent.status:
             case AgentStatus.screening_1:
                 if hydrated_evaluation.score >= config.SCREENER_1_THRESHOLD:
                     new_agent_status = AgentStatus.screening_2
                 else:
                     new_agent_status = AgentStatus.failed_screening_1
-
+            
             case AgentStatus.screening_2:
                 top_agents = await get_top_agents(number_of_agents=1)
                 top_score = top_agents[0].final_score if top_agents else 0
                 pruning_threshold_score = top_score * config.PRUNE_THRESHOLD
-
+                
                 if hydrated_evaluation.score >= max(config.SCREENER_2_THRESHOLD, pruning_threshold_score):
                     new_agent_status = AgentStatus.evaluating
                 else:
                     new_agent_status = AgentStatus.failed_screening_2
-
-            case AgentStatus.evaluating:
-                num_validator_evaluations = await get_num_successful_validator_evaluations_for_agent_id(agent.agent_id)
-                if num_validator_evaluations >= config.NUM_EVALS_PER_AGENT:
-                    new_agent_status = AgentStatus.finished
-                else:
-                    new_agent_status = AgentStatus.evaluating
-
+            
             case _:
-                # TODO ADAM: this could actually happen if someone manually messed with the database. we need to handle this better
-                # raise ValueError(f"Invalid agent status: {agent.status}, this should never happen")
                 return
-
-        await update_agent_status(hydrated_evaluation.agent_id, new_agent_status)
+        
+        if new_agent_status is not None:
+            await update_agent_status(hydrated_evaluation.agent_id, new_agent_status)

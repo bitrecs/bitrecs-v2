@@ -5,7 +5,7 @@ miner_hotkey: "5HWJ4i1K88EwWn6wSsmEqHh37Gd9miTJCDqdGeko8QCbX3EV"
 miner_uid: 42
 ip_address: ""
 provider: "OPEN_ROUTER"
-model: "google/gemini-2.0-flash-lite-001"
+model: "arcee-ai/trinity-large-preview:free"
 
 system_prompt_template: |
   You are a helpful assistant, today's date is {{current_date}}.
