@@ -1,16 +1,15 @@
 import json
-from unittest import result
 import utils.logger as logger
+import api.config as config
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
 #from utils.s3 import upload_text_file_to_s3
-from utils.r2 import upload_text_file_to_r2
 from models.evaluation import EvaluationStatus
 from models.evaluation_set import EvaluationSetGroup
 from utils.database import db_operation, DatabaseConnection
 from models.agent import Agent, AgentStatus, AgentScored, BenchmarkAgentScored, PossiblyBenchmarkAgent
-import api.config as config
+
 
 NUM_EVALS_PER_AGENT = config.NUM_EVALS_PER_AGENT
 
@@ -222,6 +221,18 @@ async def update_agent_status(conn: DatabaseConnection, agent_id: UUID, status: 
         agent_id,
         status.value
     )
+
+    if status == AgentStatus.failed_screening_1:
+        # delete vector embeddings associated with this agent
+        await conn.execute(
+            """
+            DELETE FROM agent_embeddings
+            WHERE agent_id = $1
+            """,
+            agent_id
+        )
+        logger.info(f"Deleted vector embeddings for agent {agent_id} due to failed_screening_1.")
+        
 
 
 

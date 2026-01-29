@@ -47,7 +47,7 @@ def upload_prompt():
 
     model_name = normalize_model_name(artifact.model, should_lower=True)
     print(f"Normalized model name for upload: \033[32m{model_name}\033[0m")
-    artifact.name = f"Test {artifact.name} - {model_name} - {int(time.time())}"
+    artifact.name = f"Test {artifact.name} - {model_name}"
     with httpx.Client(base_url=SERVICE_URL, headers=headers) as client:
         response = client.post(
             "/artifact",
