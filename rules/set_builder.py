@@ -133,8 +133,11 @@ class EvaluationSetBuilder:
             BitrecsEvaluationType.BITRECS_PROMPT_DAILY,
             BitrecsEvaluationType.BITRECS_REASON_DAILY,
             BitrecsEvaluationType.BITRECS_SKU_DAILY,
-        }    
-    
+        }
+
+    def __init__(self, current_block: int = 0):        
+        self.current_block = current_block       
+
     def get_predefined_set(self) -> set[BitrecsEvaluationType]:
         """Combine predefined sets into one."""
         return self.screener_1 | self.screener_2 | self.validator_a
@@ -149,12 +152,6 @@ class EvaluationSetBuilder:
         """Build the final evaluation set."""
         predefined_set = self.get_predefined_set()
         random_selections = self.get_random_selections(self.sample_size)
-        result = predefined_set | random_selections
-        # Removed logger calls to prevent recursion error
+        result = predefined_set | random_selections        
         return result
-
-    def __init__(self, current_block: int = 0):
-        # Removed logger call to prevent recursion error
-        self.current_block = current_block
-        pass    
 

@@ -140,6 +140,7 @@ if not VALIDATOR_HEARTBEAT_TIMEOUT_INTERVAL_SECONDS:
     logger.fatal("VALIDATOR_HEARTBEAT_TIMEOUT_INTERVAL_SECONDS is not set in .env")
 VALIDATOR_HEARTBEAT_TIMEOUT_INTERVAL_SECONDS = int(VALIDATOR_HEARTBEAT_TIMEOUT_INTERVAL_SECONDS)
 
+VALIDATOR_SET_BUILDER_LOOP_INTERVAL_SECONDS = 30
 
 
 # Load validator configuration (sent to validator upon registration)
@@ -214,6 +215,7 @@ logger.info("-------------------------")
 
 logger.info(f"Validator Heartbeat Timeout: {VALIDATOR_HEARTBEAT_TIMEOUT_SECONDS} second(s)")
 logger.info(f"Validator Heartbeat Timeout Interval: {VALIDATOR_HEARTBEAT_TIMEOUT_INTERVAL_SECONDS} second(s)")
+logger.info(f"Validator Evaluation Set Loop Interval: {VALIDATOR_SET_BUILDER_LOOP_INTERVAL_SECONDS} second(s)")
 logger.info("-------------------------")
 
 logger.info(f"Validator Running Agent Timeout: {VALIDATOR_RUNNING_AGENT_TIMEOUT_SECONDS} second(s)")

@@ -33,6 +33,7 @@ from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit
 from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
 from utils.network import get_client_ip
+from api.set_loop import validator_evaluation_set_builder_loop
 from api.endpoints.validator import get_connected_validators_info, router as validator_router
 from api.endpoints.debug import router as debug_router
 from api.endpoints.agent import router as agent_router
@@ -109,17 +110,6 @@ async def check_request_ip(
     return node["ip"] == request_ip if node else False
 
 
-async def refresh_provider_pings():
-    while True:
-        try:
-            logger.info("Refreshing provider pings cache")
-            output = LLMProviderStats.print_all_providers_info_html()
-            PROVIDER_PING_CACHE["provider_infos_html"] = output
-            logger.info(f"Provider pings cache updated: {len(output)} characters")            
-        except Exception as e:
-            logger.error(f"Error refreshing provider pings: {e}")
-        await asyncio.sleep(1800)
-
 
 limiter = Limiter(key_func=get_client_ip)
 
@@ -150,7 +140,7 @@ async def lifespan(app: FastAPI):
         endpoint_url=config.R2_ENDPOINT_URL
     )
     
-    # Background task to restart manager if dead
+    # task to restart manager if dead
     async def restart_manager():
         logger.info("Starting restart_manager task")
         while True:
@@ -167,24 +157,22 @@ async def lifespan(app: FastAPI):
     
     #metagraph_manager.start()
     app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())
-    #app.state.restart_task = asyncio.create_task(restart_manager())
-    #app.state.refresh_task = asyncio.create_task(refresh_provider_pings())
-    #asyncio.create_task(validator_heartbeat_timeout_loop())
+    app.state.set_builder_task = asyncio.create_task(validator_evaluation_set_builder_loop())
+    #app.state.restart_task = asyncio.create_task(restart_manager())        
 
     try:
         logger.info(f"V2 API STARTED version: {this_version}")
         await set_all_unfinished_evaluation_runs_to_errored(error_message="Platform crashed while running this evaluation")
         yield
-
     finally:
         logger.info("Starting shutdown...")
-        #app.state.restart_task.cancel()
-        #app.state.refresh_task.cancel()
+        #app.state.restart_task.cancel()        
         app.state.heartbeat_task.cancel()
+        app.state.set_builder_task.cancel()
         try:
-            #await app.state.restart_task
-            #await app.state.refresh_task
+            #await app.state.restart_task            
             await app.state.heartbeat_task
+            await app.state.set_builder_task
         except asyncio.CancelledError:
             pass
         
@@ -321,19 +309,6 @@ async def get_public_key(request: Request):
     return JSONResponse(status_code=200, content={"public_key": public_key_hex})
 
 
-@app.get("/providers")
-@limiter.limit("60/minute")
-async def provider_log(request: Request):
-    request_ip = get_client_ip(request)
-    logger.info(f"providers endpoint accessed from IP {request_ip}")    
-    cache_key = "provider_infos_html"
-    if cache_key in PROVIDER_PING_CACHE:
-        logger.info(f"providers endpoint accessed from IP {request_ip} - using cached data")
-        infos = PROVIDER_PING_CACHE[cache_key]
-        return HTMLResponse(content=infos)
-    logger.warning("Provider ping cache is empty")
-    return HTMLResponse(content="<pre>Cache Empty</pre>")
-
 
 @app.get("/miners")
 @limiter.limit("60/minute")
@@ -432,9 +407,7 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
             logger.info("Cosine similarity check is ENABLED for artifact submissions")
             logger.info(f"Checking similarity for artifact ID: {artifact_instance.agent_id}")
             logger.info(f"Threshold: {SIMILARITY_THRESHOLD}")
-
-            #SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.1"))
-            # Check for similar agents
+            
             is_too_similar, similar_agents = await check_similar_agents(
                 artifact_instance,
                 similarity_threshold=SIMILARITY_THRESHOLD,
