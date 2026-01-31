@@ -6,7 +6,6 @@ import gc
 import time
 import base64
 import uuid
-import httpx
 import asyncio
 import threading
 import tracemalloc
@@ -22,7 +21,6 @@ from contextlib import asynccontextmanager
 from fastapi.responses import JSONResponse
 from fastapi import FastAPI, Request
 from slowapi.middleware import SlowAPIMiddleware
-from concurrent.futures import ThreadPoolExecutor
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from models.agent import Agent
@@ -43,6 +41,8 @@ from api.endpoints.statistics import router as statistics_router
 from api.endpoints.retrieval import router as retrieval_router
 from api.endpoints.upload import router as upload_router
 from api.endpoints.dashboard import router as dashboard_router
+from api.endpoints.metagraph import router as metagraph_router
+from api.snapshot import metagraph_snapshot
 from api.heartbeat import validator_heartbeat_timeout_loop
 from api.metagraph_sync_manager import MetagraphSyncManager
 from llm.open_router import OpenRouter
@@ -51,10 +51,10 @@ from utils.r2 import validate_r2_bucket_connection
 from version import __version__ as this_version
 from api.utils.limiter import limiter
 
-METAGRAPH_CACHE_DURATION = 3600
-PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
-REQUEST_HASH_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
-NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
+METAGRAPH_SYNC_INTERVAL = 30
+# PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
+# REQUEST_HASH_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
+# NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
 BT_NETUID = int(os.environ.get("BT_NETUID", 296))
 B64_PRIVATE_KEY = os.environ.get("B64_PRIVATE_KEY")
@@ -68,60 +68,22 @@ COSINE_COMPARE_ENABLED = True
 SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.0001"))
 
 
-http_client = httpx.AsyncClient(
-    timeout=httpx.Timeout(30.0),
-    limits=httpx.Limits(
-        max_connections=100,
-        max_keepalive_connections=15,
-        keepalive_expiry=20.0
-    )
-)
-
 metagraph_manager = MetagraphSyncManager(
     network=BT_NETWORK,
     netuid=BT_NETUID,
-    sync_interval=METAGRAPH_CACHE_DURATION
+    sync_interval=METAGRAPH_SYNC_INTERVAL
 )
-metagraph_snapshot = {"nodes": {}}
 
-
-async def check_hotkey_stake(
-    hotkey: str,
-    stake: float
-) -> bool:
-    if hotkey is None or stake is None:
-        return False
-    snapshot, _ = metagraph_manager.get_snapshot()
-    node = snapshot.get(hotkey)
-    logger.info(f"check_hotkey_stake {hotkey} : {node['stake'] if node else 'N/A'}, required {stake}")
-    return node["stake"] >= stake if node else False
-
-
-async def check_request_ip(
-    hotkey: str,
-    request_ip: str,
-) -> bool:
-    if hotkey is None or request_ip is None:
-        return False
-    snapshot, _ = metagraph_manager.get_snapshot()
-    node = snapshot.get(hotkey)
-    return node["ip"] == request_ip if node else False
-
-
-
-#limiter = Limiter(key_func=get_client_ip)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):    
     logger.info("V2 Server starting up")
-    tracemalloc.start()    
-    app.state.thread_pool = ThreadPoolExecutor(
-        max_workers=2,
-        thread_name_prefix="PG-Writer"
-    )
+    tracemalloc.start()
+
     app.state.last_updated = None
     app.state.total_requests = 0
     app.state.exceptions = 0
+    metagraph_manager.start()
     
     await initialize_database(
         username=config.DATABASE_USERNAME,
@@ -147,16 +109,19 @@ async def lifespan(app: FastAPI):
                     logger.warning("Restarting dead MetagraphSyncManager process")
                     metagraph_manager.start()
                 snapshot, _ = metagraph_manager.get_snapshot()
-                metagraph_snapshot["nodes"] = snapshot
-                logger.info(f"Metagraph snapshot updated with {len(snapshot)} nodes")
+                if snapshot and isinstance(snapshot, dict) and len(snapshot) > 0:
+                    metagraph_snapshot["nodes"] = snapshot
+                    logger.info(f"Metagraph snapshot updated with {len(snapshot)} nodes")
+                else:
+                    logger.warning("Invalid or empty snapshot received; skipping update")
             except Exception as e:
                 logger.error(f"Error in restart_manager: {e}")
-            await asyncio.sleep(60)
+            await asyncio.sleep(15)
     
-    #metagraph_manager.start()
+    
     app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())
     app.state.set_builder_task = asyncio.create_task(validator_evaluation_set_builder_loop())
-    #app.state.restart_task = asyncio.create_task(restart_manager())        
+    app.state.restart_task = asyncio.create_task(restart_manager())        
 
     try:
         logger.info(f"V2 API STARTED version: {this_version}")
@@ -164,20 +129,19 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         logger.info("Starting shutdown...")
-        #app.state.restart_task.cancel()        
+        app.state.restart_task.cancel()
         app.state.heartbeat_task.cancel()
         app.state.set_builder_task.cancel()
         try:
-            #await app.state.restart_task            
+            await app.state.restart_task            
             await app.state.heartbeat_task
             await app.state.set_builder_task
         except asyncio.CancelledError:
             pass
         
-        #metagraph_manager.stop()
-        await http_client.aclose()
-        logger.info("Shutting down PG writer thread pool...")
-        app.state.thread_pool.shutdown(wait=True, cancel_futures=False)
+        metagraph_manager.stop()        
+        #logger.info("Shutting down PG writer thread pool...")
+        #app.state.thread_pool.shutdown(wait=True, cancel_futures=False)
         if DB_POOL:
             logger.info("Deinitializing database...")
             try:
@@ -227,6 +191,7 @@ app.include_router(evaluation_run_router, prefix="/evaluation-run")
 app.include_router(evaluations_router, prefix="/evaluation")
 app.include_router(statistics_router, prefix="/statistics")
 app.include_router(dashboard_router, prefix="/dashboard")
+app.include_router(metagraph_router, prefix="/metagraph")
 
 
 
@@ -255,15 +220,18 @@ async def health(request: Request):
     node_count = len(snapshot)
     thread_count = threading.active_count()
     message = "OK"
+    status = "healthy"
     if thread_count > 10:
         message = "WARNING: High thread count"
+        status = "degraded"
         logger.warning(f"High thread count: {thread_count}")
         logger.warning("Active threads:")
         for thread in threading.enumerate():
             logger.warning(f"  - {thread.name} (daemon={thread.daemon}, alive={thread.is_alive()})")
 
     if thread_count > 50:
-        message = "CRITICAL: Very high thread count"
+        status = "critical"
+        message = "CRITICAL: Very high thread count"       
         logger.error(f"CRITICAL: Thread count {thread_count}")            
     
     current, peak = tracemalloc.get_traced_memory()
@@ -275,7 +243,7 @@ async def health(request: Request):
     validator_info = get_connected_validators_info()
      
     return {
-        "status": "healthy",
+        "status": status,
         "nodes": node_count,
         "db_status": db_status,
         "total_requests": app.state.total_requests,
@@ -286,7 +254,7 @@ async def health(request: Request):
         "threads": thread_count,
         "metagraph_last_synced": int(synced_at) if synced_at else None,
         "metagraph_age_seconds": round(time.time() - synced_at, 2) if synced_at else None,        
-        "thread_pool_workers": len(app.state.thread_pool._threads) if hasattr(app.state.thread_pool, '_threads') else 0,
+        #"thread_pool_workers": len(app.state.thread_pool._threads) if hasattr(app.state.thread_pool, '_threads') else 0,
         "memory_current_mb": round(current / 1024 / 1024, 2),
         "memory_peak_mb": round(peak / 1024 / 1024, 2),        
         "message": message,
@@ -308,26 +276,26 @@ async def get_public_key(request: Request):
 
 
 
-@app.get("/miners")
-@limiter.limit("60/minute")
-async def get_miners(request: Request):
-    client_ip = get_client_ip(request)
-    logger.info(f"Miners endpoint accessed from IP {client_ip}")
-    snapshot, _ = metagraph_manager.get_snapshot()
-    # miners everyone not in top 64 by stake
-    miners = [node for node in snapshot.values() if node.get("stake", 0) > 0][64:264]
-    return JSONResponse(content={"miners": miners})
+# @app.get("/miners")
+# @limiter.limit("60/minute")
+# async def get_miners(request: Request):
+#     client_ip = get_client_ip(request)
+#     logger.info(f"Miners endpoint accessed from IP {client_ip}")
+#     snapshot, _ = metagraph_manager.get_snapshot()
+#     # miners everyone not in top 64 by stake
+#     miners = [node for node in snapshot.values() if node.get("stake", 0) > 0][64:264]
+#     return JSONResponse(content={"miners": miners})
 
 
-@app.get("/validators")
-@limiter.limit("60/minute")
-async def get_validators(request: Request):
-    client_ip = get_client_ip(request)
-    logger.info(f"Validators endpoint accessed from IP {client_ip}")
-    snapshot, _ = metagraph_manager.get_snapshot()
-    # validators top 64 by stake
-    validators = [node for node in snapshot.values() if node.get("stake", 0) > 0][:64]
-    return JSONResponse(content={"validators": validators})
+# @app.get("/validators")
+# @limiter.limit("60/minute")
+# async def get_validators(request: Request):
+#     client_ip = get_client_ip(request)
+#     logger.info(f"Validators endpoint accessed from IP {client_ip}")
+#     snapshot, _ = metagraph_manager.get_snapshot()
+#     # validators top 64 by stake
+#     validators = [node for node in snapshot.values() if node.get("stake", 0) > 0][:64]
+#     return JSONResponse(content={"validators": validators})
 
 
 @app.get("/artifact/{artifact_id}")
