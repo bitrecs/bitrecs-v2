@@ -98,11 +98,12 @@ class ProblemStatistics(BaseModel):
     def __init__(self, **data):
         problem_name = data["problem_name"]
 
-        for problem_suite in [POLYGLOT_PY_SUITE, POLYGLOT_JS_SUITE, SWEBENCH_VERIFIED_SUITE]:
-            if problem_suite.has_problem_name(problem_name):
-                data["problem_suite_name"] = problem_suite.name
-                data["problem_difficulty"] = problem_suite.get_problem(problem_name).difficulty
-                break
+        # for problem_suite in [POLYGLOT_PY_SUITE, POLYGLOT_JS_SUITE, SWEBENCH_VERIFIED_SUITE]:
+        #     if problem_name:
+        #         if problem_suite.has_problem_name(problem_name):
+        #             data["problem_suite_name"] = problem_suite.name
+        #             data["problem_difficulty"] = problem_suite.get_problem(problem_name).difficulty
+        #             break
 
         if "tests" in data:
             data["tests"] = [ProblemStatisticsTestInfo(**item) for item in json.loads(data["tests"])]

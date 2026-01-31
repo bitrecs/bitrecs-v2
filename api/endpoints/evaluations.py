@@ -1,13 +1,16 @@
 from uuid import UUID
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from models.evaluation import HydratedEvaluation
 from queries.evaluation import get_hydrated_evaluation_by_evaluation_run_id
+from utils.limiter import limiter
+    
 
 router = APIRouter()
 
 # /evaluations/get-by-evaluation-run-id?evaluation_run_id=
 @router.get("/get-by-evaluation-run-id")
-async def evaluations_get_by_evaluation_run_id(evaluation_run_id: UUID) -> HydratedEvaluation:
+@limiter.limit("60/minute")
+async def evaluations_get_by_evaluation_run_id(request: Request, evaluation_run_id: UUID) -> HydratedEvaluation:
     evaluation = await get_hydrated_evaluation_by_evaluation_run_id(evaluation_run_id)
     
     if evaluation is None:
