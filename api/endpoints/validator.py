@@ -608,7 +608,7 @@ async def validator_finish_evaluation(
 
 # /validator/connected-validators-info
 @router.get("/connected-validators-info")
-@limiter.limit("5/minute")
+@limiter.limit("60/minute")
 async def validator_connected_validators_info(request: Request) -> List[ConnectedValidatorInfo]:
     connected_validators: List[ConnectedValidatorInfo] = []
 

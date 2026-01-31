@@ -1,21 +1,16 @@
 import asyncio
 import datetime
-
 from pydantic import BaseModel
 from utils.ttl import ttl_cache
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, HTTPException, Request
 from queries.evaluation_set import get_latest_set_id, get_set_created_at
 from queries.problem_statistics import ProblemStatistics, get_problem_statistics
 from utils.limiter import limiter
 
-
-
 EARLIEST_SET_ID_WITH_GOOD_DATA = 0 
 
-
 router = APIRouter()
-
 
 # /statistics/problem-statistics?set_id=
 class ProblemStatisticsResponse(BaseModel):

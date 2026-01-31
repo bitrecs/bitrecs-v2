@@ -1,8 +1,6 @@
 import os
 import secrets
 import sys
-
-from fastapi.params import Depends
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
