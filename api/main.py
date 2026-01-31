@@ -1,6 +1,8 @@
 import os
 import secrets
 import sys
+
+from fastapi.params import Depends
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
@@ -17,10 +19,9 @@ from uuid import UUID
 from api import config
 from cachetools import TTLCache
 from typing import Dict, Any
-from models.llm_providers import LLMProviderStats
 from utils.version import load_version_info
 from contextlib import asynccontextmanager
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse
 from fastapi import FastAPI, Request
 from slowapi import Limiter
 from slowapi.middleware import SlowAPIMiddleware
@@ -51,7 +52,7 @@ from llm.open_router import OpenRouter
 from rules.agent_comparer import AgentComparer
 from utils.r2 import validate_r2_bucket_connection
 from version import __version__ as this_version
-
+from utils.limiter import limiter
 
 METAGRAPH_CACHE_DURATION = 3600
 PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
@@ -111,7 +112,7 @@ async def check_request_ip(
 
 
 
-limiter = Limiter(key_func=get_client_ip)
+#limiter = Limiter(key_func=get_client_ip)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):    

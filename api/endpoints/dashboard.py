@@ -1,28 +1,30 @@
 import secrets
-from slowapi import Limiter
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-from api.endpoints.scoring import latest_set_info, screener_info
+from api.endpoints.scoring import ScoringLatestSetInfo, screener_info
 from api.endpoints.validator import get_connected_validators_info
 from models.evaluation_set import EvaluationSetGroup
 from queries.agent import get_agents_in_queue
-from utils.network import get_client_ip
+from queries.evaluation_set import get_latest_set_id, get_set_created_at
+from utils.limiter import limiter
 
 router = APIRouter()
 
-# Create a local limiter instance this has its own storage separate from the main app
-_limiter = Limiter(key_func=get_client_ip)
-
 # /dashboard
 @router.get("/")
-@_limiter.limit("30/minute")
+@limiter.limit("30/minute")
 async def dashboard(request: Request):
-    #return HTMLResponse(content="<h1>Bitrecs V2 Dashboard API is running.</h1>")
+    
     screener1_queue = await get_agents_in_queue(EvaluationSetGroup("screener_1"))
     screener2_queue = await get_agents_in_queue(EvaluationSetGroup("screener_2"))
     validator_queue = await get_agents_in_queue(EvaluationSetGroup("validator"))
-
-    set_info = await latest_set_info()
+    latest_set_id=await get_latest_set_id()
+    latest_set_created_at = await get_set_created_at(latest_set_id)
+    set_info =  ScoringLatestSetInfo(
+        latest_set_id=latest_set_id,
+        latest_set_created_at=latest_set_created_at
+    )
+    
     validators = get_connected_validators_info()
     screener = await screener_info()
 

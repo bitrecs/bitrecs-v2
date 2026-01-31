@@ -1,5 +1,6 @@
 import api.config as config
-from fastapi import APIRouter
+import traceback
+from fastapi import APIRouter, Request
 from datetime import datetime
 from pydantic import BaseModel
 from utils.ttl import ttl_cache
@@ -10,13 +11,14 @@ from queries.scores import get_weight_receiving_agent_hotkey, get_weight_receivi
 from queries.evaluation_set import get_latest_set_id, get_set_created_at
 from queries.statistics import get_average_score_per_evaluation_set_group, get_average_wait_time_per_evaluation_set_group
 from utils import logger
-import traceback
+from utils.limiter import limiter
 
 router = APIRouter()
 
 # /scoring/weights
 @router.get("/weights")
-async def weights() -> Dict[str, float]:
+@limiter.limit("60/minute")
+async def weights(request: Request) -> Dict[str, float]:
     if config.BURN:
         # When burning, we assign 100% of emissions to the owner hotkey.
         return {config.OWNER_HOTKEY: 1.0}
@@ -34,7 +36,8 @@ async def weights() -> Dict[str, float]:
     return {config.OWNER_HOTKEY: 1.0}
 
 @router.get("/approval-info")
-async def approval_info() -> Dict[str, str | float]:
+@limiter.limit("60/minute")
+async def approval_info(request: Request) -> Dict[str, str | float]:
     try:
         if config.BURN:
             return {"hotkey": config.OWNER_HOTKEY, "agent_id": None, "weight": 1.0}
@@ -67,7 +70,8 @@ class ScoringScreenerInfoResponse(BaseModel):
 
 @router.get("/screener-info")
 @ttl_cache(ttl_seconds=60) # 1 minute
-async def screener_info() -> ScoringScreenerInfoResponse:
+@limiter.limit("60/minute")
+async def screener_info(request: Request) -> ScoringScreenerInfoResponse:
     average_score_per_evaluation_set_group = await get_average_score_per_evaluation_set_group()
     average_wait_time_per_evaluation_set_group = await get_average_wait_time_per_evaluation_set_group()
 
@@ -93,8 +97,11 @@ class ScoringLatestSetInfo(BaseModel):
     latest_set_created_at: datetime
 
 @router.get("/latest-set-info")
-async def latest_set_info() -> ScoringLatestSetInfo:
+@limiter.limit("60/minute")
+async def latest_set_info(request: Request) -> ScoringLatestSetInfo:
+    latest_set_id = await get_latest_set_id()
+    latest_set_created_at = await get_set_created_at(latest_set_id)
     return ScoringLatestSetInfo(
-        latest_set_id=await get_latest_set_id(),
-        latest_set_created_at=await get_set_created_at()
+        latest_set_id=latest_set_id,
+        latest_set_created_at=latest_set_created_at    
     )

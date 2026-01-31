@@ -26,7 +26,7 @@ from utils.system_metrics import SystemMetrics
 from utils.validator_hotkeys import is_validator_hotkey_whitelisted, validator_hotkey_to_name
 from api.endpoints.validator_models import *
 from utils.network import get_client_ip
-
+from utils.limiter import limiter
 
 class Validator(BaseModel):
     session_id: UUID
@@ -608,7 +608,8 @@ async def validator_finish_evaluation(
 
 # /validator/connected-validators-info
 @router.get("/connected-validators-info")
-async def validator_connected_validators_info() -> List[ConnectedValidatorInfo]:
+@limiter.limit("5/minute")
+async def validator_connected_validators_info(request: Request) -> List[ConnectedValidatorInfo]:
     connected_validators: List[ConnectedValidatorInfo] = []
 
     _validators = list(SESSION_ID_TO_VALIDATOR.values())
