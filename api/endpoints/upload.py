@@ -22,6 +22,7 @@ from models.agent import AgentStatus, Agent
 from utils.coingecko import get_tao_price
 from api import config 
 from utils.network import get_client_ip
+from api.utils.limiter import limiter
 
 # TODO STEPHEN: we should have a global singleton
 subtensor = Subtensor(network=config.SUBTENSOR_NETWORK)

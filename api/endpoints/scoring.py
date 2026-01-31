@@ -11,7 +11,7 @@ from queries.scores import get_weight_receiving_agent_hotkey, get_weight_receivi
 from queries.evaluation_set import get_latest_set_id, get_set_created_at
 from queries.statistics import get_average_score_per_evaluation_set_group, get_average_wait_time_per_evaluation_set_group
 from utils import logger
-from utils.limiter import limiter
+from api.utils.limiter import limiter
 
 router = APIRouter()
 

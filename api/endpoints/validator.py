@@ -25,8 +25,9 @@ from models.evaluation_run import EvaluationRunStatus, EvaluationRunLogType
 from utils.system_metrics import SystemMetrics
 from utils.validator_hotkeys import is_validator_hotkey_whitelisted, validator_hotkey_to_name
 from api.endpoints.validator_models import *
+from api.utils.limiter import limiter
 from utils.network import get_client_ip
-from utils.limiter import limiter
+
 
 class Validator(BaseModel):
     session_id: UUID

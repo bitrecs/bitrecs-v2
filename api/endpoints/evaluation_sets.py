@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, Request
 from models.evaluation_set import EvaluationSetProblem
 from queries.evaluation_set import get_latest_set_id, get_all_evaluation_set_problems_for_set_id
-from utils.limiter import limiter
+from api.utils.limiter import limiter
     
 router = APIRouter()
 

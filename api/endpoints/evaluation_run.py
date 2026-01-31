@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Request
 from queries.evaluation_run import get_evaluation_run_by_id
 from models.evaluation_run import EvaluationRun, EvaluationRunLogType
 from queries.evaluation_run import get_evaluation_run_logs_by_id
-from utils.limiter import limiter
+from api.utils.limiter import limiter
 
 router = APIRouter()
 

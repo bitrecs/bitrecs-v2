@@ -2,7 +2,7 @@ from uuid import UUID
 from models.agent import Agent
 from fastapi import APIRouter, HTTPException, Request
 from queries.agent import get_agent_by_evaluation_run_id
-from utils.limiter import limiter
+from api.utils.limiter import limiter
 
 router = APIRouter()
 

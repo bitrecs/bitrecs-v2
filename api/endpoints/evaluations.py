@@ -2,7 +2,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request
 from models.evaluation import HydratedEvaluation
 from queries.evaluation import get_hydrated_evaluation_by_evaluation_run_id
-from utils.limiter import limiter
+from api.utils.limiter import limiter
     
 
 router = APIRouter()

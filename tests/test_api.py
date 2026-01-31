@@ -198,8 +198,7 @@ async def test_dashboard_rate_limit():
     """Test that dashboard endpoint rate limiting works"""
     base_url = SERVICE_URL
     
-    async with httpx.AsyncClient() as client:
-        # Make 31 requests to /dashboard/ (limit is 30/minute)
+    async with httpx.AsyncClient() as client:        
         print("Making 31 requests to /dashboard/...")
         responses = []
         

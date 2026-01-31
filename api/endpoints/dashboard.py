@@ -6,7 +6,7 @@ from api.endpoints.validator import get_connected_validators_info
 from models.evaluation_set import EvaluationSetGroup
 from queries.agent import get_agents_in_queue
 from queries.evaluation_set import get_latest_set_id, get_set_created_at
-from utils.limiter import limiter
+from api.utils.limiter import limiter
 
 router = APIRouter()
 
@@ -26,7 +26,7 @@ async def dashboard(request: Request):
     )
     
     validators = get_connected_validators_info()
-    screener = await screener_info()
+    screener = await screener_info(request)
 
     # Clean up data before HTML rendering
     s1_wait = f"{screener.screener_1_average_wait_time:.1f}s" if screener.screener_1_average_wait_time is not None else "N/A"

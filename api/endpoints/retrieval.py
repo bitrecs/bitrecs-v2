@@ -13,7 +13,7 @@ from models.agent import Agent, AgentScored, AgentStatus, BenchmarkAgentScored, 
 from queries.agent import get_top_agents, get_agent_by_id, get_agents_in_queue, get_benchmark_agents, get_all_agents_by_miner_hotkey, get_latest_agent_for_miner_hotkey, get_possibly_benchmark_agent_by_id
 from queries.statistics import top_score, TopScoreOverTime, agents_created_24_hrs, ProblemSetCreationTime, PerfectlySolvedOverTime, get_top_scores_over_time, score_improvement_24_hrs, get_perfectly_solved_over_time, get_problem_set_creation_times
 from utils.bittensor import is_hotkey_valid_format
-from utils.limiter import limiter
+from api.utils.limiter import limiter
 router = APIRouter()
 
 # /retrieval/queue?stage={screener_1|screener_2|validator}
