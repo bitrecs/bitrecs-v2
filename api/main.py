@@ -116,7 +116,7 @@ async def lifespan(app: FastAPI):
                     logger.warning("Invalid or empty snapshot received; skipping update")
             except Exception as e:
                 logger.error(f"Error in restart_manager: {e}")
-            await asyncio.sleep(15)
+            await asyncio.sleep(900)
     
     
     app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())
