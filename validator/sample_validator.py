@@ -2,7 +2,6 @@ import os
 import sys
 import time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import yaml
 import httpx
 import random
 import secrets
@@ -15,7 +14,6 @@ from dotenv import load_dotenv
 load_dotenv()
 from uuid import UUID
 from typing import Any, Dict
-from datetime import datetime, timezone
 from models.problem import ProblemTestResult, ProblemTestResultStatus
 from models.agent import Agent
 from api.endpoints.validator_models import (
@@ -33,13 +31,24 @@ from utils.git import COMMIT_HASH
 from utils.system_metrics import get_system_metrics
 from evaluator.models import EvaluationRunException
 from models.eval_type import BitrecsEvaluationType
-
+from validator.set_weights import set_weights_from_mapping
 
 session_id: str | None = None
 
 EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+
+
+async def set_weights_loop():
+    logger.info("Starting set weights loop...")
+    while True:
+        weights_mapping = await get_ridges_platform("/scoring/weights", quiet=1)        
+        try:
+            await asyncio.wait_for(set_weights_from_mapping(weights_mapping), timeout=config.SET_WEIGHTS_TIMEOUT_SECONDS)
+        except asyncio.TimeoutError as e:
+            logger.error(f"asyncio.TimeoutError in set_weights_from_mapping(): {e}")
+        await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
 
 
 async def send_heartbeat_loop():
@@ -480,7 +489,7 @@ async def main():
     
     if config.MODE == "validator":
         # Start the set weights loop (commented out)
-        # asyncio.create_task(set_weights_loop())
+        asyncio.create_task(set_weights_loop())
         logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")
         pass
     
