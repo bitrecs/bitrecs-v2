@@ -1,5 +1,7 @@
 import subprocess
-import sys
+from pathlib import Path
+root_path = Path(__file__).parent.absolute()
+
 
 def get_git_info():
     try:
@@ -18,8 +20,13 @@ def get_git_info():
     
     return branch, sha
 
+
 if __name__ == '__main__':
     branch, sha = get_git_info()
-    with open('/tmp/version.txt', 'w') as f:
+    version_file_path = "/tmp/version.txt"
+    #current_dir = str(root_path)
+    #current_dir = Path(__file__).parent
+    #version_file_path = f"{current_dir}/version.txt"
+    with open(version_file_path, 'w') as f:
         f.write(f"{branch}\n{sha}\n")
     print(f"Version written: branch={branch}, sha={sha}")

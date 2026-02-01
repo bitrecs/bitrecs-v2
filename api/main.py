@@ -71,7 +71,8 @@ SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.0001"))
 metagraph_manager = MetagraphSyncManager(
     network=BT_NETWORK,
     netuid=BT_NETUID,
-    sync_interval=METAGRAPH_SYNC_INTERVAL
+    sync_interval=METAGRAPH_SYNC_INTERVAL,
+    max_cycles_before_restart=12
 )
 
 
@@ -100,7 +101,7 @@ async def lifespan(app: FastAPI):
         endpoint_url=config.R2_ENDPOINT_URL
     )
     
-    # task to restart manager if dead
+    # task to restart mg sync manager
     async def restart_manager():
         logger.info("Starting restart_manager task")
         while True:
