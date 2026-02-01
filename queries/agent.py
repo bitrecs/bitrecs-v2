@@ -241,18 +241,29 @@ async def get_benchmark_agents(conn: DatabaseConnection) -> List[BenchmarkAgentS
     result = await conn.fetch(
         """
         SELECT
-            ass.*,
+            a.*,
+            ass.final_score,
+            ass.created_at as score_created_at,
+            ass.set_id,
+            ass.approved,
+            ass.validator_count,
             bai.description AS benchmark_description
-        FROM agent_scores ass
-        LEFT JOIN benchmark_agent_ids bai ON ass.agent_id = bai.agent_id
-        WHERE ass.agent_id IN (SELECT agent_id FROM benchmark_agent_ids)
+        FROM agents a
+        JOIN agent_scores ass ON a.agent_id = ass.agent_id
+        LEFT JOIN benchmark_agent_ids bai ON a.agent_id = bai.agent_id
+        WHERE a.agent_id IN (SELECT agent_id FROM benchmark_agent_ids)
         ORDER BY ass.created_at DESC, ass.final_score DESC
         """
     )
 
-    return [BenchmarkAgentScored(**agent) for agent in result]
-
-
+    agents = []
+    for row in result:
+        row = dict(row)
+        row['sampling_params'] = json.loads(row['sampling_params']) if row['sampling_params'] else {}
+        row['fewshot_examples'] = json.loads(row['fewshot_examples']) if row['fewshot_examples'] else []
+        row['eval_scores'] = json.loads(row['eval_scores']) if row['eval_scores'] else {}
+        agents.append(BenchmarkAgentScored(**row))
+    return agents
 
 
 
