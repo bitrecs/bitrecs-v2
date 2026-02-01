@@ -15,8 +15,6 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project
 
 # Copy the entire project (including .git and get_version.py)
-#COPY . /app
-# Copy the rest of the code
 COPY . .
 
 # Run the script with uv to generate version.txt (now .git is available)
@@ -28,5 +26,5 @@ RUN cp /tmp/version.txt /app/version.txt
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+#CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"]
