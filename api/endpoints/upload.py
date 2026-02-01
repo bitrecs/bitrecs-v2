@@ -1,4 +1,3 @@
-
 import asyncio
 import os
 import pprint
@@ -16,13 +15,14 @@ import utils.logger as logger
 from queries.agent import create_agent, record_upload_attempt
 from queries.agent import get_latest_agent_for_miner_hotkey, get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id
 from queries.banned_hotkey import get_banned_hotkey
-from api.utils.upload_agent_helpers import get_miner_hotkey, check_if_python_file, check_agent_banned, \
+from api.utils.upload_agent_helpers import get_miner_hotkey, check_if_yaml_file, check_agent_banned, \
     check_rate_limit, check_signature, check_hotkey_registered, check_file_size
 from models.agent import AgentStatus, Agent
 from utils.coingecko import get_tao_price
 from api import config 
 from utils.network import get_client_ip
 from api.utils.limiter import limiter
+import yaml  # Add this import at the top
 
 # TODO STEPHEN: we should have a global singleton
 subtensor = Subtensor(network=config.SUBTENSOR_NETWORK)
@@ -80,7 +80,8 @@ async def check_agent_post(
     check_signature(public_key, file_info, signature)
     await check_hotkey_registered(miner_hotkey)
     await check_agent_banned(miner_hotkey=miner_hotkey) 
-    check_if_python_file(agent_file.filename)
+    #check_if_python_file(agent_file.filename)
+    
     coldkey = subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey)
     miner_balance = subtensor.get_balance(address=coldkey).rao
     payment_cost = await get_upload_price(cache_time=payment_time)
@@ -130,7 +131,7 @@ async def post_agent(
     
     Rate limiting may apply based on configuration.
     """
-
+    client_ip = get_client_ip(request)
     if config.DISALLOW_UPLOADS:
         raise HTTPException(
             status_code=503,
@@ -159,7 +160,8 @@ async def post_agent(
             check_signature(public_key, file_info, signature)
             await check_hotkey_registered(miner_hotkey)
             await check_agent_banned(miner_hotkey=miner_hotkey) 
-        check_if_python_file(agent_file.filename)
+        
+        #check_if_python_file(agent_file.filename)
         
         # Verify payment
         # Check if payment has already been used for an agent
@@ -246,6 +248,12 @@ async def post_agent(
 
         agent_text = (await agent_file.read()).decode("utf-8")
 
+        # Parse the YAML content
+        # try:
+        #     agent_data = yaml.safe_load(agent_text)
+        # except yaml.YAMLError as e:
+        #     raise HTTPException(status_code=400, detail=f"Invalid YAML format: {str(e)}")
+
         hotkey_lock = await get_hotkey_lock(miner_hotkey)
         async with DebugLock(hotkey_lock, f"Agent upload lock for miner {miner_hotkey}"):
             latest_agent: Optional[Agent] = await get_latest_agent_for_miner_hotkey(miner_hotkey=miner_hotkey)
@@ -254,16 +262,28 @@ async def post_agent(
             
             if prod and latest_agent_created_at_in_latest_set_id:
                 check_rate_limit(latest_agent_created_at_in_latest_set_id)
-            agent = Agent(
-                agent_id=uuid.uuid4(),
-                miner_hotkey=miner_hotkey,
-                name=name if not latest_agent else latest_agent.name,
-                version_num=latest_agent.version_num + 1 if latest_agent else 0,
-                created_at=datetime.now(timezone.utc),
-                status=AgentStatus.screening_1,
-                ip_address=get_client_ip(request),
-            )
-            await create_agent(agent, agent_text)
+            
+            # Merge parsed data with required fields
+            # agent_kwargs = {
+            #     "agent_id": uuid.uuid4(),
+            #     "miner_hotkey": miner_hotkey,
+            #     "name": name if not latest_agent else latest_agent.name,
+            #     "version_num": latest_agent.version_num + 1 if latest_agent else 0,
+            #     "created_at": datetime.now(timezone.utc),
+            #     "status": AgentStatus.screening_1,
+            #     "ip_address": get_client_ip(request),
+            #     **agent_data  # Add parsed YAML fields
+            # }
+            
+            agent = Agent.from_yaml(agent_text)
+            agent.miner_hotkey = miner_hotkey    
+            #agent.miner_uid = subtensor.get_hotkey_uid(miner_hotkey)        
+            agent.agent_id = uuid.uuid4()
+            agent.ip_address = client_ip
+            artifact_id = await create_agent(agent)
+            logger.info(f"Artifact submitted successfully with ID: {artifact_id}")        
+            #agent = Agent(**agent_kwargs)
+            #await create_agent(agent)
 
         await record_evaluation_payment(
             payment_block_hash=payment_block_hash,

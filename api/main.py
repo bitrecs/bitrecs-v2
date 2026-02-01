@@ -84,7 +84,7 @@ async def lifespan(app: FastAPI):
     app.state.last_updated = None
     app.state.total_requests = 0
     app.state.exceptions = 0
-    metagraph_manager.start()
+    #metagraph_manager.start()
     
     await initialize_database(
         username=config.DATABASE_USERNAME,
@@ -122,7 +122,7 @@ async def lifespan(app: FastAPI):
     
     app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())
     app.state.set_builder_task = asyncio.create_task(validator_evaluation_set_builder_loop())
-    app.state.restart_task = asyncio.create_task(restart_manager())        
+    #app.state.restart_task = asyncio.create_task(restart_manager())        
 
     try:
         logger.info(f"V2 API STARTED version: {this_version}")
@@ -130,17 +130,17 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         logger.info("Starting shutdown...")
-        app.state.restart_task.cancel()
+        #app.state.restart_task.cancel()
         app.state.heartbeat_task.cancel()
         app.state.set_builder_task.cancel()
         try:
-            await app.state.restart_task            
+            #await app.state.restart_task            
             await app.state.heartbeat_task
             await app.state.set_builder_task
         except asyncio.CancelledError:
             pass
         
-        metagraph_manager.stop()        
+        #metagraph_manager.stop()        
         #logger.info("Shutting down PG writer thread pool...")
         #app.state.thread_pool.shutdown(wait=True, cancel_futures=False)
         if DB_POOL:

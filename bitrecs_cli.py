@@ -23,7 +23,7 @@ from version import __version__ as this_version
 
 
 console = Console()
-#DEFAULT_API_BASE_URL = "https://platform-v2.ridges.ai"
+#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
 DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 load_dotenv(".env")
@@ -143,7 +143,7 @@ def upload(ctx, file: Optional[str], coldkey_name: Optional[str], hotkey_name: O
                 console.print("[bold red]Payment cancelled by user. Upload aborted.[/bold red]")
                 return
 
-            subtensor = Subtensor(network=os.environ.get('SUBTENSOR_NETWORK', 'finney'))
+            subtensor = Subtensor(network=os.environ.get('SUBTENSOR_NETWORK', 'test'))
 
             # Transfer
             payment_payload = subtensor.substrate.compose_call(
