@@ -51,7 +51,7 @@ from utils.r2 import validate_r2_bucket_connection
 from version import __version__ as this_version
 from api.utils.limiter import limiter
 
-METAGRAPH_SYNC_INTERVAL = 300
+METAGRAPH_SYNC_INTERVAL = 900
 # PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
 # REQUEST_HASH_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
 # NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)

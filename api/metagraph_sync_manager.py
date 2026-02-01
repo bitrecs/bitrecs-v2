@@ -9,9 +9,6 @@ from typing import Dict, Any, Tuple
 from bittensor import Subtensor
 import utils.logger as logger
 
-#logger = logging.getLogger(__name__)
-
-SUBTENSOR_ADDRESS = "wss://test.finney.opentensor.ai:443"
 
 class MetagraphSyncManager:
     """Dedicated manager to keep metagraph data fresh without leaking threads."""
