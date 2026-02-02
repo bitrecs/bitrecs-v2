@@ -1,16 +1,15 @@
 import api.config as config
-import traceback
+import utils.logger as logger
 from fastapi import APIRouter, Request
 from datetime import datetime
 from pydantic import BaseModel
 from utils.ttl import ttl_cache
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 from models.evaluation_set import EvaluationSetGroup
 from utils.bittensor import check_if_hotkey_is_registered
-from queries.scores import get_weight_receiving_agent_hotkey, get_weight_receiving_agent_info
+from queries.scores import get_weight_receiving_agent_info
 from queries.evaluation_set import get_latest_set_id, get_set_created_at
 from queries.statistics import get_average_score_per_evaluation_set_group, get_average_wait_time_per_evaluation_set_group
-from utils import logger
 from api.utils.limiter import limiter
 
 router = APIRouter()
@@ -20,42 +19,19 @@ router = APIRouter()
 @limiter.limit("60/minute")
 async def weights(request: Request) -> Dict[str, float]:
     if config.BURN:
-        # When burning, we assign 100% of emissions to the owner hotkey.
         return {config.OWNER_HOTKEY: 1.0}
 
-    # Try to get the weight-receiving agent's hotkey (aka. the top agent's
-    # hotkey). Make sure it is registered on the subnet. If so, assign 100% of
-    # emissions to it.
-    weight_receiving_hotkey = await get_weight_receiving_agent_hotkey()
-    if weight_receiving_hotkey:
+    # Try to get the weight-receiving agent's hotkey 
+    weight_receiving_agent_info = await get_weight_receiving_agent_info()
+    if weight_receiving_agent_info and "miner_hotkey" in weight_receiving_agent_info:
+        weight_receiving_hotkey = weight_receiving_agent_info["miner_hotkey"]
         if await check_if_hotkey_is_registered(weight_receiving_hotkey):
             return {weight_receiving_hotkey: 1.0}
-
-    # If no weight-receiving agent is found, assign 100% of emissions to the
-    # owner hotkey (to burn).
-    return {config.OWNER_HOTKEY: 1.0}
-
-@router.get("/approval-info")
-@limiter.limit("60/minute")
-async def approval_info(request: Request) -> Dict[str, Any]:
-    try:
-        if config.BURN:
-            return {"hotkey": config.OWNER_HOTKEY, "agent_id": "", "weight": 1.0, "burning": config.BURN}
-        
-        weight_receiving_agent_info = await get_weight_receiving_agent_info()
-        if weight_receiving_agent_info:
-            return {"hotkey": weight_receiving_agent_info["miner_hotkey"], 
-                    "agent_id": weight_receiving_agent_info["agent_id"], 
-                    "weight": 1.0,
-                    "burning": config.BURN}
-        
-        logger.warning("No weight-receiving agent found in /scoring/approval-info")
-        return {"hotkey": config.OWNER_HOTKEY, "agent_id": "", "weight": 1.0, "burning": config.BURN}
+        else:
+            # Log a warning if the hotkey is not registered.            
+            logger.warning(f"Weight-receiving hotkey {weight_receiving_hotkey} is not registered on subnet {config.NETUID}.")
     
-    except Exception as e:
-        logger.error(f"Error in /scoring/approval-info: {e}")
-        logger.error(traceback.format_exc())
-        return {"no info": "error", "burning": config.BURN}
+    return {config.OWNER_HOTKEY: 1.0}
 
 
 # /scoring/screener-info
@@ -71,6 +47,7 @@ class ScoringScreenerInfoResponse(BaseModel):
     screener_1_average_wait_time: Optional[float] = None
     screener_2_average_wait_time: Optional[float] = None
     validator_average_wait_time: Optional[float] = None
+
 
 @router.get("/screener-info")
 @ttl_cache(ttl_seconds=60) # 1 minute
