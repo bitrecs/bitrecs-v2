@@ -283,9 +283,7 @@ async def post_agent(
             agent.agent_id = uuid.uuid4()
             agent.ip_address = client_ip
             artifact_id = await create_agent(agent)
-            logger.info(f"Artifact submitted successfully with ID: {artifact_id}")        
-            #agent = Agent(**agent_kwargs)
-            #await create_agent(agent)
+            logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
 
         await record_evaluation_payment(
             payment_block_hash=payment_block_hash,
@@ -303,6 +301,7 @@ async def post_agent(
             upload_type="agent",
             success=True,
             agent_id=agent.agent_id,
+            http_status_code=201,
             **upload_data
         )
 
