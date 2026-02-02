@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 from datetime import datetime
 from pydantic import BaseModel
 from utils.ttl import ttl_cache
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from models.evaluation_set import EvaluationSetGroup
 from utils.bittensor import check_if_hotkey_is_registered
 from queries.scores import get_weight_receiving_agent_hotkey, get_weight_receiving_agent_info
@@ -37,21 +37,25 @@ async def weights(request: Request) -> Dict[str, float]:
 
 @router.get("/approval-info")
 @limiter.limit("60/minute")
-async def approval_info(request: Request) -> Dict[str, str | float]:
+async def approval_info(request: Request) -> Dict[str, Any]:
     try:
         if config.BURN:
-            return {"hotkey": config.OWNER_HOTKEY, "agent_id": None, "weight": 1.0}
+            return {"hotkey": config.OWNER_HOTKEY, "agent_id": "", "weight": 1.0, "burning": config.BURN}
         
         weight_receiving_agent_info = await get_weight_receiving_agent_info()
         if weight_receiving_agent_info:
-            return {"hotkey": weight_receiving_agent_info["miner_hotkey"], "agent_id": weight_receiving_agent_info["agent_id"], "weight": 1.0}
+            return {"hotkey": weight_receiving_agent_info["miner_hotkey"], 
+                    "agent_id": weight_receiving_agent_info["agent_id"], 
+                    "weight": 1.0,
+                    "burning": config.BURN}
         
-        return {"hotkey": config.OWNER_HOTKEY, "agent_id": None, "weight": 1.0}
+        logger.warning("No weight-receiving agent found in /scoring/approval-info")
+        return {"hotkey": config.OWNER_HOTKEY, "agent_id": "", "weight": 1.0, "burning": config.BURN}
     
     except Exception as e:
         logger.error(f"Error in /scoring/approval-info: {e}")
         logger.error(traceback.format_exc())
-        return {"no info": "error"}
+        return {"no info": "error", "burning": config.BURN}
 
 
 # /scoring/screener-info
