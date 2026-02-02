@@ -394,36 +394,24 @@ async def disconnect(reason: str):
         os._exit(1)
 
 
-# Main loop
-async def main():
-    global session_id
-    global running_agent_timeout_seconds
-    global running_eval_timeout_seconds
-    global max_evaluation_run_log_size_bytes
-    # global sandbox_manager  # Commented out as not used
-    global problem_suites  # Ensure this is defined globally if needed
-    
-    # Retry configuration for registration
+async def register_validator():
+    global session_id, running_agent_timeout_seconds, running_eval_timeout_seconds, max_evaluation_run_log_size_bytes
     max_registration_retries = 10
-    registration_retry_delay = 60  # seconds
+    registration_retry_delay = 60
     
-    # Registration with retries
     for attempt in range(max_registration_retries):
         try:
             logger.info(f"Registering validator... (attempt {attempt + 1}/{max_registration_retries})")
             
             if config.MODE == "validator":
-                # Get the current timestamp, and sign it with the validator hotkey
                 timestamp = int(time.time())
                 signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
-                
                 register_response = ValidatorRegistrationResponse(**(await post_ridges_platform("/validator/register-as-validator", ValidatorRegistrationRequest(
                     timestamp=timestamp,
                     signed_timestamp=signed_timestamp,
                     hotkey=config.VALIDATOR_HOTKEY.ss58_address,
                     commit_hash=COMMIT_HASH
                 ))))
-            
             elif config.MODE == "screener":
                 register_response = ScreenerRegistrationResponse(**(await post_ridges_platform("/validator/register-as-screener", ScreenerRegistrationRequest(
                     name=config.SCREENER_NAME,
@@ -431,7 +419,6 @@ async def main():
                     commit_hash=COMMIT_HASH
                 ))))
             
-            # Success: Set globals and break
             session_id = register_response.session_id
             running_agent_timeout_seconds = register_response.running_agent_timeout_seconds
             running_eval_timeout_seconds = register_response.running_eval_timeout_seconds
@@ -443,7 +430,7 @@ async def main():
             logger.info(f"  Running Evaluation Timeout: {running_eval_timeout_seconds} second(s)")
             logger.info(f"  Max Evaluation Run Log Size: {max_evaluation_run_log_size_bytes} byte(s)")
             
-            break  # Exit retry loop on success
+            break
         
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 409:
@@ -456,10 +443,8 @@ async def main():
                     raise
             elif config.UPDATE_AUTOMATICALLY and e.response.status_code == 426:
                 logger.info("Updating...")
-                # reset_local_repo(pathlib.Path(__file__).parent.parent, e.response.headers["X-Commit-Hash"])
                 sys.exit(0)
             else:
-                # For other HTTP errors, re-raise immediately
                 raise
         except Exception as e:
             logger.error(f"Registration failed (attempt {attempt + 1}): {type(e).__name__}: {e}")
@@ -469,6 +454,18 @@ async def main():
             else:
                 logger.error("Max registration retries reached. Exiting.")
                 raise
+
+# Main loop
+async def main():
+    global session_id
+    global running_agent_timeout_seconds
+    global running_eval_timeout_seconds
+    global max_evaluation_run_log_size_bytes
+    # global sandbox_manager  # Commented out as not used
+    global problem_suites  # Ensure this is defined globally if needed
+    
+    # Initial registration
+    await register_validator()
     
     # Create the sandbox manager (commented out as not used)
     # sandbox_manager = SandboxManager(config.RIDGES_INFERENCE_GATEWAY_URL)
@@ -507,9 +504,16 @@ async def main():
             logger.info(f"Received evaluation with {request_evaluation_response_data}")
             await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))
         
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                logger.warning("Session expired (401). Re-registering...")
+                await register_validator()
+                continue  # Skip sleep and retry immediately with new session
+            else:
+                raise  # Re-raise for other HTTP errors
         except Exception as e:
             logger.error(f"Error running evaluation: {type(e).__name__}: {e}")
-            logger.error(traceback.format_exc())            
+            logger.error(traceback.format_exc())
             await asyncio.sleep(RETRY_SLEEP_ON_ERROR)
  
 
