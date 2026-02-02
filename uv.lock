@@ -167,7 +167,7 @@ wheels = [
 
 [[package]]
 name = "async-substrate-interface"
-version = "1.5.15"
+version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiosqlite" },
@@ -177,9 +177,9 @@ dependencies = [
     { name = "wheel" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/25/54/653d50a27dab6a7922f22d7932daeb66521b1e5c3d85ee5c652637180a6c/async_substrate_interface-1.5.15.tar.gz", hash = "sha256:1e093a873f3d768899b3b7574947f66ddd5b096580b2a3ea8ebd6d424e0e198e", size = 85682, upload-time = "2025-12-22T18:47:48.248Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/a1/4f56397223ec14510c660b284a5525d4bd2b5ab57ff42f03861a0004b419/async_substrate_interface-1.6.0.tar.gz", hash = "sha256:f9c90d4835fcfdb82fde3dabba086bd90b6893c7153075bd9d7361cb1f31e6cf", size = 86694, upload-time = "2026-01-27T14:53:20.122Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/68/e0/b713b16aa29868d48058ca2b88c6cf316f6dc4a788dbd850d6d859fbb84b/async_substrate_interface-1.5.15-py3-none-any.whl", hash = "sha256:230d50a6977dbd73e57ca90f97552d7ca6a0244a2dfb57860643ebeeb952d8af", size = 88980, upload-time = "2025-12-22T18:47:47.083Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/ca/4221f5392c96e2f09177c8db399157111765c340b61f9fb6bc4e401725b2/async_substrate_interface-1.6.0-py3-none-any.whl", hash = "sha256:c7e15304afe369bf5ddddb757d6bdc8df0cf9043a501d37bf325d76edc2838e0", size = 90109, upload-time = "2026-01-27T14:53:18.831Z" },
 ]
 
 [[package]]
@@ -313,9 +313,9 @@ dependencies = [
 requires-dist = [
     { name = "affinetes", git = "https://github.com/AffineFoundation/affinetes.git?rev=main" },
     { name = "aioboto3", specifier = ">=15.5.0" },
-    { name = "async-substrate-interface", specifier = ">=1.5.15" },
+    { name = "async-substrate-interface", specifier = ">=1.6.0" },
     { name = "asyncpg", specifier = ">=0.31.0" },
-    { name = "bittensor", specifier = ">=10.0.1" },
+    { name = "bittensor", specifier = ">=10.1.0" },
     { name = "bittensor-wallet", specifier = ">=4.0.1" },
     { name = "cachetools", specifier = ">=6.2.0" },
     { name = "click", specifier = ">=8.3.1" },
@@ -339,7 +339,7 @@ requires-dist = [
 
 [[package]]
 name = "bittensor"
-version = "10.0.1"
+version = "10.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -365,9 +365,9 @@ dependencies = [
     { name = "uvicorn" },
     { name = "wheel" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3b/6d/cb6d019386fabcd28449889a290fe93f2781ebc637604917984ca1dc4c69/bittensor-10.0.1.tar.gz", hash = "sha256:900697ba9ccaeb8a22419560631132dbb3578bff0a9d8d1e19ae48d352d85328", size = 381830, upload-time = "2025-12-22T19:07:04.465Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/8d/9c97dcf8e038fdb7738e5193af482bbe1ea8b2e30c0852a6522126daad6b/bittensor-10.1.0.tar.gz", hash = "sha256:c47aa2548762441baea07c0b62c4ee42e224690d0d868bfe939f653f25ef4a52", size = 382672, upload-time = "2026-01-29T23:19:03.986Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f0/8c/af29be209e01f3dbaf2517c943118764018157f4fe236f29a737f09537a0/bittensor-10.0.1-py3-none-any.whl", hash = "sha256:cb80262ff9ff43386ebb1a15ba0a17b94be8966121f852d7fe9bfebc83fad052", size = 452691, upload-time = "2025-12-22T19:07:02.804Z" },
+    { url = "https://files.pythonhosted.org/packages/be/5e/1ec242ec368fa0c4e1fcf2bfd5b31ec70b34271716ba35d457443631ef06/bittensor-10.1.0-py3-none-any.whl", hash = "sha256:6ce5fb6c46d0cfe2615ebd30978ca754d12d69e02de9d0020a40bab03ce450b2", size = 453603, upload-time = "2026-01-29T23:19:01.968Z" },
 ]
 
 [[package]]
