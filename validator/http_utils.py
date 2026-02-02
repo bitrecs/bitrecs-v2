@@ -8,8 +8,6 @@ from typing import Any
 from pydantic import BaseModel
 
 
-
-# TODO ADAM: .env
 HTTP_TIMEOUT_SECONDS = 120
 
 

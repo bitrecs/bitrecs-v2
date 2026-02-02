@@ -25,8 +25,6 @@ from api.endpoints.validator_models import (
 )
 from models.evaluation_run import EvaluationRunErrorCode, EvaluationRunStatus
 from validator.http_utils import get_ridges_platform, post_ridges_platform
-from evaluator.problem_suites.polygot.polyglot_suite import POLYGLOT_JS_SUITE, POLYGLOT_PY_SUITE
-from queries.problem_statistics import SWEBENCH_VERIFIED_SUITE
 from utils.git import COMMIT_HASH
 from utils.system_metrics import get_system_metrics
 from evaluator.models import EvaluationRunException
@@ -296,13 +294,12 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             run_log = await get_run_log_from_docker(run_id, af_container_port)
             if run_log is None:
                 logger.error("Failed to retrieve run log")
-            this_log = run_log["report"] if run_log and "report" in run_log else "No report available"
-            #extra = this_log
+            this_log = run_log["report"] if run_log and "report" in run_log else "No report available"            
 
             # Cleanup
-            await env.cleanup()    
+            await env.cleanup()
 
-            eval_status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL        
+            eval_status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL
             eval_score = float(score) if isinstance(score, (int, float)) else None
             problem_test_result = ProblemTestResult(
                 name=tak_name,
@@ -461,26 +458,9 @@ async def main():
     global session_id
     global running_agent_timeout_seconds
     global running_eval_timeout_seconds
-    global max_evaluation_run_log_size_bytes
-    # global sandbox_manager  # Commented out as not used
-    global problem_suites  # Ensure this is defined globally if needed
+    global max_evaluation_run_log_size_bytes    
     
-    # Initial registration
     await register_validator()
-    
-    # Create the sandbox manager (commented out as not used)
-    # sandbox_manager = SandboxManager(config.RIDGES_INFERENCE_GATEWAY_URL)
-    
-    # Load all problem suites
-    problem_suites = [POLYGLOT_PY_SUITE, POLYGLOT_JS_SUITE, SWEBENCH_VERIFIED_SUITE]
-    
-    # Get all the problems in the latest set (commented out as not used in loop)
-    # latest_set_problems_data = await get_ridges_platform("/evaluation-sets/all-latest-set-problems", quiet=1)
-    # latest_set_problems = [EvaluationSetProblem(**prob) for prob in latest_set_problems_data]
-    # latest_set_problem_names = list({prob.problem_name for prob in latest_set_problems})
-    
-    # Prebuild the images for the SWE-Bench Verified problems (commented out)
-    # SWEBENCH_VERIFIED_SUITE.prebuild_problem_images(latest_set_problem_names)
     
     # Start the send heartbeat loop
     asyncio.create_task(send_heartbeat_loop())
