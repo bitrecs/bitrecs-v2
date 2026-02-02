@@ -149,7 +149,7 @@ async def post_agent(
         'agent_name': name,
         'filename': agent_file.filename,
         'file_size_bytes': file_size_bytes,
-        'ip_address': getattr(request.client, 'host', None) if request.client else None
+        'ip_address': get_client_ip(request)
     }
     
     try:
@@ -276,8 +276,10 @@ async def post_agent(
             # }
             
             agent = Agent.from_yaml(agent_text)
-            agent.miner_hotkey = miner_hotkey    
-            #agent.miner_uid = subtensor.get_hotkey_uid(miner_hotkey)        
+            agent.miner_hotkey = miner_hotkey  
+            agent.name = name if not latest_agent else latest_agent.name
+            agent.version_num = latest_agent.version_num + 1 if latest_agent else 0
+            #agent.miner_uid = subtensor.get_hotkey_uid(miner_hotkey)
             agent.agent_id = uuid.uuid4()
             agent.ip_address = client_ip
             artifact_id = await create_agent(agent)
