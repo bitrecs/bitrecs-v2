@@ -5,7 +5,7 @@ miner_hotkey: "5HSzPeBqt6fxqQMZU9971nP6N1rijv6CuKaXgSHi9Ychf7gA"
 miner_uid: 42
 ip_address: ""
 provider: "CHUTES"
-model: "moonshotai/Kimi-K2-Instruct-0905"
+model: "Qwen/Qwen3-Next-80B-A3B-Instruct"
 system_prompt_template: |
   You are a helpful assistant and today's date is {{current_date}}.
 user_prompt_template: |

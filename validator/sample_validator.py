@@ -124,13 +124,24 @@ async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
 
 
 async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
-    logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")    
-    await post_ridges_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(
-        evaluation_run_id=evaluation_run_id,
-        updated_status=updated_status,
-        **(extra or {})
-    ), bearer_token=session_id, quiet=2)
+    logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")
     
+    max_retries = 5  # Number of retries for 401 errors
+    for attempt in range(max_retries):
+        try:
+            await post_ridges_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(
+                evaluation_run_id=evaluation_run_id,
+                updated_status=updated_status,
+                **(extra or {})
+            ), bearer_token=session_id, quiet=2)
+            return  # Success, exit
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401 and attempt < max_retries - 1:
+                logger.warning(f"Session expired (401) on attempt {attempt + 1}. Re-registering and retrying...")
+                await register_validator()
+                continue  # Retry with new session
+            else:
+                raise  # Re-raise if not 401 or max retries hit
 
 # Simulate a run of an evaluation run, useful for testing, set SIMULATE_EVALUATION_RUNS=True in .env
 async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: str):
@@ -466,10 +477,8 @@ async def main():
     asyncio.create_task(send_heartbeat_loop())
     
     if config.MODE == "validator":
-        # Start the set weights loop (commented out)
         asyncio.create_task(set_weights_loop())
         logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")
-        pass
     
     # Loop forever, just keep requesting evaluations and running them
     while True:
