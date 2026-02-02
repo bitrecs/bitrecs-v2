@@ -22,6 +22,7 @@ class ProblemTestResult(BaseModel):
     category: ProblemTestCategory
     status: ProblemTestResultStatus
     score: Optional[float] = None
+    duration: Optional[float] = None
 
 class ProblemDifficulty(str, Enum):
     EASY = 'easy'

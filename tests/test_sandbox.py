@@ -149,7 +149,7 @@ async def test_bitrecs_eval_sandbox():
     print(f"  Run ID: {result.get('run_id', 'N/A')}")
     print(f"  Bitrecs Run ID: {result.get('bitrecs_run_id', 'N/A')}")    
     print(f"  Score: {result.get('score', 'N/A')}")    
-    print(f"  Time Taken: {result.get('time_taken', 'N/A')}")
+    print(f"  Duration: {result.get('duration', 'N/A')}")
     print("  Extra:")
     if 'extra' in result and 'result' in result['extra']:
         print(result['extra']['result'])

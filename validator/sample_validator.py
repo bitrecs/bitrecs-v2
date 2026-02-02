@@ -201,7 +201,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             # Start initializing the agent sandbox
             openrouter_api_key = os.environ.get("OPENROUTER_API_KEY")
             chutes_api_key = os.environ.get("CHUTES_API_KEY")
-            if not openrouter_api_key or not chutes_api_key:
+            if not any([openrouter_api_key, chutes_api_key]):
                 raise Exception("Missing required API keys for Affine ENV evaluation run")
 
             bitrecs_run_id = str(evaluation_run_id)
@@ -276,7 +276,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             run_id = result.get("run_id", "N/A")
             score = result.get("score", 0.0)
             success = result.get("success", False)
-            time_taken = result.get("time_taken", 0.0)
+            duration = result.get("duration", 0.0)
             extra = ""
             logger.info("Evaluation Result:")
             logger.info(f"  Run ID: {run_id}")
@@ -285,7 +285,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info(f"  Eval Type: \033[32m{eval_type.value}\033[0m")            
             logger.info(f"\033[32m  Score: {score} \033[0m")
             logger.info(f"  Success: {success}")
-            logger.info(f"  Time Taken: {time_taken} seconds")
+            logger.info(f"  Duration: {duration} seconds")
             logger.info("  Extra:")
             if 'extra' in result and 'result' in result['extra']:
                 logger.info(result['extra']['result'])
@@ -308,7 +308,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 name=tak_name,
                 category="default",
                 status=eval_status,
-                score=eval_score
+                score=eval_score,
+                duration=duration
             )
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
                 "test_results": [problem_test_result.model_dump()],

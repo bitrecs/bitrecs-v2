@@ -14,6 +14,7 @@ import hashlib
 from bittensor_wallet.wallet import Wallet
 from typing import Optional
 from dotenv import load_dotenv
+load_dotenv()
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -26,7 +27,7 @@ console = Console()
 #DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
 DEFAULT_API_BASE_URL = "http://localhost:8000"
 
-load_dotenv(".env")
+
 
 def run_cmd(cmd: str, capture: bool = True) -> tuple[int, str, str]:
     """Run command and return (code, stdout, stderr)"""
