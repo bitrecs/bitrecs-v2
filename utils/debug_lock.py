@@ -9,7 +9,7 @@ class DebugLockManager:
     def __init__(self, max_entries: int = 10_000, slow_threshold: float = 5.0):
         self.max_entries = max_entries
         self.slow_threshold = slow_threshold
-        self.waiting = {}  # Dict for O(1) access by unique ID
+        self.waiting = {}
         self.locked = {}
         self.slow = deque(maxlen=max_entries)  # Deque with max size to prevent leaks
         self.lock = asyncio.Lock()
@@ -50,15 +50,15 @@ class DebugLock:
         self.lock = lock
         self.label = label
         self.timeout = timeout
-        self.enabled = enabled  # Flag to disable debugging for production
+        self.enabled = enabled
 
     async def __aenter__(self):
         if not self.enabled:
             await self.lock.acquire()
             return self
 
-        self.entry_id = str(uuid.uuid4())  # Unique ID for reliability
-        self.waiting_at = time.monotonic()  # Use monotonic for better reliability
+        self.entry_id = str(uuid.uuid4())
+        self.waiting_at = time.monotonic()
         logger.info(f"[DebugLock] {self.label}: Trying to acquire lock...")
         await DEBUG_MANAGER.add_waiting(self.entry_id, self.label, self.waiting_at)
 

@@ -477,8 +477,9 @@ async def main():
     asyncio.create_task(send_heartbeat_loop())
     
     if config.MODE == "validator":
+        
         asyncio.create_task(set_weights_loop())
-        logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")
+        logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")        
     
     # Loop forever, just keep requesting evaluations and running them
     while True:
