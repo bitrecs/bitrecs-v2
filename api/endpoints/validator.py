@@ -46,13 +46,11 @@ class Validator(BaseModel):
         super().__init__(**data)
         self._lock = asyncio.Lock()
 
-# Map of session IDs to validator objects
+
 SESSION_ID_TO_VALIDATOR: Dict[UUID, Validator] = {}
 
-def get_connected_validators_info() -> Dict[str, int]:
-    """Returns summary info about connected validators for health checks."""
+def get_connected_validators_info() -> Dict[str, int]:    
     total_validators = len(SESSION_ID_TO_VALIDATOR)
-    # You can add more details if needed, e.g., counts by type
     screeners = sum(1 for v in SESSION_ID_TO_VALIDATOR.values() if v.hotkey.startswith("screener"))
     validators = total_validators - screeners
     return {
@@ -61,15 +59,12 @@ def get_connected_validators_info() -> Dict[str, int]:
         "connected_validators": validators,
     }
 
-# Returns True if a validator with the given hotkey is currently registered
 def is_validator_registered(validator_hotkey: str) -> bool:
     return validator_hotkey in [validator.hotkey for validator in SESSION_ID_TO_VALIDATOR.values()]
 
-# Returns the IP addresses of all connected screeners and validators
 def get_all_connected_validator_ip_addresses() -> List[str]:
     return [validator.ip_address for validator in SESSION_ID_TO_VALIDATOR.values()]
 
-# Deletes a validator from the SESSION_ID_TO_VALIDATOR map, and cleans up its associated state
 async def delete_validator(validator: Validator, reason: str) -> None:
     logger.info(f"Deleting validator {validator.name} ({validator.hotkey})...")
     logger.info(f"  Reason: {reason}")
@@ -83,7 +78,7 @@ async def delete_validator(validator: Validator, reason: str) -> None:
 
     logger.info(f"Deleted validator {validator.name} ({validator.hotkey})")
 
-# Deletes all validators that have not sent a heartbeat in long enough
+
 async def delete_validators_that_have_not_sent_a_heartbeat() -> None:
     logger.info("Deleting validators that have not sent a heartbeat...")
 
@@ -100,7 +95,6 @@ async def delete_validators_that_have_not_sent_a_heartbeat() -> None:
 
 # Dependency to get the validator associated with the request
 # Requires that the request has a valid "Authorization: Bearer <session_id>" header
-# See validator_request_evaluation() and other endpoints for usage examples
 async def get_request_validator(token: str = Depends(HTTPBearer())) -> Validator:    
     try:
         session_id = UUID(token.credentials)

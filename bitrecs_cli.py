@@ -24,8 +24,8 @@ from version import __version__ as this_version
 
 
 console = Console()
-#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
-DEFAULT_API_BASE_URL = "http://localhost:8000"
+DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
+#DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 
 
@@ -101,7 +101,14 @@ def upload(ctx, file: Optional[str], coldkey_name: Optional[str], hotkey_name: O
         public_key = wallet.hotkey.public_key.hex()
         
         with httpx.Client() as client:
-            response = client.get(f"{bitrecs.api_url}/retrieval/agent-by-hotkey?miner_hotkey={wallet.hotkey.ss58_address}")
+            #Basic headers for CF
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'application/json',
+                'Referer': f'{bitrecs.api_url}/',
+            }            
+            
+            response = client.get(f"{bitrecs.api_url}/retrieval/agent-by-hotkey?miner_hotkey={wallet.hotkey.ss58_address}", headers=headers)
             
             if response.status_code == 200 and response.json():
                 latest_agent = response.json()
@@ -457,13 +464,13 @@ def upload_burn(ctx, file: Optional[str], coldkey_name: Optional[str], hotkey_na
 
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
                 progress.add_task("Signing and uploading...", total=None)
-                response = client.post(f"{bitrecs.api_url}/upload/agent", files=files, data=payload, timeout=120)
+                response = client.post(f"{bitrecs.api_url}/upload/agent", files=files, data=payload, timeout=120, headers=headers)
             
             if response.status_code == 200:
                 console.print(Panel(f"[bold green]Upload Complete[/bold green]\n[cyan]Miner '{name}' uploaded successfully![/cyan]", title="Success", border_style="green"))
             else:
                 error = response.json().get('detail', 'Unknown error') if response.headers.get('content-type', '').startswith('application/json') else response.text
-                console.print(f"Upload failed: {error}", style="bold red")
+                console.print(f"Upload failed (status {response.status_code}): {error}", style="bold red")
                     
     except Exception as e:
         console.print(f"Error: {e}", style="bold red")

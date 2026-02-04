@@ -1,14 +1,13 @@
+import httpx
+import utils.logger as logger
 from datetime import datetime, timedelta, timezone
-
 from fastapi import UploadFile, HTTPException
 from bittensor_wallet.keypair import Keypair
-
-import utils.logger as logger
 from api.config import MINER_AGENT_UPLOAD_RATE_LIMIT_SECONDS
 from queries.banned_hotkey import get_banned_hotkey
 from utils.bittensor import check_if_hotkey_is_registered
-from models.agent import Agent
 
+MAX_FILE_SIZE_MB = 1
 
 def get_miner_hotkey(file_info: str) -> str:
     logger.debug(f"Getting miner hotkey from file info: {file_info}.")
@@ -27,7 +26,7 @@ def get_miner_hotkey(file_info: str) -> str:
 def check_if_yaml_file(filename: str) -> None:
     logger.debug(f"Checking if the file is a yaml file...")
 
-    if not filename.endswith(".yaml"):
+    if not filename.strip().lower().endswith(".yaml"):
         logger.error(f"A miner attempted to upload an agent with an invalid filename: {filename}.")
         raise HTTPException(
             status_code=400,
@@ -89,7 +88,7 @@ async def check_hotkey_registered(miner_hotkey: str) -> None:
 async def check_file_size(agent_file: UploadFile) -> str:
     logger.debug(f"Checking if the file size is valid...")
 
-    MAX_FILE_SIZE = 2 * 1024 * 1024 
+    MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024 
     file_size = 0
     content = b""
     for chunk in agent_file.file:
@@ -99,7 +98,7 @@ async def check_file_size(agent_file: UploadFile) -> str:
             logger.error(f"A miner attempted to upload an agent with a file size that exceeds the maximum allowed size. File size: {file_size}.")
             raise HTTPException(
                 status_code=400,
-                detail="File size must not exceed 1MB"
+                detail=f"File size must not exceed {MAX_FILE_SIZE_MB}MB"
             )
     
     logger.debug(f"The file size is valid.")
@@ -111,7 +110,6 @@ async def check_file_size(agent_file: UploadFile) -> str:
     else:
         return content
 
-import httpx
 
 async def get_tao_price() -> float:
     url = "https://api.coingecko.com/api/v3/simple/price"

@@ -1,18 +1,9 @@
-# NOTE ADAM: Subtensor bug (self.disable_third_party_loggers())
-from bittensor.core.async_subtensor import AsyncSubtensor
-
 import utils.logger as logger
 import validator.config as config
-
 from typing import Dict
+from bittensor.core.async_subtensor import AsyncSubtensor
 
-
-
-subtensor = AsyncSubtensor(network=config.SUBTENSOR_NETWORK, fallback_endpoints=[config.SUBTENSOR_ADDRESS])
-
-
-
-async def set_weights_from_mapping(weights_mapping: Dict[str, float]) -> None:
+async def set_weights_from_mapping(weights_mapping: Dict[str, float]) -> None:    
     if len(weights_mapping.keys()) != 1:
         logger.error("Expected one hotkey")
         return
@@ -22,6 +13,7 @@ async def set_weights_from_mapping(weights_mapping: Dict[str, float]) -> None:
         logger.error("Expected weight of 1")
         return
 
+    subtensor = AsyncSubtensor(network=config.SUBTENSOR_NETWORK, fallback_endpoints=[config.SUBTENSOR_ADDRESS])
     weight_receiving_uid = await subtensor.get_uid_for_hotkey_on_subnet(hotkey_ss58=weight_receiving_hotkey, netuid=config.NETUID)
     if weight_receiving_uid is None:
         logger.error(f"Weight receiving hotkey {weight_receiving_hotkey} not found")
@@ -39,6 +31,6 @@ async def set_weights_from_mapping(weights_mapping: Dict[str, float]) -> None:
     )
 
     if success:
-        logger.info(f"Set weight of hotkey {weight_receiving_hotkey} to 1")
+        logger.info(f"\033[32mSet weight of hotkey {weight_receiving_hotkey} to 1\033[0m")
     else:
-        logger.error(f"Failed to set weight of hotkey {weight_receiving_hotkey} to 1: {message}")
+        logger.error(f"\033[31mFailed to set weight of hotkey {weight_receiving_hotkey} to 1: {message}\033[0m")

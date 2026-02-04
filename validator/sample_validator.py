@@ -14,7 +14,8 @@ from dotenv import load_dotenv
 load_dotenv()
 from uuid import UUID
 from typing import Any, Dict
-from models.problem import ProblemTestResult, ProblemTestResultStatus
+from utils.git import COMMIT_HASH
+from utils.system_metrics import get_system_metrics
 from models.agent import Agent
 from api.endpoints.validator_models import (
     ScreenerRegistrationRequest, ScreenerRegistrationResponse, 
@@ -23,20 +24,18 @@ from api.endpoints.validator_models import (
     ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, 
     ValidatorRequestEvaluationResponse, ValidatorUpdateEvaluationRunRequest
 )
+from models.problem import ProblemTestResult, ProblemTestResultStatus
 from models.evaluation_run import EvaluationRunErrorCode, EvaluationRunStatus
-from validator.http_utils import get_ridges_platform, post_ridges_platform
-from utils.git import COMMIT_HASH
-from utils.system_metrics import get_system_metrics
 from evaluator.models import EvaluationRunException
 from models.eval_type import BitrecsEvaluationType
 from validator.set_weights import set_weights_from_mapping
+from validator.http_utils import get_ridges_platform, post_ridges_platform
 
 session_id: str | None = None
 
 EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-
 
 async def set_weights_loop():
     logger.info("Starting set weights loop...")
@@ -66,7 +65,7 @@ async def send_heartbeat_loop():
 async def get_health_from_docker(url: str) -> dict | None:
     """Fetch heartbeat data from a Docker container."""
     try:
-        timeout = (5, 10)    
+        timeout = (10, 60)    
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(url, headers={"Content-Type": "application/json"})
             response.raise_for_status()
@@ -81,7 +80,7 @@ async def get_health_from_docker(url: str) -> dict | None:
 async def get_evals_from_docker(url: str) -> dict | None:
     """Fetch evals from a Docker container."""
     try:
-        timeout = (5, 10)    
+        timeout = (10, 60)    
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(url, headers={"Content-Type": "application/json"})
             response.raise_for_status()
@@ -244,10 +243,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             if af_health is None:
                 raise Exception("Failed to get heartbeat from Docker environment")
             if af_health["status"] != "healthy":
-                raise Exception(f"Docker environment is not healthy: {af_health}")            
-            
-            # eval_battery = await get_evals_from_docker(f"http://{af_hostname}:{af_container_port}/evals")
-            # logger.info(f"EVALS: {eval_battery}")
+                raise Exception(f"Docker environment is not healthy: {af_health}")
         
             yaml_content = Agent.to_yaml(miner_agent)
             logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")
@@ -477,8 +473,9 @@ async def main():
     asyncio.create_task(send_heartbeat_loop())
     
     if config.MODE == "validator":
+        
         asyncio.create_task(set_weights_loop())
-        logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")
+        logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")        
     
     # Loop forever, just keep requesting evaluations and running them
     while True:

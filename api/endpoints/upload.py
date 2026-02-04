@@ -1,30 +1,29 @@
-import asyncio
 import os
-import pprint
 import uuid
-from datetime import datetime, timezone
+import asyncio
+import utils.logger as logger
+from api import config 
 from typing import Optional
 from bittensor import Subtensor
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Request
-from numpy import meshgrid
+from models.agent import Agent
+from utils.debug_lock import DebugLock
 from pydantic import BaseModel, Field
 from api.utils.request_cache import hourly_cache
 from queries.payments import retrieve_payment_by_hash, record_evaluation_payment
-from utils.debug_lock import DebugLock
-import utils.logger as logger
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 from queries.agent import create_agent, record_upload_attempt
-from queries.agent import get_latest_agent_for_miner_hotkey, get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id
+from queries.agent import (
+    get_latest_agent_for_miner_hotkey, 
+    get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id)
 from queries.banned_hotkey import get_banned_hotkey
-from api.utils.upload_agent_helpers import get_miner_hotkey, check_if_yaml_file, check_agent_banned, \
-    check_rate_limit, check_signature, check_hotkey_registered, check_file_size
-from models.agent import AgentStatus, Agent
+from api.utils.upload_agent_helpers import (
+    get_miner_hotkey, check_if_yaml_file, check_agent_banned, 
+    check_rate_limit, check_signature, check_hotkey_registered, 
+    check_file_size)
 from utils.coingecko import get_tao_price
-from api import config 
 from utils.network import get_client_ip
-from api.utils.limiter import limiter
-import yaml  # Add this import at the top
 
-# TODO STEPHEN: we should have a global singleton
+
 subtensor = Subtensor(network=config.SUBTENSOR_NETWORK)
 
 # We use a lock per hotkey to prevent multiple agents being uploaded at the same time for the same hotkey
@@ -80,7 +79,8 @@ async def check_agent_post(
     check_signature(public_key, file_info, signature)
     await check_hotkey_registered(miner_hotkey)
     await check_agent_banned(miner_hotkey=miner_hotkey) 
-    #check_if_python_file(agent_file.filename)
+    check_if_yaml_file(agent_file.filename)
+    await check_file_size(agent_file)
     
     coldkey = subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey)
     miner_balance = subtensor.get_balance(address=coldkey).rao
@@ -123,7 +123,7 @@ async def post_agent(
     Upload a new agent version for evaluation
     
     This endpoint allows miners to upload their agent code for evaluation. The agent must:
-    - Be a Python file
+    - Be a yaml file
     - Be under 1MB in size
     - Pass static code safety checks
     - Pass similarity validation to prevent copying
@@ -149,7 +149,7 @@ async def post_agent(
         'agent_name': name,
         'filename': agent_file.filename,
         'file_size_bytes': file_size_bytes,
-        'ip_address': getattr(request.client, 'host', None) if request.client else None
+        'ip_address': get_client_ip(request)
     }
     
     try:
@@ -162,6 +162,7 @@ async def post_agent(
             await check_agent_banned(miner_hotkey=miner_hotkey) 
         
         #check_if_python_file(agent_file.filename)
+        check_if_yaml_file(agent_file.filename)
         
         # Verify payment
         # Check if payment has already been used for an agent
@@ -276,14 +277,14 @@ async def post_agent(
             # }
             
             agent = Agent.from_yaml(agent_text)
-            agent.miner_hotkey = miner_hotkey    
-            #agent.miner_uid = subtensor.get_hotkey_uid(miner_hotkey)        
+            agent.miner_hotkey = miner_hotkey  
+            agent.name = name if not latest_agent else latest_agent.name
+            agent.version_num = latest_agent.version_num + 1 if latest_agent else 0
+            #agent.miner_uid = subtensor.get_hotkey_uid(miner_hotkey)
             agent.agent_id = uuid.uuid4()
             agent.ip_address = client_ip
             artifact_id = await create_agent(agent)
-            logger.info(f"Artifact submitted successfully with ID: {artifact_id}")        
-            #agent = Agent(**agent_kwargs)
-            #await create_agent(agent)
+            logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
 
         await record_evaluation_payment(
             payment_block_hash=payment_block_hash,
@@ -301,6 +302,7 @@ async def post_agent(
             upload_type="agent",
             success=True,
             agent_id=agent.agent_id,
+            http_status_code=201,
             **upload_data
         )
 
