@@ -342,6 +342,227 @@ async def post_agent(
         raise
 
 
+@router.post(
+    "/agent/burn",
+    tags=["upload"],
+    response_model=AgentUploadResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Bad Request - Invalid input or validation failed"},
+        402: {"model": ErrorResponse, "description": "Payment Required - Payment failed or insufficient funds"},
+        409: {"model": ErrorResponse, "description": "Conflict - Upload request already processed"},
+        429: {"model": ErrorResponse, "description": "Too Many Requests - Rate limit exceeded"},
+        500: {"model": ErrorResponse, "description": "Internal Server Error - Server-side processing failed"},
+        503: {"model": ErrorResponse, "description": "Service Unavailable - No screeners available for evaluation"}
+    }
+)
+async def post_agent_burn(
+    request: Request,
+    agent_file: UploadFile = File(..., description="Python file containing the agent code (must be named agent.py)"),
+    public_key: str = Form(..., description="Public key of the miner in hex format"),
+    file_info: str = Form(..., description="File information containing miner hotkey and version number (format: hotkey:version)"),
+    signature: str = Form(..., description="Signature to verify the authenticity of the upload"),
+    name: str = Form(..., description="Name of the agent"),
+    payment_block_hash: str = Form(..., description="Block hash in which payment was made"),
+    payment_extrinsic_index: str = Form(..., description="Index in the block for payment extrinsic"),
+    payment_time: float = Form(..., description="Timestamp of the payment"),
+) -> AgentUploadResponse:
+    """
+    Upload a new agent version for evaluation using burn_alpha as payment.
+    """
+    client_ip = get_client_ip(request)
+    if config.DISALLOW_UPLOADS:
+        raise HTTPException(
+            status_code=503,
+            detail=config.DISALLOW_UPLOADS_REASON
+        )
+
+    # Extract upload attempt data for tracking
+    miner_hotkey = get_miner_hotkey(file_info)
+    agent_file.file.seek(0, 2)
+    file_size_bytes = agent_file.file.tell()
+    agent_file.file.seek(0)
+    
+    upload_data = {
+        'hotkey': miner_hotkey,
+        'agent_name': name,
+        'filename': agent_file.filename,
+        'file_size_bytes': file_size_bytes,
+        'ip_address': getattr(request.client, 'host', None) if request.client else None
+    }
+    
+    try:
+        logger.debug(f"Platform received a /upload/agent/burn API request. Beginning process handle-upload-agent-burn.")
+        logger.info(f"Uploading agent {name} for miner {miner_hotkey} via burn.")
+
+        if prod:
+            check_signature(public_key, file_info, signature)
+            await check_hotkey_registered(miner_hotkey)
+            await check_agent_banned(miner_hotkey=miner_hotkey) 
+        
+        # Verify payment
+        # Check if payment has already been used for an agent
+        existing_payment = await retrieve_payment_by_hash(
+            payment_block_hash=payment_block_hash,
+            payment_extrinsic_index=payment_extrinsic_index
+        )
+
+        if existing_payment is not None:
+            raise HTTPException(
+                status_code=402,
+                detail="Payment already used"
+            )
+
+        # Retrieve payment details from the chain
+        try:
+            payment_block = subtensor.substrate.get_block(block_hash=payment_block_hash)
+        except Exception as e:
+            logger.error(f"Error retrieving payment block: {e}")
+            raise HTTPException(
+                status_code=402,
+                detail="Payment could not be verified"
+            )
+
+        block_number = payment_block['header']['number']
+        coldkey = subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey, block=int(block_number))
+        payment_extrinsic = payment_block['extrinsics'][int(payment_extrinsic_index)]
+        payment_cost = await get_upload_price(cache_time=payment_time)
+
+        # Check for Extrinsic failure
+        if check_if_extrinsic_failed(payment_block_hash, int(payment_extrinsic_index)):
+            raise HTTPException(
+                status_code=402,
+                detail="Payment extrinsic failed on chain"
+            )
+
+        # Verify it is a SubtensorModule.burn_alpha call
+        call_module = payment_extrinsic.value['call']['call_module']
+        call_function = payment_extrinsic.value['call']['call_function']
+        
+        if call_module != 'SubtensorModule' or call_function != 'burn_alpha':
+             raise HTTPException(
+                status_code=402,
+                detail=f"Invalid payment method. Expected SubtensorModule.burn_alpha, got {call_module}.{call_function}"
+            )
+
+        # Extract arguments
+        # Args: hotkey, amount, netuid
+        # Note: The order/names depend on the metadata, but we can try to look them up by name
+        call_args = {arg['name']: arg['value'] for arg in payment_extrinsic.value['call']['call_args']}
+        
+        payment_netuid = call_args.get('netuid')
+        payment_amount = call_args.get('amount')
+        payment_hotkey = call_args.get('hotkey') # This is likely the SS58 address or public key
+
+        if payment_netuid is None or payment_amount is None or payment_hotkey is None:
+             raise HTTPException(
+                status_code=402,
+                detail="Could not parse burn_alpha arguments"
+            )
+
+        # 1. Verify Netuid
+        if int(payment_netuid) != config.NETUID:
+             raise HTTPException(
+                status_code=402,
+                detail=f"Invalid Netuid. Expected {config.NETUID}, got {payment_netuid}"
+            )
+
+        # 2. Verify Amount
+        if int(payment_amount) != payment_cost.amount_rao:
+             raise HTTPException(
+                status_code=402,
+                detail=f"Payment amount does not match. Expected {payment_cost.amount_rao}, got {payment_amount}"
+            )
+            
+        # 3. Verify Hotkey
+        # Ensure the burnt alpha is for the miner's hotkey
+        # payment_hotkey might be raw bytes or ss58, need to check how it's returned. 
+        # Usually substrateinterface decodes it to SS58 if the type is AccountId.
+        if payment_hotkey != miner_hotkey:
+             raise HTTPException(
+                status_code=402,
+                detail=f"Burn hotkey does not match miner hotkey. Expected {miner_hotkey}, got {payment_hotkey}"
+            )
+
+        # 4. Verify Signer
+        # burn_alpha is typically signed by the coldkey (owner)
+        if coldkey != payment_extrinsic['address']:
+            raise HTTPException(
+                status_code=402,
+                detail=f"Signer coldkey does not match miner owner. Expected {coldkey}, got {payment_extrinsic['address']}"
+            )
+
+
+        agent_text = (await agent_file.read()).decode("utf-8")
+        hotkey_lock = await get_hotkey_lock(miner_hotkey)
+        async with DebugLock(hotkey_lock, f"Agent upload lock for miner {miner_hotkey}"):
+            latest_agent: Optional[Agent] = await get_latest_agent_for_miner_hotkey(miner_hotkey=miner_hotkey)
+            latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
+            
+            if prod and latest_agent_created_at_in_latest_set_id:
+                check_rate_limit(latest_agent_created_at_in_latest_set_id)
+            
+            agent = Agent.from_yaml(agent_text)
+            agent.miner_hotkey = miner_hotkey    
+            agent.agent_id = uuid.uuid4()
+            agent.ip_address = client_ip
+            artifact_id = await create_agent(agent)
+            logger.info(f"Artifact submitted successfully with ID: {artifact_id}")        
+
+        await record_evaluation_payment(
+            payment_block_hash=payment_block_hash,
+            payment_extrinsic_index=payment_extrinsic_index,
+            amount_rao=payment_amount,
+            agent_id=agent.agent_id,
+            miner_hotkey=miner_hotkey,
+            miner_coldkey=coldkey
+        )
+
+        logger.info(f"Successfully uploaded agent {agent.agent_id} for miner {miner_hotkey} via burn.")
+
+        # Record successful upload
+        await record_upload_attempt(
+            upload_type="agent",
+            success=True,
+            agent_id=agent.agent_id,
+            **upload_data
+        )
+
+        return AgentUploadResponse(
+            status="success",
+            message=f"Successfully uploaded agent {agent.agent_id} for miner {miner_hotkey}."
+        )
+    
+    except HTTPException as e:
+        # Determine error type and get ban reason if applicable
+        error_type = 'banned' if e.status_code == 403 and 'banned' in e.detail.lower() else \
+                    'rate_limit' if e.status_code == 429 else 'validation_error'
+        banned_hotkey = await get_banned_hotkey(miner_hotkey) if error_type == 'banned' and miner_hotkey else None
+        
+        # Record failed upload attempt
+        await record_upload_attempt(
+            upload_type="agent",
+            success=False,
+            error_type=error_type,
+            error_message=e.detail,
+            ban_reason=banned_hotkey.banned_reason if banned_hotkey else None,
+            http_status_code=e.status_code,
+            **upload_data
+        )
+        raise
+    
+    except Exception as e:
+        # Record internal error
+        await record_upload_attempt(
+            upload_type="agent",
+            success=False,
+            error_type='internal_error',
+            error_message=str(e),
+            http_status_code=500,
+            **upload_data
+        )
+        raise
+
+
 class UploadPriceResponse(BaseModel):
     """Response model for successful agent upload"""
     amount_rao: int = Field(..., description="Amount to send for evaluation (in RAO)")
