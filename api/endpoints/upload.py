@@ -387,7 +387,7 @@ async def post_agent_burn(
         'agent_name': name,
         'filename': agent_file.filename,
         'file_size_bytes': file_size_bytes,
-        'ip_address': getattr(request.client, 'host', None) if request.client else None
+        'ip_address': get_client_ip(request)    
     }
     
     try:
@@ -473,10 +473,7 @@ async def post_agent_burn(
                 detail=f"Payment amount does not match. Expected {payment_cost.amount_rao}, got {payment_amount}"
             )
             
-        # 3. Verify Hotkey
-        # Ensure the burnt alpha is for the miner's hotkey
-        # payment_hotkey might be raw bytes or ss58, need to check how it's returned. 
-        # Usually substrateinterface decodes it to SS58 if the type is AccountId.
+        # 3. Verify Hotkey    
         if payment_hotkey != miner_hotkey:
              raise HTTPException(
                 status_code=402,
@@ -502,7 +499,10 @@ async def post_agent_burn(
                 check_rate_limit(latest_agent_created_at_in_latest_set_id)
             
             agent = Agent.from_yaml(agent_text)
-            agent.miner_hotkey = miner_hotkey    
+            agent.miner_hotkey = miner_hotkey  
+            agent.name = name if not latest_agent else latest_agent.name
+            agent.version_num = latest_agent.version_num + 1 if latest_agent else 0
+            #agent.miner_uid = subtensor.get_hotkey_uid(miner_hotkey)
             agent.agent_id = uuid.uuid4()
             agent.ip_address = client_ip
             artifact_id = await create_agent(agent)
@@ -524,6 +524,7 @@ async def post_agent_burn(
             upload_type="agent",
             success=True,
             agent_id=agent.agent_id,
+            http_status_code=201,
             **upload_data
         )
 
