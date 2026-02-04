@@ -328,7 +328,7 @@ dependencies = [
 requires-dist = [
     { name = "affinetes", git = "https://github.com/AffineFoundation/affinetes.git?rev=main" },
     { name = "aioboto3", specifier = ">=15.5.0" },
-    { name = "async-substrate-interface", specifier = ">=1.6.0" },
+    { name = "async-substrate-interface", specifier = ">=1.6.1" },
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "bittensor", specifier = ">=10.1.0" },
     { name = "bittensor-cli", specifier = ">=9.17.0" },

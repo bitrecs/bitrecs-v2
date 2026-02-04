@@ -8,7 +8,7 @@ dependencies = [
     "bittensor>=10.1.0",    
     "bittensor-wallet>=4.0.1",
     "cryptography>=45.0.5",
-    "async-substrate-interface>=1.6.0",
+    "async-substrate-interface>=1.6.1",
     "affinetes @ git+https://github.com/AffineFoundation/affinetes.git@main",
     "python-dotenv>=1.2.1",
     "fastapi>=0.128.0",
