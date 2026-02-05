@@ -301,7 +301,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 host_network=host_network,
                 cleanup=False,
                 force_recreate=True,
-                host_port=None,
+                host_port=af_container_port,
                 pull=True,
                 network="bitrecs-network"
             )
