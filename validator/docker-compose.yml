@@ -4,12 +4,12 @@ services:
       context: ..
       dockerfile: validator/Dockerfile
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ../:/app        
+      - ../:/app
+      - /app/.venv  # Exclude .venv from the mount
+      - /var/run/docker.sock:/var/run/docker.sock    
       - ~/.bittensor/wallets:/root/.bittensor/wallets:ro
       - /var/log/bitrecs/validator:/var/log/bitrecs/validator
-    # env_file:
-    #   - .env
+      
     environment:
       - PYTHONUNBUFFERED=1
     networks:

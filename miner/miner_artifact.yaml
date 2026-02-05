@@ -5,7 +5,7 @@ miner_hotkey: "5F95Nub62Fhwy3UFBMWg5eDou1B45yrzXaa7FjgXMALcER6r"
 miner_uid: 42
 ip_address: ""
 provider: "OPEN_ROUTER"
-model: "moonshotai/kimi-k2.5"
+model: "google/gemini-2.0-flash-lite-001"
 
 system_prompt_template: |
   You are a helpful assistant, today's date is {{current_date}}.
