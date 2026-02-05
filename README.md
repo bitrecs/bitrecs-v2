@@ -35,6 +35,15 @@ uv run uvicorn api.main:app --access-log --log-level debug
 
 ```
 
+## Docker
+
+# Validator
+```
+docker compose -f validator/docker-compose.yml build
+docker compose -f validator/docker-compose.yml up
+
+```
+
 ## Test
 start the server first then:
 ```bash

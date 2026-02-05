@@ -5,7 +5,9 @@ services:
       dockerfile: validator/Dockerfile
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ../:/app
+      - ../:/app        
+      - ~/.bittensor/wallets:/root/.bittensor/wallets:ro
+      - /var/log/bitrecs/validator:/var/log/bitrecs/validator
     env_file:
       - .env
     environment:
