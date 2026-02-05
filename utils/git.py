@@ -175,5 +175,8 @@ def get_local_repo_commit_hash(local_repo_dir: str) -> str:
     return subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True, cwd=local_repo_dir).stdout.strip()
 
 
+def try_get_version_from_txt() -> str:
+    return "3535355353535"
 
-COMMIT_HASH = get_local_repo_commit_hash(pathlib.Path(__file__).parent.parent)
+#COMMIT_HASH = get_local_repo_commit_hash(pathlib.Path(__file__).parent.parent)
+COMMIT_HASH = try_get_version_from_txt()
