@@ -158,15 +158,13 @@ async def get_evals_from_docker(url: str) -> dict | None:
         logger.error(f"Error fetching evals from Docker: {e}")
     return None
 
-async def get_run_log_from_docker(run_id: str, port: int) -> str | None:
+async def get_run_log_from_docker(run_id: str, port: int, hostname: str) -> str | None:
     """ Fetch run log from Docker container """
-    af_hostname = "localhost"
-    af_container_port = port
     timeout = (10, 60)
     try:        
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(
-                f"http://{af_hostname}:{af_container_port}/run_log/{run_id}",
+                f"http://{hostname}:{port}/run_log/{run_id}",
                 headers={"Content-Type": "application/json"}
             )
             if response.status_code == 200:
@@ -175,9 +173,9 @@ async def get_run_log_from_docker(run_id: str, port: int) -> str | None:
                 logger.error(f"Failed to get run log for {run_id}: {response.status_code}")
                 return None
     except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error fetching evals from Docker: {e.response.status_code} - {e.response.text}")
+        logger.error(f"HTTP error fetching run log from Docker: {e.response.status_code} - {e.response.text}")
     except Exception as e:
-        logger.error(f"Error fetching evals from Docker: {e}")
+        logger.error(f"Error fetching run log from Docker: {e}")
     return None   
 
 
@@ -302,7 +300,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 cleanup=False,
                 force_recreate=True,
                 #host_port=af_container_port,
-                pull=True,
+                pull=False,
                 network="bitrecs-network"
             )
             if env is None:
@@ -370,7 +368,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             else:
                 logger.info("    No extra details available")   
             
-            run_log = await get_run_log_from_docker(run_id, af_container_port)
+            run_log = await get_run_log_from_docker(run_id, af_container_port, af_hostname)
             if run_log is None:
                 logger.error("Failed to retrieve run log")
             this_log = run_log["report"] if run_log and "report" in run_log else "No report available"            
