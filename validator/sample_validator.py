@@ -300,7 +300,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 cleanup=False,
                 force_recreate=True,
                 #host_port=af_container_port,
-                pull=False,
+                pull=True,
                 network="bitrecs-network"
             )
             if env is None:
