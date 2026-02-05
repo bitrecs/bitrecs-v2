@@ -130,18 +130,17 @@ def is_running_in_container() -> bool:
 
 
 async def get_health_from_docker(url: str) -> dict | None:
-    """Fetch heartbeat data from a Docker container."""
+    logger.info(f"Attempting health check to: {url}")  # Add this
     try:
-        timeout = (10, 60)    
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.get(url, headers={"Content-Type": "application/json"})
+        async with httpx.AsyncClient(timeout=(10, 60)) as client:
+            response = await client.get(url)
+            logger.info(f"Health check response: {response.status_code} - {response.text}")  # Add this
             response.raise_for_status()
-            data = response.json()
-            return data
+            return response.json()
     except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error fetching heartbeat from Docker: {e.response.status_code} - {e.response.text}")
+        logger.error(f"Health check HTTP error: {e.response.status_code} - {e.response.text}")  # Add this
     except Exception as e:
-        logger.error(f"Error fetching heartbeat from Docker: {e}")
+        logger.error(f"Health check failed: {e}")  # Add this
     return None
 
 async def get_evals_from_docker(url: str) -> dict | None:
