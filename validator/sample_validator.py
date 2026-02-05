@@ -284,7 +284,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             bitrecs_run_id = str(evaluation_run_id)
             af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
             af_mode = "docker"
-            af_hostname = "localhost" if not is_running_in_container() else "bitrecs-network"
+            af_hostname = "localhost" if not is_docker else "bitrecs-evals-main"
+            host_network = True if not is_docker else False
             
             af_container_port = 8081
             af_run_token = secrets.token_hex(16)
@@ -298,10 +299,10 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 image=af_image,
                 mode=af_mode,
                 env_vars=af_env_vars,                
-                host_network=True,
+                host_network=host_network,
                 cleanup=False,
                 force_recreate=True,
-                host_port=af_container_port,
+                #host_port=af_container_port,
                 pull=True,
                 network="bitrecs-network"
             )
