@@ -62,6 +62,73 @@ async def send_heartbeat_loop():
         os._exit(1)
 
 
+import os
+from pathlib import Path
+
+def is_running_in_container() -> bool:
+    """
+    Detects if running inside a container (Docker, Podman, containerd, Kubernetes, etc.).
+    Works reasonably well on:
+    - Native Ubuntu / Debian / Fedora (cgroup v1 & v2)
+    - WSL2 + Docker Desktop
+    - Docker Desktop on macOS (inside the container)
+    """
+    # 1. Classic .dockerenv marker (exists in many Docker setups)
+    if Path('/.dockerenv').exists():
+        return True
+
+    # 2. podman / some buildah / recent runtimes
+    if Path('/run/.containerenv').exists():
+        return True
+
+    # 3. cgroup v1 & v2 style detection — most reliable signal
+    cgroup_path = Path('/proc/1/cgroup')
+    if cgroup_path.exists():
+        try:
+            content = cgroup_path.read_text(encoding='utf-8', errors='ignore')
+            keywords = [
+                'docker',           # classic docker cgroup v1
+                'kubepods',         # kubernetes
+                'containerd',       # containerd / k8s + containerd
+                '/containers/',     # podman, some buildah
+                'cri-o',            # CRI-O
+                'libpod',           # podman
+                # 'docker-ce'       # sometimes appears in Docker Desktop
+            ]
+            if any(kw in content for kw in keywords):
+                return True
+
+            # cgroup v2 unified hierarchy style (very common 2024+)
+            # Look for non-root paths that indicate containerization
+            lines = content.splitlines()
+            for line in lines:
+                parts = line.strip().split(':', 2)
+                if len(parts) == 3:
+                    _, controllers, path = parts
+                    if path != '/' and (controllers or '0' in controllers or path.strip('/')):
+                        # If it's not root AND has some container-like nesting
+                        # Very conservative — catches most real containers
+                        if any(c in path.lower() for c in ['docker', 'kubepods', 'containerd', 'cri-o', 'libpod']):
+                            return True
+                        # Many v2 setups just show long random hashes or /user.slice/...
+                        # so we also return True if deeply nested (heuristics)
+                        depth = len([p for p in path.split('/') if p])
+                        if depth >= 3:  # arbitrary but works well in practice
+                            return True
+        except Exception:
+            pass
+
+    # 4. Last resort: check if we're namespaced in a way typical for containers
+    # (not perfect, but helps in edge cases)
+    try:
+        if os.stat('/proc/1/ns/pid').st_ino != os.stat('/proc/self/ns/pid').st_ino:
+            return True  # different PID namespace → almost certainly containerized
+    except Exception:
+        pass
+
+    return False
+
+
 async def get_health_from_docker(url: str) -> dict | None:
     """Fetch heartbeat data from a Docker container."""
     try:
@@ -180,6 +247,8 @@ async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: st
 async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_code: str):
     try:        
         
+        is_docker = is_running_in_container()
+        logger.info(f"Running in container: {is_docker}")
         eval_type = BitrecsEvaluationType(problem_name)
         sleeps = [2, 5, 7]
         sleep = secrets.choice(sleeps)
@@ -215,7 +284,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             bitrecs_run_id = str(evaluation_run_id)
             af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
             af_mode = "docker"
-            af_hostname = "localhost"            
+            af_hostname = "localhost" if not is_running_in_container() else "bitrecs-network"
+            
             af_container_port = 8081
             af_run_token = secrets.token_hex(16)
             af_env_vars = {
@@ -232,7 +302,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 cleanup=False,
                 force_recreate=True,
                 host_port=af_container_port,
-                pull=True
+                pull=True,
+                network="bitrecs-network"
             )
             if env is None:
                 raise Exception("Failed to load Docker environment")
@@ -465,7 +536,7 @@ async def main():
     global session_id
     global running_agent_timeout_seconds
     global running_eval_timeout_seconds
-    global max_evaluation_run_log_size_bytes    
+    global max_evaluation_run_log_size_bytes        
     
     await register_validator()
     

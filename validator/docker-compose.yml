@@ -12,3 +12,9 @@ services:
     #   - .env
     environment:
       - PYTHONUNBUFFERED=1
+    networks:
+      - bitrecs-network
+
+networks:
+  bitrecs-network:
+    external: false
