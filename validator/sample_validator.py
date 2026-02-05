@@ -289,6 +289,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             
             af_run_token = secrets.token_hex(16)
             af_env_vars = {
+                "AFFINETES_PORT": "8081",  # Override affinetes' default port
                 "BITRECS_RUN_TOKEN": af_run_token,
                 "BITRECS_RUN_ID": bitrecs_run_id,
                 "OPENROUTER_API_KEY": openrouter_api_key,
@@ -301,7 +302,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 host_network=host_network,
                 cleanup=False,
                 force_recreate=True,
-                host_port=af_container_port,
+                #host_port=af_container_port,
                 pull=True,
                 network="bitrecs-network"
             )
