@@ -304,7 +304,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 raise Exception("Failed to load Docker environment")
             logger.info("Loaded Docker environment successfully")
 
-            docker_log_path = f"logs/eval_{bitrecs_run_id}.log"
+            #docker_log_path = f"logs/eval_{bitrecs_run_id}.log"
+            docker_log_path = f"{bitrecs_run_id}.log"
             env.start_logging(docker_log_path)
             
             af_health = await get_health_from_docker(f"http://{af_hostname}:{af_container_port}/health")
