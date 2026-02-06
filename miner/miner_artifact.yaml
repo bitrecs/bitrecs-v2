@@ -5,13 +5,13 @@ miner_hotkey: "5F95Nub62Fhwy3UFBMWg5eDou1B45yrzXaa7FjgXMALcER6r"
 miner_uid: 42
 ip_address: ""
 provider: "OPEN_ROUTER"
-model: "google/gemini-2.0-flash-lite-001"
+model: "nvidia/nemotron-3-nano-30b-a3b"
 
 system_prompt_template: |
-  You are a helpful assistant, today's date is {{current_date}}.
+  You are a shopping assistant, today's date is {{current_date}}.
 user_prompt_template: |
    # SCENARIO
-    You are an ecommerce product recommender with deep expertise in store catalog, product attributes, user behavior, and seasonal trends.
+    You are an ecommerce recommender with deep expertise in store catalog, product attributes, user behavior, and seasonal trends.
     A customer is shopping on your website, build a basket of {{num_recs}} product recommendations with no duplicates based on the provided context and utilizing your persona attributes.
         
     # YOUR PERSONA

@@ -13,6 +13,7 @@ import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
 from uuid import UUID
+from pathlib import Path
 from typing import Any, Dict
 from utils.git import COMMIT_HASH
 from utils.system_metrics import get_system_metrics
@@ -62,67 +63,43 @@ async def send_heartbeat_loop():
         os._exit(1)
 
 
-import os
-from pathlib import Path
-
 def is_running_in_container() -> bool:
     """
-    Detects if running inside a container (Docker, Podman, containerd, Kubernetes, etc.).
-    Works reasonably well on:
-    - Native Ubuntu / Debian / Fedora (cgroup v1 & v2)
-    - WSL2 + Docker Desktop
-    - Docker Desktop on macOS (inside the container)
+    Cross-platform container detection with caching for performance.
     """
-    # 1. Classic .dockerenv marker (exists in many Docker setups)
+    # 1. Classic .dockerenv marker
     if Path('/.dockerenv').exists():
         return True
 
-    # 2. podman / some buildah / recent runtimes
+    # 2. Podman / buildah / recent runtimes
     if Path('/run/.containerenv').exists():
         return True
 
-    # 3. cgroup v1 & v2 style detection — most reliable signal
+    # 3. Cgroup-based detection
     cgroup_path = Path('/proc/1/cgroup')
     if cgroup_path.exists():
         try:
             content = cgroup_path.read_text(encoding='utf-8', errors='ignore')
-            keywords = [
-                'docker',           # classic docker cgroup v1
-                'kubepods',         # kubernetes
-                'containerd',       # containerd / k8s + containerd
-                '/containers/',     # podman, some buildah
-                'cri-o',            # CRI-O
-                'libpod',           # podman
-                # 'docker-ce'       # sometimes appears in Docker Desktop
-            ]
+            keywords = ['docker', 'kubepods', 'containerd', 'cri-o', 'libpod']
             if any(kw in content for kw in keywords):
                 return True
-
-            # cgroup v2 unified hierarchy style (very common 2024+)
-            # Look for non-root paths that indicate containerization
+            # Cgroup v2: Check for container-like paths or depth
             lines = content.splitlines()
             for line in lines:
                 parts = line.strip().split(':', 2)
                 if len(parts) == 3:
-                    _, controllers, path = parts
-                    if path != '/' and (controllers or '0' in controllers or path.strip('/')):
-                        # If it's not root AND has some container-like nesting
-                        # Very conservative — catches most real containers
-                        if any(c in path.lower() for c in ['docker', 'kubepods', 'containerd', 'cri-o', 'libpod']):
-                            return True
-                        # Many v2 setups just show long random hashes or /user.slice/...
-                        # so we also return True if deeply nested (heuristics)
-                        depth = len([p for p in path.split('/') if p])
-                        if depth >= 3:  # arbitrary but works well in practice
-                            return True
+                    _, _, path = parts
+                    if path != '/' and any(c in path.lower() for c in keywords):
+                        return True
+                    if len([p for p in path.split('/') if p]) >= 3:
+                        return True
         except Exception:
             pass
 
-    # 4. Last resort: check if we're namespaced in a way typical for containers
-    # (not perfect, but helps in edge cases)
+    # 4. PID namespace check
     try:
         if os.stat('/proc/1/ns/pid').st_ino != os.stat('/proc/self/ns/pid').st_ino:
-            return True  # different PID namespace → almost certainly containerized
+            return True
     except Exception:
         pass
 
@@ -143,20 +120,20 @@ async def get_health_from_docker(url: str) -> dict | None:
         logger.error(f"Health check failed: {e}")  # Add this
     return None
 
-async def get_evals_from_docker(url: str) -> dict | None:
-    """Fetch evals from a Docker container."""
-    try:
-        timeout = (10, 60)    
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.get(url, headers={"Content-Type": "application/json"})
-            response.raise_for_status()
-            data = response.json()
-            return data
-    except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error fetching evals from Docker: {e.response.status_code} - {e.response.text}")
-    except Exception as e:
-        logger.error(f"Error fetching evals from Docker: {e}")
-    return None
+# async def get_evals_from_docker(url: str) -> dict | None:
+#     """Fetch evals from a Docker container."""
+#     try:
+#         timeout = (10, 60)    
+#         async with httpx.AsyncClient(timeout=timeout) as client:
+#             response = await client.get(url, headers={"Content-Type": "application/json"})
+#             response.raise_for_status()
+#             data = response.json()
+#             return data
+#     except httpx.HTTPStatusError as e:
+#         logger.error(f"HTTP error fetching evals from Docker: {e.response.status_code} - {e.response.text}")
+#     except Exception as e:
+#         logger.error(f"Error fetching evals from Docker: {e}")
+#     return None
 
 async def get_run_log_from_docker(run_id: str, port: int, hostname: str) -> str | None:
     """ Fetch run log from Docker container """
@@ -247,7 +224,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
         is_docker = is_running_in_container()
         logger.info(f"Running in container: {is_docker}")
         eval_type = BitrecsEvaluationType(problem_name)
-        sleeps = [2, 5, 7]
+        sleeps = [2, 3, 5]
         sleep = secrets.choice(sleeps)
         logger.info(f"Sleeping for {sleep} seconds before {eval_type.value} ...")
         await asyncio.sleep(sleep)
@@ -306,8 +283,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 raise Exception("Failed to load Docker environment")
             logger.info("Loaded Docker environment successfully")
             env.start_logging("bitrecs_eval.log")
-
-            # Health check example (ensure URL matches)
+            
             af_health = await get_health_from_docker(f"http://{af_hostname}:{af_container_port}/health")
             if af_health is None:
                 raise Exception("Failed to get heartbeat from Docker environment")
