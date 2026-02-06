@@ -156,6 +156,27 @@ async def get_run_log_from_docker(run_id: str, port: int, hostname: str) -> str 
     return None   
 
 
+async def get_eval_log_from_docker(run_id: str, port: int, hostname: str) -> str | None:
+    """ Fetch eval log from Docker container """
+    timeout = (10, 60)
+    try:        
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(
+                f"http://{hostname}:{port}/eval_log/{run_id}",
+                headers={"Content-Type": "application/json"}
+            )
+            if response.status_code == 200:
+                return response.json()                
+            else:
+                logger.error(f"Failed to get eval log for {run_id}: {response.status_code}")
+                return None
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error fetching eval log from Docker: {e.response.status_code} - {e.response.text}")
+    except Exception as e:
+        logger.error(f"Error fetching eval log from Docker: {e}")
+    return None
+
+
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
     """Load an agent by its evaluation run ID."""
     response = await get_ridges_platform(f"/agent/get-by-evaluation-run-id?evaluation_run_id={evaluation_run_id}", quiet=2)
@@ -282,7 +303,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             if env is None:
                 raise Exception("Failed to load Docker environment")
             logger.info("Loaded Docker environment successfully")
-            env.start_logging("bitrecs_eval.log")
+
+            docker_log_path = f"logs/eval_{bitrecs_run_id}.log"
+            env.start_logging(docker_log_path)
             
             af_health = await get_health_from_docker(f"http://{af_hostname}:{af_container_port}/health")
             if af_health is None:
@@ -343,10 +366,24 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             else:
                 logger.info("    No extra details available")   
             
+            this_log = "No logs available"
             run_log = await get_run_log_from_docker(run_id, af_container_port, af_hostname)
             if run_log is None:
                 logger.error("Failed to retrieve run log")
-            this_log = run_log["report"] if run_log and "report" in run_log else "No report available"            
+            if "error" in run_log:
+                logger.error(f"Error in run log: {run_log['error']}")
+                this_log = f"Run Log Error: {run_log['error']}"
+            else:
+                this_log = run_log["report"] if run_log and "report" in run_log else "No report available"     
+
+            eval_log = await get_eval_log_from_docker(run_id, af_container_port, af_hostname)
+            if eval_log is None:
+                logger.error("Failed to retrieve eval log")
+            if "error" in eval_log:
+                logger.error(f"Error in eval log: {eval_log['error']}")
+                this_log += f"\n\nEval Log Error: {eval_log['error']}"
+            else:
+                this_log += "\n\nEval Log:\n" + (eval_log["report"] if eval_log and "report" in eval_log else "No eval log available")       
 
             # Cleanup
             await env.cleanup()
