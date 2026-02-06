@@ -120,20 +120,6 @@ async def get_health_from_docker(url: str) -> dict | None:
         logger.error(f"Health check failed: {e}")  # Add this
     return None
 
-# async def get_evals_from_docker(url: str) -> dict | None:
-#     """Fetch evals from a Docker container."""
-#     try:
-#         timeout = (10, 60)    
-#         async with httpx.AsyncClient(timeout=timeout) as client:
-#             response = await client.get(url, headers={"Content-Type": "application/json"})
-#             response.raise_for_status()
-#             data = response.json()
-#             return data
-#     except httpx.HTTPStatusError as e:
-#         logger.error(f"HTTP error fetching evals from Docker: {e.response.status_code} - {e.response.text}")
-#     except Exception as e:
-#         logger.error(f"Error fetching evals from Docker: {e}")
-#     return None
 
 async def get_run_log_from_docker(run_id: str, port: int, hostname: str) -> str | None:
     """ Fetch run log from Docker container """
@@ -156,25 +142,17 @@ async def get_run_log_from_docker(run_id: str, port: int, hostname: str) -> str 
     return None   
 
 
-async def get_eval_log_from_docker(run_id: str, port: int, hostname: str) -> str | None:
-    """ Fetch eval log from Docker container """
-    timeout = (10, 60)
-    try:        
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.get(
-                f"http://{hostname}:{port}/eval_log/{run_id}",
-                headers={"Content-Type": "application/json"}
-            )
-            if response.status_code == 200:
-                return response.json()                
-            else:
-                logger.error(f"Failed to get eval log for {run_id}: {response.status_code}")
-                return None
-    except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error fetching eval log from Docker: {e.response.status_code} - {e.response.text}")
+async def get_eval_log(run_id: str) -> str | None:
+    log_path = os.path.join(PARENT_DIR, "logs", f"eval_{run_id}.log")
+    if not os.path.exists(log_path):
+        logger.error(f"Eval log file not found: {log_path}")
+        return None
+    try:
+        with open(log_path, "r") as f:
+            return f.read()
     except Exception as e:
-        logger.error(f"Error fetching eval log from Docker: {e}")
-    return None
+        logger.error(f"Error reading eval log file {log_path}: {e}")
+        return None
 
 
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
@@ -304,8 +282,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 raise Exception("Failed to load Docker environment")
             logger.info("Loaded Docker environment successfully")
 
-            #docker_log_path = f"logs/eval_{bitrecs_run_id}.log"
-            docker_log_path = f"{bitrecs_run_id}.log"
+            docker_log_path = f"logs/eval_{bitrecs_run_id}.log"
+            #docker_log_path = f"{bitrecs_run_id}.log"
             env.start_logging(docker_log_path)
             
             af_health = await get_health_from_docker(f"http://{af_hostname}:{af_container_port}/health")
@@ -377,14 +355,12 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             else:
                 this_log = run_log["report"] if run_log and "report" in run_log else "No report available"     
 
-            eval_log = await get_eval_log_from_docker(bitrecs_run_id, af_container_port, af_hostname)
+            eval_log = await get_eval_log(bitrecs_run_id)
             if eval_log is None:
                 logger.error("Failed to retrieve eval log")
-            elif "error" in eval_log:
-                logger.error(f"Error in eval log: {eval_log['error']}")
-                this_log += f"\n\nEval Log Error: {eval_log['error']}"
+                this_log += f"\n\nEval Log Error: Failed to retrieve eval log"
             else:
-                this_log += "\n\nEval Log:\n" + (eval_log["report"] if eval_log and "report" in eval_log else "No eval log available")       
+                this_log += "\n\nEval Log:\n" + (eval_log if eval_log else "No eval log available")
 
             # Cleanup
             await env.cleanup()
