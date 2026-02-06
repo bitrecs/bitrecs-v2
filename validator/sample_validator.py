@@ -370,16 +370,16 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             run_log = await get_run_log_from_docker(run_id, af_container_port, af_hostname)
             if run_log is None:
                 logger.error("Failed to retrieve run log")
-            if "error" in run_log:
+            elif "error" in run_log:
                 logger.error(f"Error in run log: {run_log['error']}")
                 this_log = f"Run Log Error: {run_log['error']}"
             else:
                 this_log = run_log["report"] if run_log and "report" in run_log else "No report available"     
 
-            eval_log = await get_eval_log_from_docker(run_id, af_container_port, af_hostname)
+            eval_log = await get_eval_log_from_docker(bitrecs_run_id, af_container_port, af_hostname)
             if eval_log is None:
                 logger.error("Failed to retrieve eval log")
-            if "error" in eval_log:
+            elif "error" in eval_log:
                 logger.error(f"Error in eval log: {eval_log['error']}")
                 this_log += f"\n\nEval Log Error: {eval_log['error']}"
             else:

@@ -5,7 +5,7 @@ miner_hotkey: "5F95Nub62Fhwy3UFBMWg5eDou1B45yrzXaa7FjgXMALcER6r"
 miner_uid: 42
 ip_address: ""
 provider: "OPEN_ROUTER"
-model: "nvidia/nemotron-3-nano-30b-a3b"
+model: "Qwen/Qwen3-235B-A22B-Instruct-2507-TEE"
 
 system_prompt_template: |
   You are a shopping assistant, today's date is {{current_date}}.
