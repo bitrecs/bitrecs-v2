@@ -11,7 +11,7 @@ from models.evaluation import Evaluation, EvaluationWithRuns
 from queries.evaluation_run import get_all_evaluation_runs_in_evaluation_id
 from models.agent import Agent, AgentScored, AgentStatus, BenchmarkAgentScored, PossiblyBenchmarkAgent
 from queries.agent import get_top_agents, get_agent_by_id, get_agents_in_queue, get_benchmark_agents, get_all_agents_by_miner_hotkey, get_latest_agent_for_miner_hotkey, get_possibly_benchmark_agent_by_id
-from queries.statistics import top_score, TopScoreOverTime, agents_created_24_hrs, ProblemSetCreationTime, PerfectlySolvedOverTime, get_top_scores_over_time, score_improvement_24_hrs, get_perfectly_solved_over_time, get_problem_set_creation_times
+from queries.statistics import top_score, TopScoreOverTime, agents_created_24_hrs, ProblemSetCreationTime, PerfectlySolvedOverTime, get_top_scores_over_time, score_improvement_24_hrs
 from utils.bittensor import is_hotkey_valid_format
 from api.utils.limiter import limiter
 router = APIRouter()
@@ -139,14 +139,14 @@ class PerfectlySolvedOverTimeResponse(BaseModel):
     problem_set_creation_times: List[ProblemSetCreationTime]
 
 
-@router.get("/perfectly-solved-over-time")
-@limiter.limit("60/minute")
-@ttl_cache(ttl_seconds=60 * 15) # 15 minutes
-async def perfectly_solved_over_time(request: Request) -> PerfectlySolvedOverTimeResponse:
-    return PerfectlySolvedOverTimeResponse(
-        perfectly_solved_over_times=await get_perfectly_solved_over_time(),
-        problem_set_creation_times=await get_problem_set_creation_times()
-    )
+# @router.get("/perfectly-solved-over-time")
+# @limiter.limit("60/minute")
+# @ttl_cache(ttl_seconds=60 * 15) # 15 minutes
+# async def perfectly_solved_over_time(request: Request) -> PerfectlySolvedOverTimeResponse:
+#     return PerfectlySolvedOverTimeResponse(
+#         perfectly_solved_over_times=await get_perfectly_solved_over_time(),
+#         problem_set_creation_times=await get_problem_set_creation_times()
+#     )
 
 
 # /retrieval/network-statistics

@@ -16,9 +16,6 @@ MINER_YAML_PATH = os.path.join(ROOT_DIR, "miner", "miner_artifact.yaml")
 #SERVICE_URL = "http://localhost:8000"
 SERVICE_URL =  config.RIDGES_PLATFORM_URL
 
-async def check():
-    pass
-
 
 def upload_prompt():
     #LOAD AND VALIDATE TEMPLATE
