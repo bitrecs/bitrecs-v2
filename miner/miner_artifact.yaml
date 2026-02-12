@@ -5,7 +5,7 @@ miner_hotkey: "5F95Nub62Fhwy3UFBMWg5eDou1B45yrzXaa7FjgXMALcER6r"
 miner_uid: 42
 ip_address: ""
 provider: "OPEN_ROUTER"
-model: "google/gemini-2.5-flash-lite-preview-09-2025"
+model: "openrouter/pony-alpha"
 
 system_prompt_template: |
   You are a shopping assistant, today's date is {{current_date}}.
@@ -74,7 +74,7 @@ user_prompt_template: |
     
 
 sampling_params:
-  temperature: 0.1
+  temperature: 0.2
   top_p: 0.9
   max_tokens: 2048
   stop_sequences: ["\n\n"]

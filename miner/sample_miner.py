@@ -2,19 +2,107 @@ import os
 import sys
 import time
 import httpx
+import hashlib
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from dotenv import load_dotenv
+load_dotenv()
+import utils.logger as logger
 from pathlib import Path
+from datetime import datetime, timezone
 from utils.models import normalize_model_name
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
-import validator.config as config
-import utils.logger as logger
+from rules.agent_comparer import AgentComparer
+from bittensor import Subtensor
+from version import __version__ as this_version
+from bittensor_wallet.wallet import Wallet
+from bittensor.extras import timelock
 
 ROOT_DIR = Path(__file__).parent.parent
 MINER_YAML_PATH = os.path.join(ROOT_DIR, "miner", "miner_artifact.yaml")
 
 #SERVICE_URL = "http://localhost:8000"
-SERVICE_URL =  config.RIDGES_PLATFORM_URL
+SERVICE_URL =  os.getenv('RIDGES_PLATFORM_URL', '')
+if not SERVICE_URL:
+    raise ValueError("RIDGES_PLATFORM_URL environment variable is not set. Please set it to the API endpoint URL.")
+
+CHAIN_ENDPOINT = os.getenv('SUBTENSOR_ADDRESS')
+NETWORK = os.getenv('SUBTENSOR_NETWORK', 'test')
+SUBTENSOR = Subtensor(network=CHAIN_ENDPOINT or NETWORK)
+NETUID = int(os.getenv('NETUID', 296))
+
+WALLET_NAME = os.getenv('MINER_WALLET_NAME')
+WALLET_HOTKEY = os.getenv('MINER_HOTKEY_NAME')
+
+MINER_WALLET = Wallet(WALLET_NAME, WALLET_HOTKEY)
+
+
+TEST_GIST = "https://gist.github.com/janusdotai/dfbcc6e1abdaaa365ab4ce6b7e6d785c"
+
+
+"""
+Miner Submission Process
+
+1) Aquire fresh hotkey (single use only)
+2) Create artifact.yaml, test/tune locally using eval-suite
+3) When ready, create a private github GIST with said artifact (ensure yaml file format)
+4) Run this script which will do the following:
+
+a: download and verify the artifact from the GIST
+b: timelock encrypt hotkey + artifact
+c: submit packge to API with commitment proof and signature
+d: fetch package back from API to confirm successful submission
+
+"""
+
+def timelock_encrypt(data: str, block_duration: int) -> str:
+    """Encrypt data using timelock encryption."""
+    encrypted_data = timelock.encrypt(data.encode('utf-8'), block_duration)
+    return encrypted_data.hex()
+
+
+def get_commitments(hotkey: str):
+    commitments = SUBTENSOR.get_all_commitments(netuid=NETUID)
+    
+    print(f"Total commitments retrieved: {len(commitments)}")
+    print(commitments)
+    for key, value in commitments.items():
+        print(key)
+        print(value)
+
+    return
+
+
+   
+
+def hash_and_commit(artifact: Agent) -> bool:
+    result = False
+    hash_fields = AgentComparer.get_agent_hash_fields(artifact)
+    print(f"Hash fields for artifact: {hash_fields}")        
+    sha256_hash = f"0x{AgentComparer.get_agent_hash(artifact)}"
+    print(f"Generated SHA256 hash for artifact: {sha256_hash}")
+    epoch_ns = int(datetime.now(tz=timezone.utc).timestamp() * 1_000_000_000)    
+    data = f"{sha256_hash}:{epoch_ns}"
+    print(f"Data to be committed: {data}")
+    signature = MINER_WALLET.sign(data.encode('utf-8'))
+    print(f"Generated signature for commitment: {signature}")
+
+    #return False
+
+    print("starting commitment submission...")
+    ext = SUBTENSOR.set_commitment(
+        wallet=MINER_WALLET,
+        netuid=NETUID,
+        data=data        
+    )
+    print(f"Commitment extrinsic: {ext}")   
+    if ext and ext.success:
+        print(f"Artifact commitment successful with hash: {sha256_hash}")
+        ext_hash = ext.extrinsic_receipt.get('hash')
+        result = True
+    else:
+        print(f"Artifact commitment failed for hash: {sha256_hash}")
+    return result
 
 
 def upload_prompt():
@@ -31,6 +119,13 @@ def upload_prompt():
         print(f"Artifact validation failed: {reason}")
         return   
     
+    if 1==1:
+        commited = hash_and_commit(artifact)
+        print(f"Artifact commit status: {commited}")
+        if not commited:
+            print("Artifact commitment failed, aborting upload.")
+            return
+    
     print(f"Valid, found variables: {reason}")  
     
     #UPLOAD TEMPLATE
@@ -39,7 +134,9 @@ def upload_prompt():
         "x-api-key": "your_api_key_here",
         "x-signature": "your_signature_here",
         "x-timestamp": "your_timestamp_here",
-        "x-nonce": "your_nonce_here"
+        "x-nonce": "your_nonce_here",
+        "x-commitment": "your_commitment_here"
+
     }         
 
     model_name = normalize_model_name(artifact.model, should_lower=True)
@@ -87,4 +184,12 @@ def upload_prompt():
 
 
 if __name__ == "__main__":
+    logger.info(f"Starting sample miner with version: {this_version}")
+    logger.info(f"wallet: {WALLET_NAME}, hotkey: {WALLET_HOTKEY}")
+
+    print("Retrieving existing commitments for miner wallet...")
+    get_commitments(MINER_WALLET.hotkey.ss58_address)        
+    exit()
+
+    print("Beginning artifact upload process...")
     upload_prompt()

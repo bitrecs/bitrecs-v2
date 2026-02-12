@@ -1,9 +1,7 @@
-import os
-import hashlib
-from turtle import distance
-import numpy as np
-import logging
 import json
+import logging
+import hashlib
+import numpy as np
 from typing import Optional
 from datetime import datetime, timezone
 from models.agent import Agent
@@ -25,9 +23,12 @@ class AgentComparer:
         self.embedding_dim = 768
         self.use_db_cache = use_db_cache
         self._memory_cache: dict[str, np.ndarray] = {}
-    
-    def _get_agent_text(self, agent: Agent) -> str:
-        """Generate concatenated text representation of agent for embedding."""
+
+    @staticmethod
+    def get_agent_hash_fields(agent: Agent) -> str:
+        """Generate a string representation of the agent fields relevant for hashing."""
+        if not agent:
+            raise ValueError("Agent instance is required to generate hash fields")
         return "\n".join([
             agent.provider,
             agent.model,
@@ -36,11 +37,21 @@ class AgentComparer:
             str(agent.sampling_params.temperature if agent.sampling_params.temperature is not None else "0.0"),
         ])
     
-    def _get_agent_hash(self, agent_text: str) -> str:
-        """Generate hash of agent text for cache key."""
-        sha = hashlib.sha256()
-        sha.update(agent_text.encode('utf-8'))
-        return sha.hexdigest()
+    @staticmethod
+    def get_agent_hash(agent: Agent) -> str:
+        hash_fields = AgentComparer.get_agent_hash_fields(agent)
+        return hashlib.sha256(hash_fields.encode('utf-8')).hexdigest()
+    
+    def _get_agent_text(self, agent: Agent) -> str:
+        """Generate concatenated text representation of agent for embedding."""
+        # return "\n".join([
+        #     agent.provider,
+        #     agent.model,
+        #     agent.system_prompt_template,
+        #     agent.user_prompt_template,
+        #     str(agent.sampling_params.temperature if agent.sampling_params.temperature is not None else "0.0"),
+        # ])
+        return AgentComparer.get_agent_hash_fields(agent)
     
     async def _log_embedding_request(
         self,
@@ -249,15 +260,13 @@ class AgentComparer:
         
         Cosine distance = 1 - cosine_similarity.
         Returns 0.0 for identical agents.
-        """
-        # Short-circuit for identical agents
+        """        
         if agent1.agent_id == agent2.agent_id:
             return 0.0
         
         vec1 = await self._vectorize_agent(agent1)
-        vec2 = await self._vectorize_agent(agent2)
+        vec2 = await self._vectorize_agent(agent2)        
         
-        # Compute cosine similarity
         dot_product = np.dot(vec1, vec2)
         norm1 = np.linalg.norm(vec1)
         norm2 = np.linalg.norm(vec2)
@@ -265,16 +274,12 @@ class AgentComparer:
         if norm1 == 0 or norm2 == 0:
             similarity = 1.0 if np.allclose(vec1, vec2) else 0.0
         else:
-            similarity = dot_product / (norm1 * norm2)
-            # Clamp similarity to [-1, 1] to handle floating point errors
+            similarity = dot_product / (norm1 * norm2)            
             similarity = np.clip(similarity, -1.0, 1.0)
         
         distance = 1 - similarity
+        distance = max(0.0, min(2.0, distance))        
         
-        # Clamp distance to [0, 2] and handle tiny negative values from floating point errors
-        distance = max(0.0, min(2.0, distance))
-        
-        # After computing distance        
         logger.debug(f"Cosine distance between {agent1.agent_id} and {agent2.agent_id}: {distance:.6f}")
 
         return float(distance)
@@ -325,7 +330,7 @@ class AgentComparer:
                     ORDER BY ae.embedding_vector <=> $1::vector
                     LIMIT $5
                 """, 
-                    str(vec.tolist()),  # Convert to string for pgvector
+                    str(vec.tolist()),
                     str(agent.agent_id),
                     self.provider.model,
                     threshold,

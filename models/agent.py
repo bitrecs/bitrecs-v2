@@ -54,6 +54,12 @@ class Agent(BaseModel):
         return yaml.safe_dump(agent.model_dump(mode='json'))
     
     @staticmethod
+    def from_path(path: str) -> "Agent":
+        with open(path, 'r', encoding='utf-8') as f:
+            yaml_content = f.read()
+        return Agent.from_yaml(yaml_content)
+    
+    @staticmethod
     def parse_agent_from_db_row(row: dict) -> "Agent":
         """Parse JSON fields from a DB row and return an Agent instance."""
         result = dict(row)

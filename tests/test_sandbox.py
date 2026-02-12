@@ -9,9 +9,9 @@ import affinetes as af_env
 import logging
 import yaml
 from dotenv import load_dotenv
-
-from models.eval_type import BitrecsEvaluationType
 load_dotenv()
+from models.eval_type import BitrecsEvaluationType
+
 
 logger = logging.getLogger(__name__)
 

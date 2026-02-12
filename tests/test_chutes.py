@@ -5,7 +5,7 @@ load_dotenv()
 
 
 def invoke_chute():
-    api_token = os.getenv("CHUTES_API_KEY", "")  # Replace with your actual API token
+    api_token = os.getenv("CHUTES_API_KEY", "")
 
     headers = {
         "Authorization": "Bearer " + api_token,
