@@ -351,6 +351,17 @@ async def validator_request_evaluation(
 
         #agent_code = await download_text_file_from_s3(f"{agent_id}/agent.py")
         agent_code = "test code"
+        try:
+
+            a = Agent.from_db(agent_id)
+            logger.info(f"Fetched agent from database for agent_id {agent_id}: {a}")
+            
+        except Exception as e:
+            logger.error(f"Error fetching agent from database for agent_id {agent_id}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error fetching agent from database for evaluation."
+            )
         evaluation_runs = [ValidatorRequestEvaluationResponseEvaluationRun(evaluation_run_id=evaluation_run.evaluation_run_id, problem_name=evaluation_run.problem_name) for evaluation_run in evaluation_runs]
 
         logger.debug(f"Downloaded agent code for {agent_id}, returning response")

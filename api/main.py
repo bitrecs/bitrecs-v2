@@ -1,11 +1,11 @@
 import os
-import secrets
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
 import base64
 import uuid
+import secrets
 import asyncio
 import threading
 import tracemalloc
@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 load_dotenv()
 from uuid import UUID
 from api import config
-from cachetools import TTLCache
 from typing import Dict, Any
 from utils.version import load_version_info
 from contextlib import asynccontextmanager
@@ -50,6 +49,10 @@ from rules.agent_comparer import AgentComparer
 from utils.r2 import validate_r2_bucket_connection
 from version import __version__ as this_version
 from api.utils.limiter import limiter
+from models.miner_submission import MinerSubmission
+from utils.gist import get_gist, get_gist_created_at
+from utils.verify import verify_submission_signature
+
 
 METAGRAPH_SYNC_INTERVAL = 900
 # PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
@@ -277,27 +280,6 @@ async def get_public_key(request: Request):
 
 
 
-# @app.get("/miners")
-# @limiter.limit("60/minute")
-# async def get_miners(request: Request):
-#     client_ip = get_client_ip(request)
-#     logger.info(f"Miners endpoint accessed from IP {client_ip}")
-#     snapshot, _ = metagraph_manager.get_snapshot()
-#     # miners everyone not in top 64 by stake
-#     miners = [node for node in snapshot.values() if node.get("stake", 0) > 0][64:264]
-#     return JSONResponse(content={"miners": miners})
-
-
-# @app.get("/validators")
-# @limiter.limit("60/minute")
-# async def get_validators(request: Request):
-#     client_ip = get_client_ip(request)
-#     logger.info(f"Validators endpoint accessed from IP {client_ip}")
-#     snapshot, _ = metagraph_manager.get_snapshot()
-#     # validators top 64 by stake
-#     validators = [node for node in snapshot.values() if node.get("stake", 0) > 0][:64]
-#     return JSONResponse(content={"validators": validators})
-
 
 @app.get("/artifact/{artifact_id}")
 @limiter.limit("60/minute")
@@ -339,6 +321,7 @@ async def get_artifacts(request: Request, limit: int = 10):
 @app.post("/artifact")
 @limiter.limit("60/minute")
 async def submit_artifact(request: Request, artifact: Dict[str, Any]):
+    raise NotImplementedError("This endpoint is deprecated. Please use /submit with MinerSubmission instead.")
     client_ip = get_client_ip(request)
     logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")
     request_id = secrets.token_hex(32)
@@ -423,6 +406,132 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
     except Exception as e:
         logger.error(f"Error submitting artifact: {e}")
         return JSONResponse(content={"error": "Failed to submit artifact"}, status_code=400)
+
+
+def has_hotkey_been_used_before(hotkey: str) -> bool:
+    # Implement logic to check if the hotkey has been used in previous submissions
+    # This could involve querying the database for existing agents with the same hotkey
+    return False  # Placeholder implementation, replace with actual logic
+
+def has_gist_been_used_before(gist_id: str) -> bool:
+    # Implement logic to check if the gist_id has been used in previous submissions
+    # This could involve querying the database for existing agents with the same gist_id
+    return False  # Placeholder implementation, replace with actual logic
+
+# def verify_submission_signature(submission: MinerSubmission) -> bool:
+#     preamble = f"{submission.created_at}:{submission.github_account}:{submission.gist_id}:{submission.hotkey}"
+#     preamble_bytes = preamble.encode('utf-8')
+#     signature_bytes = bytes.fromhex(submission.signature)
+#     return Keypair(ss58_address=submission.hotkey).verify(preamble_bytes, signature_bytes) 
+
+
+@app.post("/submit")
+@limiter.limit("60/minute")
+async def miner_submission(request: Request, submission: MinerSubmission):
+    client_ip = get_client_ip(request)
+    logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")
+    request_id = secrets.token_hex(32)
+    logger.info(f"Request ID: {request_id}")
+
+    if config.DISALLOW_UPLOADS:
+        # raise HTTPException(
+        #     status_code=503,
+        #     detail=config.DISALLOW_UPLOADS_REASON
+        # )
+        return JSONResponse(
+            content={"error": "Artifact submissions are currently disabled"},
+            status_code=503
+        )
+    
+    try:
+        if not verify_submission_signature(submission):
+            logger.warning(f"Invalid signature for submission from hotkey {submission.hotkey}")
+            return JSONResponse(content={"error": "Invalid signature"}, status_code=400)
+
+        gist_created_at = get_gist_created_at(submission.gist_id)
+        gist_raw_data = get_gist(submission.github_account, submission.gist_id)
+        artifact_instance = Agent.from_yaml(gist_raw_data)
+        if artifact_instance.agent_id is not None:
+            return JSONResponse(content={"error": "agent_id must not be set by the client"}, status_code=400)
+        
+        validated, reason = validate_artifact_template(artifact_instance)
+        if not validated:
+            logger.warning(reason)
+            return JSONResponse(content={"error": reason}, status_code=400)
+        
+        if submission.created_at != gist_created_at.isoformat():
+            logger.warning(
+                f"MinerSubmission created_at {submission.created_at} does not match Gist created_at {gist_created_at.isoformat()}"
+            )
+            return JSONResponse(content={"error": "created_at timestamp does not match Gist creation time"}, status_code=400)
+        
+        if has_hotkey_been_used_before(submission.hotkey):
+            logger.warning(f"Hotkey {submission.hotkey} has been used in a previous submission")
+            return JSONResponse(content={"error": "This hotkey has already been used in a previous submission"}, status_code=400)
+        
+        if has_gist_been_used_before(submission.gist_id):
+            logger.warning(f"Gist ID {submission.gist_id} has been used in a previous submission")
+            return JSONResponse(content={"error": "This Gist ID has already been used in a previous submission"}, status_code=400)
+
+        
+        # Assign UUID before similarity check (needed for embedding)
+        artifact_instance.agent_id = uuid.uuid4()
+        artifact_instance.ip_address = client_ip
+        if COSINE_COMPARE_ENABLED and 1==1:
+            logger.info("Cosine similarity check is ENABLED for artifact submissions")
+            logger.info(f"Checking similarity for artifact ID: {artifact_instance.agent_id}")
+            logger.info(f"Threshold: {SIMILARITY_THRESHOLD}")
+            
+            is_too_similar, similar_agents = await check_similar_agents(
+                artifact_instance,
+                similarity_threshold=SIMILARITY_THRESHOLD,
+                max_results=5
+            )
+            
+            if is_too_similar:                
+                similar_details = [
+                    {
+                        "agent_id": str(agent_id),
+                        "similarity_score": f"{1 - distance:.4f}",
+                        "distance": f"{distance:.4f}"
+                    }
+                    for agent_id, distance in similar_agents
+                ]                
+                logger.warning(
+                    f"Artifact submission rejected due to similarity: "
+                    f"{[{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]}"
+                )                
+                return JSONResponse(
+                    status_code=409,  # Conflict
+                    content={
+                        "error": "Agent is too similar to existing agents",
+                        "message": "This agent appears to be a duplicate or very similar to existing submissions",
+                        "similar_agents": similar_details,
+                        "threshold": SIMILARITY_THRESHOLD
+                    }
+                )
+            
+        # Create the agent in database        
+        artifact_instance.ip_address = request_id
+        artifact_id = await create_agent(artifact_instance)
+        logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
+        
+        response_content = {
+            "request_id": request_id,
+            "message": "Artifact submitted successfully",
+            "artifact_id": str(artifact_id),
+            "similarity_check": "passed",
+            "similar_results": [{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]
+        }
+        
+        return JSONResponse(status_code=201, content=response_content)
+    
+    except Exception as e:
+        logger.error(f"Error submitting artifact: {e}")
+        return JSONResponse(content={"error": "Failed to submit artifact"}, status_code=400)
+
+
+
 
 
 

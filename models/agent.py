@@ -1,10 +1,12 @@
 import json
 import yaml
+import utils.logger as logger
 from enum import Enum
+from uuid import UUID
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field
-from uuid import UUID
+from utils.database import DatabaseConnection, db_operation
 
 class AgentStatus(str, Enum):
     screening_1 = 'screening_1'
@@ -57,8 +59,24 @@ class Agent(BaseModel):
     def from_path(path: str) -> "Agent":
         with open(path, 'r', encoding='utf-8') as f:
             yaml_content = f.read()
-        return Agent.from_yaml(yaml_content)
-    
+        return Agent.from_yaml(yaml_content)   
+
+
+    @staticmethod
+    @db_operation
+    async def from_db(conn: DatabaseConnection, agent_id: str) -> "Agent":
+        try:
+            row = await conn.fetchrow("SELECT * FROM agents WHERE agent_id = $1", agent_id)
+            if row:
+                return Agent.parse_agent_from_db_row(row)
+            else:
+                raise ValueError(f"Agent with id {agent_id} not found")
+        except Exception as e:
+            logger.error(f"Error fetching agent {agent_id}: {e}")
+            raise
+
+
+
     @staticmethod
     def parse_agent_from_db_row(row: dict) -> "Agent":
         """Parse JSON fields from a DB row and return an Agent instance."""
