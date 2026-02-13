@@ -7,8 +7,49 @@ import utils.logger as logger
 from bittensor.core.errors import MetadataError
 from typing import Optional
 from utils.subtensor import get_subtensor
+from utils.verify import verify_submission_signature
 
 NETUID = int(os.getenv("NETUID", 296))
+
+
+async def is_commitment_valid(submission: MinerSubmission) -> bool:
+    """
+    Validate a miner submission by checking the on-chain commitment and verifying the signature.    
+    Each hotkey should have only one commitment, and the commitment data must match the submission data. 
+    Finally, the signature must be valid for the preamble constructed from the submission.      
+
+    Args:
+        submission (MinerSubmission): The miner submission to validate
+    Returns:
+        bool: True if the submission is valid, False otherwise
+    """
+    try:
+        sub = await get_subtensor()
+        commitments = await sub.get_revealed_commitment_by_hotkey(
+            netuid=NETUID,
+            hotkey_ss58=submission.hotkey
+        )
+        if not commitments:
+            logger.warning(f"No commitment found for hotkey {submission.hotkey}")
+            return False
+        if len(commitments) != 1:
+            logger.warning(f"Multiple commitments found for hotkey {submission.hotkey}, expected only one")
+            return False
+        
+        data_str = commitments[1]
+        data_dict = json.loads(data_str)
+        
+        if (data_dict.get("created_at") != submission.created_at or
+            data_dict.get("github_account") != submission.github_account or
+            data_dict.get("gist_id") != submission.gist_id):
+            logger.warning(f"Commitment data mismatch for hotkey {submission.hotkey}")
+            return False
+        
+        return verify_submission_signature(submission)
+    
+    except Exception as e:
+        logger.error(f"Error validating commitment: {e}")
+        return False
 
 
 async def get_miner_commitments(hotkey_ss58: str) -> Optional[list]:
@@ -19,7 +60,6 @@ async def get_miner_commitments(hotkey_ss58: str) -> Optional[list]:
     except Exception as e:
         logger.error(f"Error fetching miner commitments: {e}")
         return None
-    
 
 
 async def commit_to_chain(
@@ -29,7 +69,8 @@ async def commit_to_chain(
     coldkey: str,
     hotkey: str
 ) -> bool:
-    """Miner commitment to chain
+    """Miner commitment to chain indicating their ownership of the Gist artifact. 
+    The commitment data includes the GitHub account, Gist ID, creation timestamp, and the miner's hotkey.
 
     Args:
         github_account (str): GitHub account name
@@ -39,18 +80,14 @@ async def commit_to_chain(
         hotkey (str): Name of the hotkey in the wallet
       
     """  
-
-    # cold = coldkey or get_conf("BT_WALLET_COLD", "default")
-    # hot = hotkey or get_conf("BT_WALLET_HOT", "default")
+   
     wallet = bt.Wallet(name=coldkey, hotkey=hotkey)
     
     logger.info(f"Committing: {github_account}@{gist_id} (created_at: {created_at})")
     logger.info(f"Using wallet: {wallet.hotkey.ss58_address[:16]}...")
 
-    preamble = f"{created_at}:{github_account}:{gist_id}:{wallet.hotkey.ss58_address}"
-    print(f"Data to be signed: {preamble}")
+    preamble = f"{created_at}:{github_account}:{gist_id}:{wallet.hotkey.ss58_address}"    
     signature = wallet.hotkey.sign(preamble).hex()
-
     submission = MinerSubmission(
         created_at=created_at,
         github_account=github_account,

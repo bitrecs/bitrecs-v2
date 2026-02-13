@@ -424,6 +424,8 @@ def has_gist_been_used_before(gist_id: str) -> bool:
 #     signature_bytes = bytes.fromhex(submission.signature)
 #     return Keypair(ss58_address=submission.hotkey).verify(preamble_bytes, signature_bytes) 
 
+#https://gist.github.com/janusdotai/b7721a769c1609da425b3a15b03c5c59
+
 
 @app.post("/submit")
 @limiter.limit("60/minute")
@@ -477,7 +479,9 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         # Assign UUID before similarity check (needed for embedding)
         artifact_instance.agent_id = uuid.uuid4()
         artifact_instance.ip_address = client_ip
-        if COSINE_COMPARE_ENABLED and 1==1:
+
+        similar_agents = []
+        if COSINE_COMPARE_ENABLED and 1==2:
             logger.info("Cosine similarity check is ENABLED for artifact submissions")
             logger.info(f"Checking similarity for artifact ID: {artifact_instance.agent_id}")
             logger.info(f"Threshold: {SIMILARITY_THRESHOLD}")
@@ -529,9 +533,6 @@ async def miner_submission(request: Request, submission: MinerSubmission):
     except Exception as e:
         logger.error(f"Error submitting artifact: {e}")
         return JSONResponse(content={"error": "Failed to submit artifact"}, status_code=400)
-
-
-
 
 
 
