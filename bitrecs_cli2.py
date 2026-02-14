@@ -5,22 +5,23 @@ Bitrecs CLI - Upload miner artifacts to the Bitrecs platform.
 # https://github.com/ridgesai/ridges/blob/main/ridges.py 
 
 """
+import asyncio
 import os
 import time
 import httpx
 import click
 import subprocess
-import hashlib
+import functools
+from dotenv import load_dotenv
+load_dotenv()
 from bittensor_wallet.wallet import Wallet
 from typing import Optional
-from dotenv import load_dotenv
-
 from models.agent import Agent
 from models.miner_submission import MinerSubmission
 from rules.agent_validator import validate_artifact_template
 from rules.gist_validator import validate_artifact_gist
+from utils.commitment import commit_to_chain
 from utils.gist import get_gist, get_gist_created_at
-load_dotenv()
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -78,6 +79,13 @@ def cli(ctx, url):
     ctx.ensure_object(dict)
     ctx.obj['url'] = url
 
+def async_run(f):
+    """Decorator to run async functions in Click."""
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        return asyncio.run(f(*args, **kwargs))
+    return wrapper
+
 @cli.command()
 @click.option("--github-account", help="GitHub account name")
 @click.option("--gist-id", help="Gist ID containing your miner_artifact.yaml")
@@ -85,7 +93,8 @@ def cli(ctx, url):
 @click.option("--hotkey-name", help="Hotkey name")
 @click.option("--netuid", type=int, help="Netuid for the subnet")
 @click.pass_context
-def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str], coldkey_name: Optional[str], hotkey_name: Optional[str], netuid: Optional[int]):
+@async_run
+async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str], coldkey_name: Optional[str], hotkey_name: Optional[str], netuid: Optional[int]):
     """Upload a miner artifact to the Bitrecs API using alpha burn."""
     bitrecs = BitrecsCLI(ctx.obj.get('url'))
 
@@ -105,12 +114,12 @@ def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str], cold
         console.print(f"Artifact Gist validation failed: {reason}", style="bold red")
         return
 
-    gist_raw_data = get_gist(github_account, gist_id)   
+    gist_raw_data = get_gist(github_account, gist_id)
     artifact = Agent.from_yaml(gist_raw_data)
-    validated, reason = validate_artifact_template(artifact)    
+    validated, reason = validate_artifact_template(artifact)
     if not validated:
         console.print(f"Artifact validation failed: {reason}", style="bold red")
-        return    
+        return
     
     netuid = netuid or int(get_or_prompt("BITRECS_NETUID", "Enter the Netuid", "296"))
 
@@ -205,9 +214,7 @@ def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str], cold
             console.print(f"\n[yellow]Burn extrinsic submitted. If something goes wrong with the upload, you can use this information to get a refund")
             console.print(f"[cyan]Payment Block Hash:[/cyan] {receipt.block_hash}")
             console.print(f"[cyan]Payment Extrinsic Index:[/cyan] {receipt.extrinsic_idx}\n")
-
-            #files = {'agent_file': ('agent.py', file_content, 'text/plain')}
-            #files = {'agent_file': ('miner_artifact.yaml', file_content, 'text/plain')}
+         
             gist_created_at = get_gist_created_at(gist_id)
             preamble = f"{gist_created_at.isoformat()}:{github_account}:{gist_id}:{wallet.hotkey.ss58_address}"            
             signature = wallet.hotkey.sign(preamble).hex()
@@ -217,6 +224,15 @@ def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str], cold
                 gist_id=gist_id,
                 hotkey=wallet.hotkey.ss58_address,
                 signature=signature)
+            
+            commited = await commit_to_chain(submission.github_account, submission.gist_id, coldkey, hotkey)
+            if not commited:
+                console.print(f"\n[bold red]Commitment to chain failed![/bold red]")
+                return
+
+            #Wait min 12 seconds for reveal to be included on chain before uploading to API
+            console.print(f"\n[bold green]Commitment to chain successful! Waiting for reveal to be included on chain before uploading...[/bold green]")
+            time.sleep(12)
 
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
                 progress.add_task("Signing and uploading...", total=None)

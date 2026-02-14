@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from rules.agent_validator import validate_artifact_template
 from utils.commitment import commit_to_chain, get_miner_commitments, is_commitment_valid
 from utils.gist import get_gist, get_gist_created_at, get_gist_sha_commits
+from models.miner_submission import MinerSubmission
+
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -68,7 +70,7 @@ async def test_create_commitment():
 
 @pytest.mark.asyncio
 async def test_get_miner_commitments():
-    miner_commitments = await get_miner_commitments(MINER_WALLET_HOTKEY)
+    miner_commitments = await get_miner_commitments("MINER_WALLET_HOTKEY")
     print(f"Miner commitments: {miner_commitments}")
     success = 0
     errors = 0
@@ -104,8 +106,25 @@ def test_get_gist_sha_commits():
         assert isinstance(sha, str), "Each commit SHA should be a string"
         assert len(sha) == 40, "Each commit SHA should be 40 characters long"
     print(f"Total of {len(commits)} commits found for Gist {gist_id}")
-
-
-
     
 
+@pytest.mark.asyncio
+async def test_is_commitment_valid():    
+    created_at = datetime.now(timezone.utc).isoformat()
+    preamble = f"{created_at}:{GITHUB_ACCOUNT}:{GIST_ID}:{MINER_WALLET_HOTKEY}"
+    signature = MINER_WALLET.hotkey.sign(preamble).hex()
+    miner_submission = MinerSubmission(
+        created_at=created_at,
+        github_account=GITHUB_ACCOUNT,
+        gist_id=GIST_ID,
+        hotkey=MINER_WALLET_HOTKEY,
+        signature=signature
+    )
+    
+    commited = await commit_to_chain(GITHUB_ACCOUNT, GIST_ID, MINER_WALLET_NAME, MINER_WALLET_HOTKEY_NAME)
+    print(f"Commitment to chain result: {commited}")
+    assert commited, "Commitment to chain should succeed for the test submission"
+    
+    valid = await is_commitment_valid(miner_submission)
+    print(f"Is commitment valid? {valid}")
+    assert valid, "Commitment should be valid for the test submission"

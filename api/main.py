@@ -1,7 +1,5 @@
 import os
 import sys
-
-from utils.commitment import is_commitment_valid
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
@@ -54,7 +52,7 @@ from api.utils.limiter import limiter
 from models.miner_submission import MinerSubmission
 from utils.gist import get_gist, get_gist_created_at
 from utils.verify import verify_submission_signature
-
+from utils.commitment import is_commitment_valid
 
 METAGRAPH_SYNC_INTERVAL = 900
 # PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
@@ -292,7 +290,7 @@ async def get_artifact(request: Request, artifact_id: str):
         if not artifact_id or len(artifact_id.strip()) == 0:            
             return JSONResponse(content={"error": "Invalid artifact_id"}, status_code=400)        
         
-        agent = await get_agent_by_id(UUID(artifact_id))  # Convert str to UUID
+        agent = await get_agent_by_id(UUID(artifact_id))
         if not agent:
             return JSONResponse(content={"error": "Artifact not found"}, status_code=404)
         
@@ -420,13 +418,6 @@ def has_gist_been_used_before(gist_id: str) -> bool:
     # This could involve querying the database for existing agents with the same gist_id
     return False  # Placeholder implementation, replace with actual logic
 
-# def verify_submission_signature(submission: MinerSubmission) -> bool:
-#     preamble = f"{submission.created_at}:{submission.github_account}:{submission.gist_id}:{submission.hotkey}"
-#     preamble_bytes = preamble.encode('utf-8')
-#     signature_bytes = bytes.fromhex(submission.signature)
-#     return Keypair(ss58_address=submission.hotkey).verify(preamble_bytes, signature_bytes) 
-
-#https://gist.github.com/janusdotai/b7721a769c1609da425b3a15b03c5c59
 
 
 @app.post("/submit")
