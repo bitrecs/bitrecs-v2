@@ -1,5 +1,7 @@
 import os
 import sys
+
+from utils.commitment import is_commitment_valid
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
@@ -475,6 +477,11 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             logger.warning(f"Gist ID {submission.gist_id} has been used in a previous submission")
             return JSONResponse(content={"error": "This Gist ID has already been used in a previous submission"}, status_code=400)
 
+        #check chain commitment
+        commit_valid = await is_commitment_valid(submission)
+        if not commit_valid:
+            logger.warning(f"MinerSubmission commitment to chain is not valid for Gist {submission.gist_id}")
+            return JSONResponse(content={"error": "Commitment to chain is not valid for this submission"}, status_code=400)
         
         # Assign UUID before similarity check (needed for embedding)
         artifact_instance.agent_id = uuid.uuid4()

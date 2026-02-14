@@ -1,18 +1,14 @@
 import os
-import json
 import pytest
 import httpx
 from dotenv import load_dotenv
 load_dotenv()
 from models.agent import Agent
 from bittensor_wallet import Wallet
-from bittensor import timelock
 from datetime import datetime, timezone
 from rules.agent_validator import validate_artifact_template
-from utils.commitment import commit_to_chain, get_miner_commitments
-from utils.gist import get_gist, get_gist_created_at
-from utils.verify import verify_submission_signature
-from models.miner_submission import MinerSubmission
+from utils.commitment import commit_to_chain, get_miner_commitments, is_commitment_valid
+from utils.gist import get_gist, get_gist_created_at, get_gist_sha_commits
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -23,17 +19,6 @@ MINER_WALLET_NAME = os.getenv("MINER_WALLET_NAME")
 MINER_WALLET_HOTKEY_NAME = os.getenv("MINER_WALLET_HOTKEY_NAME")
 MINER_WALLET_HOTKEY = os.getenv("MINER_WALLET_HOTKEY")
 MINER_WALLET = Wallet(MINER_WALLET_NAME, MINER_WALLET_HOTKEY_NAME)
-
-
-# def timelock_encrypt(data: str, block_duration: int) -> Tuple[bytes, int]:
-#     """Encrypt data using timelock encryption."""
-#     encrypted_data, block = timelock.encrypt(data.encode('utf-8'), block_duration)
-#     return encrypted_data, block
-
-# def timelock_decrypt(encrypted_data: bytes) -> str:
-#     """Decrypt data using timelock decryption."""
-#     decrypted_data = timelock.wait_reveal_and_decrypt(encrypted_data, return_str=True)
-#     return decrypted_data
 
 
 def test_download_gist():
@@ -69,44 +54,14 @@ def test_gist_created_at():
     print(f"Gist age in hours: {hour_diff}")
 
 
-
 @pytest.mark.asyncio
-async def test_create_commitment():
-    gist_created_at = get_gist_created_at(GIST_ID)
-    gist_raw_data = get_gist(GITHUB_ACCOUNT, GIST_ID)   
+async def test_create_commitment():    
+    gist_raw_data = get_gist(GITHUB_ACCOUNT, GIST_ID)
     artifact = Agent.from_yaml(gist_raw_data)
     validated, reason = validate_artifact_template(artifact)
-    assert validated, f"Artifact validation failed: {reason}"    
+    assert validated, f"Artifact validation failed: {reason}"   
     
-    preamble = f"{gist_created_at.isoformat()}:{GITHUB_ACCOUNT}:{GIST_ID}:{MINER_WALLET_HOTKEY}"
-    print(f"Data to be signed: {preamble}")
-    signature = MINER_WALLET.hotkey.sign(preamble).hex()
-    print(f"Generated signature: {signature}")    
-    
-    submission = MinerSubmission(
-        created_at=gist_created_at.isoformat(),
-        github_account=GITHUB_ACCOUNT,
-        gist_id=GIST_ID,
-        hotkey=MINER_WALLET_HOTKEY,      
-        signature=signature
-    )
-    #print(submission)
-    assert submission.created_at == gist_created_at.isoformat()
-    assert submission.github_account == GITHUB_ACCOUNT
-    assert submission.gist_id == GIST_ID
-    assert submission.hotkey == MINER_WALLET_HOTKEY
-    assert submission.signature == signature
-
-    v = verify_submission_signature(submission)
-    print(f"Signature verification result: {v}")
-    assert v, "Signature verification should succeed" 
-    
-    commitment_result = await commit_to_chain(github_account=submission.github_account,
-        gist_id=submission.gist_id,
-        created_at=submission.created_at,
-        coldkey=MINER_WALLET_NAME,
-        hotkey=MINER_WALLET_HOTKEY_NAME
-    )
+    commitment_result = await commit_to_chain(GITHUB_ACCOUNT, GIST_ID, MINER_WALLET_NAME, MINER_WALLET_HOTKEY_NAME)
     print(f"Commitment result: {commitment_result}")
     assert commitment_result, "Commitment to chain should succeed"
 
@@ -123,12 +78,12 @@ async def test_get_miner_commitments():
         for i, (block, json_str) in enumerate(miner_commitments):
             try:
                 print(f"Commitment {i}: ({block}, {json_str})")
-                commitment_data = json.loads(json_str)
-                miner_submission = MinerSubmission(**commitment_data)
-                print(f"Parsed MinerSubmission: {miner_submission}")
-                verified = verify_submission_signature(miner_submission)
-                print(f"Signature verification for commitment {i}: {verified}")
-                assert verified, f"Signature verification failed for commitment {i}"
+                commitment_data = json_str
+                parts = commitment_data.split(":")
+                assert len(parts) == 2, f"Commitment data should have 2 parts separated by ':', got {len(parts)} parts"
+                commit_sha, content_sha = parts
+                assert len(commit_sha) == 40, f"Commit SHA should be 40 characters long, got {len(commit_sha)} characters"
+                assert len(content_sha) == 64, f"Content SHA should be 64 characters long, got {len(content_sha)} characters"              
                 success += 1
             except Exception as e:
                 print(f"Error parsing commitment {i}: {e}")                
@@ -139,47 +94,16 @@ async def test_get_miner_commitments():
 
 
 
-# def test_miner_submission_e2e():    
-#     # Step 1: Download and validate artifact from GIST
-#     gist_created_at = get_gist_created_at(GIST_ID)
-#     gist_raw_data = get_gist(GITHUB_ACCOUNT, GIST_ID)   
-#     artifact = Agent.from_yaml(gist_raw_data)
-#     validated, reason = validate_artifact_template(artifact)
-#     assert validated, f"Artifact validation failed: {reason}"
-    
-#     # Step 2: Create MinerSubmission instance with signature
-#     preamble = f"{gist_created_at.isoformat()}:{GITHUB_ACCOUNT}:{GIST_ID}:{MINER_WALLET_HOTKEY}"
-#     print(f"Data to be signed: {preamble}")
-#     signature = MINER_WALLET.hotkey.sign(preamble).hex()
-#     print(f"Generated signature: {signature}")
-    
-#     from models.miner_submission import MinerSubmission
-#     submission = MinerSubmission(
-#         created_at=gist_created_at.isoformat(),
-#         github_account=GITHUB_ACCOUNT,
-#         gist_id=GIST_ID,
-#         hotkey=MINER_WALLET_HOTKEY,      
-#         signature=signature
-#     )
-#     print(submission)
-#     assert submission.created_at == gist_created_at.isoformat()
-#     assert submission.github_account == GITHUB_ACCOUNT
-#     assert submission.gist_id == GIST_ID
-#     assert submission.hotkey == MINER_WALLET_HOTKEY
-#     assert submission.signature == signature
-
-#     v = verify_submission_signature(submission)
-#     print(f"Signature verification result: {v}")
-#     assert v, "Signature verification should succeed"
-
-#     byte_data = pickle.dumps(submission)
-#     n_blocks = 1
-#     encrypted, reveal_round = timelock.encrypt(byte_data, n_blocks)
-#     print(f"Encrypted submission (hex): {encrypted.hex()}")
-#     decrypted_bytes = timelock.wait_reveal_and_decrypt(encrypted)
-#     decrypted_submission = pickle.loads(decrypted_bytes)
-#     print(f"Decrypted submission: {decrypted_submission}")
-#     assert decrypted_submission == submission, "Decrypted submission should match the original submission"
+def test_get_gist_sha_commits():
+    gist_id = GIST_ID
+    commits = get_gist_sha_commits(gist_id)
+    print(f"Commits for Gist {gist_id}: {commits}")
+    assert isinstance(commits, list), "Commits should be a list"
+    assert len(commits) > 0, "There should be at least one commit"
+    for sha in commits:
+        assert isinstance(sha, str), "Each commit SHA should be a string"
+        assert len(sha) == 40, "Each commit SHA should be 40 characters long"
+    print(f"Total of {len(commits)} commits found for Gist {gist_id}")
 
 
 

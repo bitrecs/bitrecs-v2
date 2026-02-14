@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 from models.agent import Agent
 from models.miner_submission import MinerSubmission
 from rules.agent_validator import validate_artifact_template
+from rules.gist_validator import validate_artifact_gist
 from utils.gist import get_gist, get_gist_created_at
 load_dotenv()
 from rich.console import Console
@@ -98,8 +99,12 @@ def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str], cold
     coldkey = coldkey_name or get_or_prompt("OWNER_COLDKEY", "Enter your coldkey name", "default")
     hotkey = hotkey_name or get_or_prompt("BITRECS_HOTKEY_NAME", "Enter your hotkey name", "default")
     wallet = Wallet(name=coldkey, hotkey=hotkey)
+    
+    validated, reason = validate_artifact_gist(gist_id)
+    if not validated:
+        console.print(f"Artifact Gist validation failed: {reason}", style="bold red")
+        return
 
-    gist_created_at = get_gist_created_at(gist_id)
     gist_raw_data = get_gist(github_account, gist_id)   
     artifact = Agent.from_yaml(gist_raw_data)
     validated, reason = validate_artifact_template(artifact)    
@@ -203,7 +208,7 @@ def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str], cold
 
             #files = {'agent_file': ('agent.py', file_content, 'text/plain')}
             #files = {'agent_file': ('miner_artifact.yaml', file_content, 'text/plain')}
-          
+            gist_created_at = get_gist_created_at(gist_id)
             preamble = f"{gist_created_at.isoformat()}:{github_account}:{gist_id}:{wallet.hotkey.ss58_address}"            
             signature = wallet.hotkey.sign(preamble).hex()
             submission = MinerSubmission(
