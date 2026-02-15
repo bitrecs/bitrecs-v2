@@ -123,3 +123,56 @@ async def commit_to_chain(
         logger.error(f"Commit failed: {e}")
         print(json.dumps({"success": False, "error": str(e)}))
         raise
+
+
+
+async def commit_to_chain_with_wallet(   
+    github_account: str,
+    gist_id: str,   
+    wallet: bt.Wallet
+) -> bool:
+    """Miner commitment to chain indicating their ownership of the Gist artifact.    
+    Args:      
+        github_account (str): GitHub account name
+        gist_id (str): Gist ID containing the artifact.yaml        
+        wallet (bt.Wallet): Already decrypted Bittensor wallet object
+    """
+   
+    logger.info(f"Committing ownership of Gist {gist_id} to chain")
+    logger.info(f"Using wallet: {wallet.hotkey.ss58_address[:16]}...")
+
+    commit_sha = get_gist_sha_commits(gist_id)[0]
+    content_sha = get_gist_hash(github_account, gist_id)
+    preamble = f"{commit_sha}:{content_sha}"    
+   
+    async def _commit():
+        sub = await get_subtensor()
+        data = preamble        
+        while True:
+            try:
+                await sub.set_reveal_commitment(
+                    wallet=wallet,
+                    netuid=NETUID,
+                    data=data,
+                    blocks_until_reveal=1
+                )
+                break
+            except MetadataError as e:
+                if "SpaceLimitExceeded" in str(e):
+                    logger.warning("Space limit exceeded, waiting for next block...")
+                    await sub.wait_for_block()
+                else:
+                    raise
+    
+    try:
+        await _commit()
+        
+        print(f"Commited: {preamble} for hotkey {wallet.hotkey.ss58_address}")        
+        logger.info("Commit successful")
+        return True
+    
+    except Exception as e:
+        logger.error(f"Commit failed: {e}")
+        print(json.dumps({"success": False, "error": str(e)}))
+        raise
+
