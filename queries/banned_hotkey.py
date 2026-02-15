@@ -3,6 +3,15 @@ from typing import Optional
 from models.banned_hotkey import BannedHotkey
 from utils.database import db_operation, DatabaseConnection
 
+@db_operation
+async def is_hotkey_used(conn: DatabaseConnection, hotkey: str) -> bool:
+    result = await conn.fetchrow(
+        """
+        SELECT COUNT(*) FROM agents WHERE miner_hotkey = $1
+        """,
+        hotkey
+    )
+    return result[0] > 0
 
 
 @db_operation

@@ -32,8 +32,8 @@ import utils.logger as logger
 from utils.commitment import commit_to_chain_with_wallet  # Add this import
 
 console = Console()
-DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
-#DEFAULT_API_BASE_URL = "http://localhost:8000"
+#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
+DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 
 def run_cmd(cmd: str, capture: bool = True) -> tuple[int, str, str]:
@@ -100,7 +100,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
     
     start_time = time.perf_counter()
     bitrecs = BitrecsCLI(ctx.obj.get('url'))
-    
+    netuid = netuid or int(get_or_prompt("BITRECS_NETUID", "Enter the Netuid", "296"))    
     if not any([github_account, gist_id]):
         console.print("Please provide either --github-account and --gist-id, or ensure the corresponding environment variables are set.", style="bold red")
         return
@@ -123,10 +123,18 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
     if not validated:
         console.print(f"Artifact validation failed: {reason}", style="bold red")
         return
-    
-    netuid = netuid or int(get_or_prompt("BITRECS_NETUID", "Enter the Netuid", "296"))
 
-    #console.print(Panel(f"[bold cyan]Uploading Artifact (Burn Alpha)[/bold cyan]\n[yellow]Hotkey:[/yellow] {wallet.hotkey.ss58_address}\n[yellow]File:[/yellow] {file}\n[yellow]API:[/yellow] {bitrecs.api_url}\n[yellow]Netuid:[/yellow] {netuid}", title="Upload Burn", border_style="cyan"))
+    gist_created_at = get_gist_created_at(gist_id)
+    preamble = f"{gist_created_at.isoformat()}:{github_account}:{gist_id}:{wallet.hotkey.ss58_address}"
+    signature = wallet.hotkey.sign(preamble).hex()
+    submission = MinerSubmission(
+        created_at=gist_created_at.isoformat(),
+        github_account=github_account,
+        gist_id=gist_id,
+        hotkey=wallet.hotkey.ss58_address,
+        signature=signature)
+    
+    console.print(Panel(f"[bold cyan]Preparing to Upload Artifact with Burn[/bold cyan]\n[yellow]GitHub Account:[/yellow] {github_account}\n[yellow]Gist ID:[/yellow] {gist_id}\n[yellow]Hotkey:[/yellow] {wallet.hotkey.ss58_address}\n[yellow]Netuid:[/yellow] {netuid}", title="Upload Burn", border_style="cyan"))    
     
     try:
         logger.info(f"Starting upload with burn for Gist {gist_id} using wallet {wallet.hotkey.ss58_address} on Netuid {netuid}")
@@ -138,21 +146,20 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 return
             else:
                 console.print(f"No existing agent found with hotkey {wallet.hotkey.ss58_address}. Proceeding with upload.", style="bold green")
-            # check_response = client.post(f"{bitrecs.api_url}/upload/agent/check", files={'agent_file': ('miner_artifact.yaml', file_content, 'text/plain')}, data=check_payload, timeout=120)
-            # if check_response.status_code != 200:
-            #     console.print(f"Error checking agent: {check_response.text}", style="bold red")
-            #     return
+           
+            check_response = client.post(f"{bitrecs.api_url}/check", json=submission.to_dict(), timeout=120)
+            if check_response.status_code != 200:
+                console.print(f"Error checking agent: {check_response.text}", style="bold red")
+                return
 
             # Send payment for evaluation
-            payment_time_start = time.time()
-            payment_response = client.get(f"{bitrecs.api_url}/upload/eval-pricing")
+            #payment_time_start = time.time()
 
+            payment_response = client.get(f"{bitrecs.api_url}/upload/eval-pricing")
             if payment_response.status_code != 200:
                 console.print("Error fetching evaluation cost", style="bold red")
-                return
-            
-            payment_method_details = payment_response.json()
-            
+                return            
+            payment_method_details = payment_response.json()            
             confirm_payment = Prompt.ask(
                 f"\n[bold yellow]Proceed with BURNING of {payment_method_details['amount_rao'] / 1e9} ALPHA on Netuid {netuid}?[/bold yellow]", 
                 choices=["y", "n"], 
@@ -193,15 +200,15 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 return receipt
             
             async def commit_to_chain_task():
-                gist_created_at = get_gist_created_at(gist_id)
-                preamble = f"{gist_created_at.isoformat()}:{github_account}:{gist_id}:{hotkey_address}"  # Use cached address
-                signature = hotkey_keypair.sign(preamble).hex()  # Use cached keypair
-                submission = MinerSubmission(
-                    created_at=gist_created_at.isoformat(),
-                    github_account=github_account,
-                    gist_id=gist_id,
-                    hotkey=hotkey_address,  # Use cached address
-                    signature=signature)
+                # gist_created_at = get_gist_created_at(gist_id)
+                # preamble = f"{gist_created_at.isoformat()}:{github_account}:{gist_id}:{hotkey_address}"  # Use cached address
+                # signature = hotkey_keypair.sign(preamble).hex()  # Use cached keypair
+                # submission = MinerSubmission(
+                #     created_at=gist_created_at.isoformat(),
+                #     github_account=github_account,
+                #     gist_id=gist_id,
+                #     hotkey=hotkey_address,  # Use cached address
+                #     signature=signature)
                 commited = await commit_to_chain_with_wallet(submission.github_account, submission.gist_id, wallet)
                 if not commited:
                     raise Exception("Commitment to chain failed")

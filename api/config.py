@@ -59,7 +59,7 @@ if not DISALLOW_UPLOADS:
 DISALLOW_UPLOADS = DISALLOW_UPLOADS.lower() == "true"
 
 if DISALLOW_UPLOADS:
-    DISALLOW_UPLOADS_REASON = os.getenv("DISALLOW_UPLOADS_REASON")
+    DISALLOW_UPLOADS_REASON = os.getenv("DISALLOW_UPLOADS_REASON", "System Maintenanence - Artifact submissions are temporarily disabled")
     if not DISALLOW_UPLOADS_REASON:
         logger.fatal("DISALLOW_UPLOADS_REASON is not set in .env")
 

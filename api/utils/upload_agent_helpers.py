@@ -4,10 +4,21 @@ from datetime import datetime, timedelta, timezone
 from fastapi import UploadFile, HTTPException
 from bittensor_wallet.keypair import Keypair
 from api.config import MINER_AGENT_UPLOAD_RATE_LIMIT_SECONDS
-from queries.banned_hotkey import get_banned_hotkey
+from queries.banned_hotkey import get_banned_hotkey, is_hotkey_used
 from utils.bittensor import check_if_hotkey_is_registered
 
 MAX_FILE_SIZE_MB = 1
+
+
+async def check_if_hotkey_used(hotkey: str) -> None:
+    is_used = await is_hotkey_used(hotkey)
+    if is_used:
+        logger.error(f"A miner attempted to upload an agent with a hotkey that is already in use: {hotkey}.")
+        raise HTTPException(
+            status_code=400,
+            detail="Hotkey has already been used for an agent submission. Please register a new hotkey"
+        )
+
 
 def get_miner_hotkey(file_info: str) -> str:
     logger.debug(f"Getting miner hotkey from file info: {file_info}.")

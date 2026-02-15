@@ -18,16 +18,18 @@ from typing import Dict, Any
 from utils.version import load_version_info
 from contextlib import asynccontextmanager
 from fastapi.responses import JSONResponse
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from slowapi.middleware import SlowAPIMiddleware
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
-from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id
+from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id, get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id
 from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
+from api.utils.upload_agent_helpers import check_agent_banned, check_hotkey_registered, check_if_hotkey_used, check_rate_limit
 from utils.network import get_client_ip
+from utils.bittensor import is_hotkey_valid_format
 from api.set_loop import validator_evaluation_set_builder_loop
 from api.endpoints.validator import get_connected_validators_info, router as validator_router
 from api.endpoints.debug import router as debug_router
@@ -38,7 +40,7 @@ from api.endpoints.evaluation_sets import router as evaluation_sets_router
 from api.endpoints.scoring import router as scoring_router
 from api.endpoints.statistics import router as statistics_router
 from api.endpoints.retrieval import router as retrieval_router
-from api.endpoints.upload import router as upload_router
+from api.endpoints.upload import AgentUploadResponse, ErrorResponse, router as upload_router
 from api.endpoints.dashboard import router as dashboard_router
 from api.endpoints.metagraph import router as metagraph_router
 from api.snapshot import metagraph_snapshot
@@ -420,7 +422,66 @@ def has_gist_been_used_before(gist_id: str) -> bool:
 
 
 
-@app.post("/submit")
+
+@app.post(
+    "/check",
+    tags=["upload"],
+    response_model=AgentUploadResponse
+)
+@limiter.limit("60/minute")
+async def check_agent_post(
+    request: Request,
+    submission: MinerSubmission
+) -> AgentUploadResponse:
+    
+    if config.DISALLOW_UPLOADS:
+        raise HTTPException(
+            status_code=503,
+            detail=config.DISALLOW_UPLOADS_REASON
+        )
+    
+    if not verify_submission_signature(submission):
+        logger.warning(f"Invalid signature for submission from hotkey {submission.hotkey}")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid signature for submission"
+        )
+    
+    #miner_hotkey = get_miner_hotkey(file_info)
+    miner_hotkey = submission.hotkey
+    if not is_hotkey_valid_format(miner_hotkey):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Miner hotkey {miner_hotkey} is not a valid format"
+        )
+    
+    latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
+    if latest_agent_created_at_in_latest_set_id:
+        check_rate_limit(latest_agent_created_at_in_latest_set_id)
+    
+    #check_signature(public_key, file_info, signature)
+    await check_if_hotkey_used(miner_hotkey)
+    #await check_hotkey_registered(miner_hotkey)
+    await check_agent_banned(miner_hotkey=miner_hotkey) 
+  
+    return AgentUploadResponse(
+        status="success",
+        message=f"Agent check successful"
+    )
+
+
+
+@app.post("/submit",
+    tags=["submit"],
+    response_model=AgentUploadResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Bad Request - Invalid input or validation failed"},
+        402: {"model": ErrorResponse, "description": "Payment Required - Payment failed or insufficient funds"},
+        409: {"model": ErrorResponse, "description": "Conflict - Upload request already processed"},
+        429: {"model": ErrorResponse, "description": "Too Many Requests - Rate limit exceeded"},
+        500: {"model": ErrorResponse, "description": "Internal Server Error - Server-side processing failed"},
+        503: {"model": ErrorResponse, "description": "Service Unavailable - No screeners available for evaluation"}
+    })
 @limiter.limit("60/minute")
 async def miner_submission(request: Request, submission: MinerSubmission):
     client_ip = get_client_ip(request)
@@ -429,14 +490,10 @@ async def miner_submission(request: Request, submission: MinerSubmission):
     logger.info(f"Request ID: {request_id}")
 
     if config.DISALLOW_UPLOADS:
-        # raise HTTPException(
-        #     status_code=503,
-        #     detail=config.DISALLOW_UPLOADS_REASON
-        # )
-        return JSONResponse(
-            content={"error": "Artifact submissions are currently disabled"},
-            status_code=503
-        )
+        raise HTTPException(
+            status_code=503,
+            detail=config.DISALLOW_UPLOADS_REASON
+        )        
     
     try:
         if not verify_submission_signature(submission):
