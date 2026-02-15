@@ -445,9 +445,8 @@ async def check_agent_post(
         raise HTTPException(
             status_code=400,
             detail="Invalid signature for submission"
-        )
+        )    
     
-    #miner_hotkey = get_miner_hotkey(file_info)
     miner_hotkey = submission.hotkey
     if not is_hotkey_valid_format(miner_hotkey):
         raise HTTPException(
@@ -457,13 +456,35 @@ async def check_agent_post(
     
     latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
     if latest_agent_created_at_in_latest_set_id:
-        check_rate_limit(latest_agent_created_at_in_latest_set_id)
+        check_rate_limit(latest_agent_created_at_in_latest_set_id)    
     
-    #check_signature(public_key, file_info, signature)
     await check_if_hotkey_used(miner_hotkey)
     #await check_hotkey_registered(miner_hotkey)
     await check_agent_banned(miner_hotkey=miner_hotkey) 
-  
+
+    gist_created_at = get_gist_created_at(submission.gist_id)
+    gist_raw_data = get_gist(submission.github_account, submission.gist_id)
+    artifact_instance = Agent.from_yaml(gist_raw_data)
+    if artifact_instance.agent_id is not None:
+        return JSONResponse(content={"error": "agent_id must not be set by the client"}, status_code=400)
+    
+    validated, reason = validate_artifact_template(artifact_instance)
+    if not validated:
+        logger.warning(reason)
+        return JSONResponse(content={"error": reason}, status_code=400)
+    
+    if submission.created_at != gist_created_at.isoformat():
+        logger.warning(
+            f"MinerSubmission created_at {submission.created_at} does not match Gist created_at {gist_created_at.isoformat()}"
+        )
+        return JSONResponse(content={"error": "created_at timestamp does not match Gist creation time"}, status_code=400)
+    
+    if artifact_instance.miner_hotkey != submission.hotkey:
+        logger.warning(
+            f"MinerSubmission hotkey {submission.hotkey} does not match artifact miner_hotkey {artifact_instance.miner_hotkey}"
+        )
+        return JSONResponse(content={"error": "Miner hotkey in submission does not match miner hotkey in artifact"}, status_code=400)
+    
     return AgentUploadResponse(
         status="success",
         message=f"Agent check successful"
@@ -516,6 +537,12 @@ async def miner_submission(request: Request, submission: MinerSubmission):
                 f"MinerSubmission created_at {submission.created_at} does not match Gist created_at {gist_created_at.isoformat()}"
             )
             return JSONResponse(content={"error": "created_at timestamp does not match Gist creation time"}, status_code=400)
+        
+        if artifact_instance.miner_hotkey != submission.hotkey:
+            logger.warning(
+                f"MinerSubmission hotkey {submission.hotkey} does not match artifact miner_hotkey {artifact_instance.miner_hotkey}"
+            )
+            return JSONResponse(content={"error": "Miner hotkey in submission does not match miner hotkey in artifact"}, status_code=400)
         
         if has_hotkey_been_used_before(submission.hotkey):
             logger.warning(f"Hotkey {submission.hotkey} has been used in a previous submission")

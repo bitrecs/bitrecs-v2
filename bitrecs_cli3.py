@@ -5,15 +5,17 @@ Bitrecs CLI - Upload miner artifacts to the Bitrecs platform.
 # https://github.com/ridgesai/ridges/blob/main/ridges.py 
 
 """
-import asyncio
+
 import os
 import time
 import httpx
 import click
+import asyncio
 import subprocess
 import functools
 from dotenv import load_dotenv
 load_dotenv()
+import utils.logger as logger
 from bittensor_wallet.wallet import Wallet
 from typing import Optional
 from models.agent import Agent
@@ -28,8 +30,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
 from bittensor import Subtensor
 from version import __version__ as this_version
-import utils.logger as logger
-from utils.commitment import commit_to_chain_with_wallet  # Add this import
+from utils.commitment import commit_to_chain_with_wallet
+from async_substrate_interface import ExtrinsicReceipt
 
 console = Console()
 #DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
@@ -151,10 +153,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             if check_response.status_code != 200:
                 console.print(f"Error checking agent: {check_response.text}", style="bold red")
                 return
-
-            # Send payment for evaluation
-            #payment_time_start = time.time()
-
+        
             payment_response = client.get(f"{bitrecs.api_url}/upload/eval-pricing")
             if payment_response.status_code != 200:
                 console.print("Error fetching evaluation cost", style="bold red")
@@ -169,7 +168,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 console.print("[bold red]Burn cancelled by user. Upload aborted.[/bold red]")
                 return
 
-            # Decrypt wallets BEFORE starting progress spinners - force full initialization
+            # Decrypt wallets and pre-connect to subtensor before starting progress to avoid long waits with spinner and no updates.
             console.print("[dim]Decrypting wallets...[/dim]")
             coldkey_keypair = wallet.coldkey  # Decrypt and cache coldkey
             hotkey_keypair = wallet.hotkey    # Decrypt and cache hotkey
@@ -180,7 +179,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             network = os.getenv('SUBTENSOR_NETWORK', 'test')
             subtensor = Subtensor(network=chain_endpoint or network)
             
-            async def burn_alpha():
+            async def burn_alpha() -> ExtrinsicReceipt:
                 payment_payload = subtensor.substrate.compose_call(
                     call_module="SubtensorModule",
                     call_function="burn_alpha",
@@ -199,7 +198,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 console.print(f"[cyan]Payment Extrinsic Index:[/cyan] {receipt.extrinsic_idx}\n")
                 return receipt
             
-            async def commit_to_chain_task():
+            async def commit_to_chain_task() -> MinerSubmission:
                 # gist_created_at = get_gist_created_at(gist_id)
                 # preamble = f"{gist_created_at.isoformat()}:{github_account}:{gist_id}:{hotkey_address}"  # Use cached address
                 # signature = hotkey_keypair.sign(preamble).hex()  # Use cached keypair
@@ -215,7 +214,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 console.print(f"\n[bold green]Commitment to chain successful![/bold green]")
                 return submission
             
-            # Start progress AFTER decryption
+            # Start progress 
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
                 burn_task_id = progress.add_task("Submitting burn transaction...", total=None)
                 commit_task_id = progress.add_task("Committing to chain...", total=None)
