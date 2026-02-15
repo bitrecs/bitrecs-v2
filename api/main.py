@@ -425,7 +425,7 @@ def has_gist_been_used_before(gist_id: str) -> bool:
 async def miner_submission(request: Request, submission: MinerSubmission):
     client_ip = get_client_ip(request)
     logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")
-    request_id = secrets.token_hex(32)
+    request_id = secrets.token_hex(16)
     logger.info(f"Request ID: {request_id}")
 
     if config.DISALLOW_UPLOADS:
@@ -475,8 +475,8 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             return JSONResponse(content={"error": "Commitment to chain is not valid for this submission"}, status_code=400)
         
         # Assign UUID before similarity check (needed for embedding)
-        artifact_instance.agent_id = uuid.uuid4()
-        artifact_instance.ip_address = client_ip
+        artifact_instance.agent_id = uuid.uuid4()        
+        artifact_instance.ip_address = request_id #obfuscate IP with request ID for privacy
 
         similar_agents = []
         if COSINE_COMPARE_ENABLED and 1==2:
@@ -513,8 +513,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
                     }
                 )
             
-        # Create the agent in database        
-        artifact_instance.ip_address = request_id
+        
         artifact_id = await create_agent(artifact_instance)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
         

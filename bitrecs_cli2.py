@@ -28,11 +28,11 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
 from bittensor import Subtensor
 from version import __version__ as this_version
-
+import utils.logger as logger
 
 console = Console()
-#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
-DEFAULT_API_BASE_URL = "http://localhost:8000"
+DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
+#DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 
 def run_cmd(cmd: str, capture: bool = True) -> tuple[int, str, str]:
@@ -96,6 +96,9 @@ def async_run(f):
 @async_run
 async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str], coldkey_name: Optional[str], hotkey_name: Optional[str], netuid: Optional[int]):
     """Upload a miner artifact to the Bitrecs API using alpha burn."""
+
+    start_time  = time.perf_counter()
+
     bitrecs = BitrecsCLI(ctx.obj.get('url'))
 
     if not any([github_account, gist_id]):
@@ -126,15 +129,8 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
     #console.print(Panel(f"[bold cyan]Uploading Artifact (Burn Alpha)[/bold cyan]\n[yellow]Hotkey:[/yellow] {wallet.hotkey.ss58_address}\n[yellow]File:[/yellow] {file}\n[yellow]API:[/yellow] {bitrecs.api_url}\n[yellow]Netuid:[/yellow] {netuid}", title="Upload Burn", border_style="cyan"))
     
     try:
-        # with open(file, 'rb') as f:
-        #     file_content = f.read()
-        
-        # content_hash = hashlib.sha256(file_content).hexdigest()
-        
-        public_key = wallet.hotkey.public_key.hex()
+        logger.info(f"Starting upload with burn for Gist {gist_id} using wallet {wallet.hotkey.ss58_address} on Netuid {netuid}")
 
-        name = Prompt.ask("Enter a name for your miner artifact")
-        
         with httpx.Client() as client:
             #response = client.get(f"{bitrecs.api_url}/retrieval/agent-by-hotkey?miner_hotkey={wallet.hotkey.ss58_address}")
             
@@ -235,7 +231,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             time.sleep(12)
 
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
-                progress.add_task("Signing and uploading...", total=None)
+                progress.add_task("Submitting artifact...", total=None)
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                     'Accept': 'application/json',
@@ -245,16 +241,27 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 response = client.post(submit_url, json=submission.to_dict(), timeout=120, headers=headers)
             
             if response.status_code == 201:
-                console.print(Panel(f"[bold green]Upload Complete[/bold green]\n[cyan]Miner '{name}' uploaded successfully![/cyan]", title="Success", border_style="green"))
+                console.print(Panel(f"[bold green]Upload Complete[/bold green]\n[cyan]Artifact uploaded successfully![/cyan]", title="Success", border_style="green"))
+                console.print(f"The {submission.github_account}/{submission.gist_id} artifact has been uploaded and is queued for evaluation. You can check the status of your submission on the Bitrecs platform.")
+
+                artifact_id = response.json().get('artifact_id')
+                console.print(f"Your artifact ID is: [yellow]{artifact_id}[/yellow]")
+
             else:
                 error = response.json().get('detail', 'Unknown error') if response.headers.get('content-type', '').startswith('application/json') else response.text
                 console.print(f"Upload failed (status {response.status_code}): {error}", style="bold red")
+
+
+            end_time = time.perf_counter()
+            elapsed = end_time - start_time
+            logger.info(f"Upload failed after {elapsed:.2f} seconds with error: {error}")
+            console.print(f"Upload process took {elapsed:.2f} seconds before failure.", style="dim")
                     
     except Exception as e:
         console.print(f"Error: {e}", style="bold red")
         raise e
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     run_cmd(". .venv/bin/activate")
     cli()
