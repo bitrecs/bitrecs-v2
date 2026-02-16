@@ -2,11 +2,11 @@
 import os
 import json
 import bittensor as bt
+import utils.logger as logger
+from typing import Optional
 from models.miner_submission import MinerSubmission
 from utils.gist import get_gist_hash, get_gist_sha_commits
-import utils.logger as logger
 from bittensor.core.errors import MetadataError
-from typing import Optional
 from utils.subtensor import get_subtensor
 from utils.verify import verify_submission_signature
 

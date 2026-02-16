@@ -152,9 +152,6 @@ async def check_database_health() -> bool:
 
 
 
-
-
-
 _per_context_conn: contextvars.ContextVar[Optional[DatabaseConnection]] = contextvars.ContextVar('db_connection', default=None)
 
 def db_operation(func):
