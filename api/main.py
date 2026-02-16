@@ -14,11 +14,11 @@ from dotenv import load_dotenv
 load_dotenv()
 from uuid import UUID
 from api import config
-from typing import Dict, Any
+from typing import Annotated, Dict, Any
 from utils.version import load_version_info
 from contextlib import asynccontextmanager
 from fastapi.responses import JSONResponse
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Header, Request
 from slowapi.middleware import SlowAPIMiddleware
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -27,7 +27,7 @@ from rules.agent_validator import validate_artifact_template
 from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id, get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id
 from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
-from api.utils.upload_agent_helpers import check_agent_banned, check_hotkey_registered, check_if_hotkey_used, check_rate_limit
+from api.utils.upload_agent_helpers import check_agent_banned, check_hotkey_registered, check_if_gist_used, check_if_hotkey_used, check_rate_limit
 from utils.network import get_client_ip
 from utils.bittensor import is_hotkey_valid_format
 from api.set_loop import validator_evaluation_set_builder_loop
@@ -55,10 +55,11 @@ from models.miner_submission import MinerSubmission
 from utils.gist import get_gist, get_gist_created_at
 from utils.verify import verify_submission_signature
 from utils.commitment import is_commitment_valid
+from queries.hotkey_gist import log_hotkey_gist
+
 
 METAGRAPH_SYNC_INTERVAL = 900
-# PROVIDER_PING_CACHE = TTLCache(maxsize=10, ttl=3600)
-# REQUEST_HASH_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
+
 # NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
 BT_NETUID = int(os.environ.get("BT_NETUID", 296))
@@ -410,17 +411,6 @@ async def submit_artifact(request: Request, artifact: Dict[str, Any]):
         return JSONResponse(content={"error": "Failed to submit artifact"}, status_code=400)
 
 
-def has_hotkey_been_used_before(hotkey: str) -> bool:
-    # Implement logic to check if the hotkey has been used in previous submissions
-    # This could involve querying the database for existing agents with the same hotkey
-    return False  # Placeholder implementation, replace with actual logic
-
-def has_gist_been_used_before(gist_id: str) -> bool:
-    # Implement logic to check if the gist_id has been used in previous submissions
-    # This could involve querying the database for existing agents with the same gist_id
-    return False  # Placeholder implementation, replace with actual logic
-
-
 
 
 @app.post(
@@ -431,7 +421,7 @@ def has_gist_been_used_before(gist_id: str) -> bool:
 @limiter.limit("60/minute")
 async def check_agent_post(
     request: Request,
-    submission: MinerSubmission
+    submission: MinerSubmission   
 ) -> AgentUploadResponse:
     
     if config.DISALLOW_UPLOADS:
@@ -459,8 +449,9 @@ async def check_agent_post(
         check_rate_limit(latest_agent_created_at_in_latest_set_id)    
     
     await check_if_hotkey_used(miner_hotkey)
+    await check_if_gist_used(submission.gist_id)
     #await check_hotkey_registered(miner_hotkey)
-    await check_agent_banned(miner_hotkey=miner_hotkey) 
+    await check_agent_banned(miner_hotkey) 
 
     gist_created_at = get_gist_created_at(submission.gist_id)
     gist_raw_data = get_gist(submission.github_account, submission.gist_id)
@@ -479,7 +470,7 @@ async def check_agent_post(
         )
         return JSONResponse(content={"error": "created_at timestamp does not match Gist creation time"}, status_code=400)
     
-    if artifact_instance.miner_hotkey != submission.hotkey:
+    if artifact_instance.miner_hotkey.lower().strip() != submission.hotkey.lower().strip():
         logger.warning(
             f"MinerSubmission hotkey {submission.hotkey} does not match artifact miner_hotkey {artifact_instance.miner_hotkey}"
         )
@@ -544,13 +535,8 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             )
             return JSONResponse(content={"error": "Miner hotkey in submission does not match miner hotkey in artifact"}, status_code=400)
         
-        if has_hotkey_been_used_before(submission.hotkey):
-            logger.warning(f"Hotkey {submission.hotkey} has been used in a previous submission")
-            return JSONResponse(content={"error": "This hotkey has already been used in a previous submission"}, status_code=400)
-        
-        if has_gist_been_used_before(submission.gist_id):
-            logger.warning(f"Gist ID {submission.gist_id} has been used in a previous submission")
-            return JSONResponse(content={"error": "This Gist ID has already been used in a previous submission"}, status_code=400)
+        await check_if_hotkey_used(submission.hotkey)     
+        await check_if_gist_used(submission.gist_id)     
 
         #check chain commitment
         commit_valid = await is_commitment_valid(submission)
@@ -599,6 +585,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             
         
         artifact_id = await create_agent(artifact_instance)
+        await log_hotkey_gist(hotkey=submission.hotkey, gist=submission.gist_id)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
         
         response_content = {

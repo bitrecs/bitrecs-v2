@@ -1,4 +1,5 @@
 import httpx
+from queries.hotkey_gist import get_hotkey_from_gist
 import utils.logger as logger
 from datetime import datetime, timedelta, timezone
 from fastapi import UploadFile, HTTPException
@@ -17,6 +18,15 @@ async def check_if_hotkey_used(hotkey: str) -> None:
         raise HTTPException(
             status_code=400,
             detail="Hotkey has already been used for an agent submission. Please register a new hotkey"
+        )
+    
+async def check_if_gist_used(gist: str) -> None:
+    hotkey = await get_hotkey_from_gist(gist)
+    if hotkey is not None:
+        logger.error(f"A miner attempted to upload an agent with a gist that is already in use: {gist}.")
+        raise HTTPException(
+            status_code=400,
+            detail="Gist has already been used for an agent submission. Please create a new gist"
         )
 
 
