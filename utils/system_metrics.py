@@ -1,7 +1,8 @@
+import psutil
 from typing import Optional
 from pydantic import BaseModel
 from utils import logger
-
+from utils.docker import get_num_docker_containers
 
 class SystemMetrics(BaseModel):
     """
@@ -26,18 +27,14 @@ async def get_system_metrics() -> SystemMetrics:
     metrics = SystemMetrics()
 
     try:
-        #metrics.cpu_percent = psutil.cpu_percent()
-
-        #memory = psutil.virtual_memory()
-        # metrics.ram_percent = memory.percent
-        # metrics.ram_total_gb = memory.total / (1000 ** 3)
-
-        # #disk = psutil.disk_usage('/')
-        # metrics.disk_percent = disk.percent
-        # metrics.disk_total_gb = disk.total / (1000 ** 3)
-
-        # #metrics.num_containers = get_num_docker_containers()
-        pass
+        metrics.cpu_percent = psutil.cpu_percent()
+        memory = psutil.virtual_memory()
+        metrics.ram_percent = memory.percent
+        metrics.ram_total_gb = memory.total / (1000 ** 3)
+        disk = psutil.disk_usage('/')
+        metrics.disk_percent = disk.percent
+        metrics.disk_total_gb = disk.total / (1000 ** 3)
+        metrics.num_containers = get_num_docker_containers()
 
     except Exception as e:
         logger.warning(f"Error in get_system_metrics(): {e}")
