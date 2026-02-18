@@ -34,10 +34,27 @@ async def build_docker_image(dockerfile_dir: str, tag: str) -> None:
     logger.info(f"Successfully built Docker image: {tag}")
 
 
+# async def get_num_docker_containers() -> int:
+#     # This is equivalent to `docker ps -q | wc -l`
+#     result = await asyncio.to_thread(subprocess.run, ["docker", "ps", "-q"], capture_output=True, text=True, timeout=1)
+#     return len([line for line in result.stdout.strip().split('\n') if line.strip()])
+
+
 async def get_num_docker_containers() -> int:
-    # This is equivalent to `docker ps -q | wc -l`
-    result = await asyncio.to_thread(subprocess.run, ["docker", "ps", "-q"], capture_output=True, text=True, timeout=1)
-    return len([line for line in result.stdout.strip().split('\n') if line.strip()])
+    """
+    Get the number of running Docker containers using the Docker API.
+    Returns None if Docker is not accessible (e.g., socket not mounted or no permissions).
+    """
+    try:
+        client = docker.from_env()  # Connects via /var/run/docker.sock by default
+        containers = client.containers.list()  # List running containers
+        return len(containers)
+    except docker.errors.DockerException as e:
+        logger.warning(f"Docker API not accessible (likely not in DinD or socket not mounted): {e}")
+        return 0
+    except Exception as e:
+        logger.warning(f"Unexpected error in get_num_docker_containers(): {e}")
+        return 0
 
 
 async def stop_and_delete_all_docker_containers() -> None:
