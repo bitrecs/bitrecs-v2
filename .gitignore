@@ -209,3 +209,4 @@ __marimo__/
 message_and_signature.*
 *.sqlite
 *.sqlite3
+scores.db

@@ -34,8 +34,8 @@ from utils.commitment import commit_to_chain_with_wallet
 from async_substrate_interface import ExtrinsicReceipt
 
 console = Console()
-#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
-DEFAULT_API_BASE_URL = "http://localhost:8000"
+DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
+#DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 
 def run_cmd(cmd: str, capture: bool = True) -> tuple[int, str, str]:

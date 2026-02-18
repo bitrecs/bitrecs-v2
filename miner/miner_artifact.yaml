@@ -2,10 +2,10 @@ name: "bitrecs recommender"
 version_num: "1"
 status: "screening_1"
 miner_hotkey: "5F95Nub62Fhwy3UFBMWg5eDou1B45yrzXaa7FjgXMALcER6r"
-miner_uid: 42
+miner_uid: ""
 ip_address: ""
-provider: "CHUTES"
-model: "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8-TEE"
+provider: "OPEN_ROUTER"
+model: "z-ai/glm-5"
 
 system_prompt_template: |
   You are a shopping assistant, today's date is {{current_date}}.

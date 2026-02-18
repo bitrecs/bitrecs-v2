@@ -550,7 +550,7 @@ async def main():
     global session_id
     global running_agent_timeout_seconds
     global running_eval_timeout_seconds
-    global max_evaluation_run_log_size_bytes        
+    global max_evaluation_run_log_size_bytes
     
     await register_validator()
     
