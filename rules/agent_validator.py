@@ -25,8 +25,8 @@ def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
     # if agent.agent_id is not None:
     #     return False, "agent_id must not be set by the client" 
     
-    if len(agent.miner_hotkey) == 0:
-        return False, "miner_hotkey must not be empty"
+    # if len(agent.miner_hotkey) == 0:
+    #     return False, "miner_hotkey must not be empty"
     if len(agent.name) == 0:
         return False, "name must not be empty"
     if agent.version_num <= 0:

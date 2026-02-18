@@ -31,12 +31,17 @@ from evaluator.models import EvaluationRunException
 from models.eval_type import BitrecsEvaluationType
 from validator.set_weights import set_weights_from_mapping
 from validator.http_utils import get_ridges_platform, post_ridges_platform
+from scoring.calculator import calculate_scores
+from scoring.persist import ScorePersister
+from utils.subtensor import get_subtensor
 
-session_id: str | None = None
 
 EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+
+session_id: str | None = None
+state_backup = ScorePersister(base_path=PARENT_DIR, filename="scores.db")
 
 async def set_weights_loop():
     logger.info("Starting set weights loop...")
@@ -47,6 +52,16 @@ async def set_weights_loop():
         except asyncio.TimeoutError as e:
             logger.error(f"asyncio.TimeoutError in set_weights_from_mapping(): {e}")
         await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
+
+
+async def calculate_scores_loop():
+    logger.info("Starting calculate scores loop...")
+    while True:
+        try:
+            await asyncio.wait_for(calculate_scores(), timeout=120)
+        except asyncio.TimeoutError as e:
+            logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
+        await asyncio.sleep(300)
 
 
 async def send_heartbeat_loop():
@@ -107,17 +122,17 @@ def is_running_in_container() -> bool:
 
 
 async def get_health_from_docker(url: str) -> dict | None:
-    logger.info(f"Attempting health check to: {url}")  # Add this
+    logger.info(f"Attempting health check to: {url}")
     try:
         async with httpx.AsyncClient(timeout=(10, 60)) as client:
             response = await client.get(url)
-            logger.info(f"Health check response: {response.status_code} - {response.text}")  # Add this
+            logger.info(f"Health check response: {response.status_code} - {response.text}")
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as e:
-        logger.error(f"Health check HTTP error: {e.response.status_code} - {e.response.text}")  # Add this
+        logger.error(f"Health check HTTP error: {e.response.status_code} - {e.response.text}")
     except Exception as e:
-        logger.error(f"Health check failed: {e}")  # Add this
+        logger.error(f"Health check failed: {e}")
     return None
 
 
@@ -238,6 +253,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info(f"Miner Agent ID: {miner_agent.agent_id}")
             logger.info(f"Miner Agent Name: {miner_agent.name}")
             logger.info(f"Miner Agent Status: {miner_agent.status}")
+            logger.info(f"Miner Agent Hotkey: {miner_agent.miner_hotkey}")
 
             logger.info(f"Testing model: {miner_agent.model} with provider: {miner_agent.provider}")
 
@@ -374,6 +390,16 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 score=eval_score,
                 duration=duration
             )
+          
+            saved = state_backup.save_result(uid=miner_agent.miner_uid, 
+                                     hotkey=miner_agent.miner_hotkey, 
+                                     score=eval_score, 
+                                     run_id=str(evaluation_run_id), 
+                                     task_name=tak_name, 
+                                     success=success, duration=duration)
+            if not saved:
+                logger.error("Failed to save result to local backup")
+
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
                 "test_results": [problem_test_result.model_dump()],
                 "eval_logs": this_log
@@ -535,6 +561,9 @@ async def main():
         
         asyncio.create_task(set_weights_loop())
         logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")        
+
+        asyncio.create_task(calculate_scores_loop())
+        logger.info("CALCULATE SCORES SYNC LOOP AS VALIDATOR")
     
     # Loop forever, just keep requesting evaluations and running them
     while True:

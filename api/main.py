@@ -1,5 +1,7 @@
 import os
 import sys
+
+from utils.subtensor import get_subtensor
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
@@ -544,6 +546,11 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             logger.warning(f"MinerSubmission commitment to chain is not valid for Gist {submission.gist_id}")
             return JSONResponse(content={"error": "Commitment to chain is not valid for this submission"}, status_code=400)
         
+        sub = await get_subtensor()
+        miner_uid = await sub.get_uid_for_hotkey_on_subnet(hotkey_ss58=submission.hotkey, netuid=config.NETUID)
+        artifact_instance.miner_uid = miner_uid
+        logger.info(f"Miner UID {miner_uid} for {submission.hotkey} ")
+
         # Assign UUID before similarity check (needed for embedding)
         artifact_instance.agent_id = uuid.uuid4()        
         artifact_instance.ip_address = request_id #obfuscate IP with request ID for privacy
