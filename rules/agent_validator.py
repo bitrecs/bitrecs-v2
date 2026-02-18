@@ -31,8 +31,8 @@ def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
         return False, "name must not be empty"
     if agent.version_num <= 0:
         return False, "version_num must be greater than 0"
-    if agent.miner_uid <= 0:
-        return False, "miner_uid must be greater than 0"
+    # if agent.miner_uid <= 0:
+    #     return False, "miner_uid must be greater than 0"
     if len(agent.provider) == 0:
         return False, "provider must not be empty"
     if len(agent.model) == 0:
