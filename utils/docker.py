@@ -1,4 +1,6 @@
+import os
 import asyncio
+from pathlib import Path
 import docker
 import subprocess
 import threading
@@ -42,8 +44,7 @@ async def build_docker_image(dockerfile_dir: str, tag: str) -> None:
 
 async def get_num_docker_containers() -> int:
     """
-    Get the number of running Docker containers using the Docker API.
-    Returns None if Docker is not accessible (e.g., socket not mounted or no permissions).
+    Get the number of running Docker containers using the Docker API.  
     """
     try:
         client = docker.from_env()  # Connects via /var/run/docker.sock by default
@@ -108,3 +109,48 @@ async def connect_docker_container_to_internet(container: docker.models.containe
     await asyncio.to_thread(bridge_network.connect, container)
     
     logger.info(f"Connected Docker container {container.name} to internet")
+
+
+
+
+def is_running_in_container() -> bool:
+    """
+    Cross-platform container detection with caching for performance.
+    """
+    # 1. Classic .dockerenv marker
+    if Path('/.dockerenv').exists():
+        return True
+
+    # 2. Podman / buildah / recent runtimes
+    if Path('/run/.containerenv').exists():
+        return True
+
+    # 3. Cgroup-based detection
+    cgroup_path = Path('/proc/1/cgroup')
+    if cgroup_path.exists():
+        try:
+            content = cgroup_path.read_text(encoding='utf-8', errors='ignore')
+            keywords = ['docker', 'kubepods', 'containerd', 'cri-o', 'libpod']
+            if any(kw in content for kw in keywords):
+                return True
+            # Cgroup v2: Check for container-like paths or depth
+            lines = content.splitlines()
+            for line in lines:
+                parts = line.strip().split(':', 2)
+                if len(parts) == 3:
+                    _, _, path = parts
+                    if path != '/' and any(c in path.lower() for c in keywords):
+                        return True
+                    if len([p for p in path.split('/') if p]) >= 3:
+                        return True
+        except Exception:
+            pass
+
+    # 4. PID namespace check
+    try:
+        if os.stat('/proc/1/ns/pid').st_ino != os.stat('/proc/self/ns/pid').st_ino:
+            return True
+    except Exception:
+        pass
+
+    return False

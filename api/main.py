@@ -450,10 +450,11 @@ async def check_agent_post(
     if latest_agent_created_at_in_latest_set_id:
         check_rate_limit(latest_agent_created_at_in_latest_set_id)    
     
-    await check_if_hotkey_used(miner_hotkey)
-    await check_if_gist_used(submission.gist_id)
-    #await check_hotkey_registered(miner_hotkey)
-    await check_agent_banned(miner_hotkey) 
+    if config.ENV == "prod":
+        await check_if_hotkey_used(miner_hotkey)
+        await check_if_gist_used(submission.gist_id)
+        #await check_hotkey_registered(miner_hotkey)
+        await check_agent_banned(miner_hotkey) 
 
     gist_created_at = get_gist_created_at(submission.gist_id)
     gist_raw_data = get_gist(submission.github_account, submission.gist_id)
@@ -537,8 +538,9 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             )
             return JSONResponse(content={"error": "Miner hotkey in submission does not match miner hotkey in artifact"}, status_code=400)
         
-        await check_if_hotkey_used(submission.hotkey)     
-        await check_if_gist_used(submission.gist_id)     
+        if config.ENV == "prod":
+            await check_if_hotkey_used(submission.hotkey)     
+            await check_if_gist_used(submission.gist_id)     
 
         #check chain commitment
         commit_valid = await is_commitment_valid(submission)

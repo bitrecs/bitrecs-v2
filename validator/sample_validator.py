@@ -13,7 +13,6 @@ import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
 from uuid import UUID
-from pathlib import Path
 from typing import Any, Dict
 from utils.git import COMMIT_HASH
 from utils.system_metrics import get_system_metrics
@@ -33,7 +32,7 @@ from validator.set_weights import set_weights_from_mapping
 from validator.http_utils import get_ridges_platform, post_ridges_platform
 from scoring.calculator import calculate_scores
 from scoring.persist import ScorePersister
-from utils.subtensor import get_subtensor
+from utils.docker import is_running_in_container
 
 
 EVAL_TIMEOUT = (30, 600)
@@ -78,55 +77,11 @@ async def send_heartbeat_loop():
         os._exit(1)
 
 
-def is_running_in_container() -> bool:
-    """
-    Cross-platform container detection with caching for performance.
-    """
-    # 1. Classic .dockerenv marker
-    if Path('/.dockerenv').exists():
-        return True
-
-    # 2. Podman / buildah / recent runtimes
-    if Path('/run/.containerenv').exists():
-        return True
-
-    # 3. Cgroup-based detection
-    cgroup_path = Path('/proc/1/cgroup')
-    if cgroup_path.exists():
-        try:
-            content = cgroup_path.read_text(encoding='utf-8', errors='ignore')
-            keywords = ['docker', 'kubepods', 'containerd', 'cri-o', 'libpod']
-            if any(kw in content for kw in keywords):
-                return True
-            # Cgroup v2: Check for container-like paths or depth
-            lines = content.splitlines()
-            for line in lines:
-                parts = line.strip().split(':', 2)
-                if len(parts) == 3:
-                    _, _, path = parts
-                    if path != '/' and any(c in path.lower() for c in keywords):
-                        return True
-                    if len([p for p in path.split('/') if p]) >= 3:
-                        return True
-        except Exception:
-            pass
-
-    # 4. PID namespace check
-    try:
-        if os.stat('/proc/1/ns/pid').st_ino != os.stat('/proc/self/ns/pid').st_ino:
-            return True
-    except Exception:
-        pass
-
-    return False
-
-
 async def get_health_from_docker(url: str) -> dict | None:
     logger.info(f"Attempting health check to: {url}")
     try:
         async with httpx.AsyncClient(timeout=(10, 60)) as client:
-            response = await client.get(url)
-            logger.info(f"Health check response: {response.status_code} - {response.text}")
+            response = await client.get(url, headers={"Content-Type": "application/json"})            
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as e:
@@ -141,12 +96,10 @@ async def get_run_log_from_docker(run_id: str, port: int, hostname: str) -> str 
     timeout = (10, 60)
     try:        
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.get(
-                f"http://{hostname}:{port}/run_log/{run_id}",
-                headers={"Content-Type": "application/json"}
-            )
+            url =  f"http://{hostname}:{port}/run_log/{run_id}"
+            response = await client.get(url, headers={"Content-Type": "application/json"})
             if response.status_code == 200:
-                return response.json()                
+                return response.json()
             else:
                 logger.error(f"Failed to get run log for {run_id}: {response.status_code}")
                 return None
@@ -233,8 +186,7 @@ async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: st
 
 # Run an evaluation run
 async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_code: str):
-    try:        
-        
+    try:
         is_docker = is_running_in_container()
         logger.info(f"Running in container: {is_docker}")
         eval_type = BitrecsEvaluationType(problem_name)
@@ -298,8 +250,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 raise Exception("Failed to load Docker environment")
             logger.info("Loaded Docker environment successfully")
 
-            docker_log_path = f"logs/eval_{bitrecs_run_id}.log"
-            #docker_log_path = f"{bitrecs_run_id}.log"
+            docker_log_path = f"logs/eval_{bitrecs_run_id}.log"            
             env.start_logging(docker_log_path)
             
             af_health = await get_health_from_docker(f"http://{af_hostname}:{af_container_port}/health")
@@ -443,14 +394,15 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     #     await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
     #     return
 
-    for evaluation_run in request_evaluation_response.evaluation_runs:
-        logger.info(f"    {evaluation_run.problem_name}")
+    # for evaluation_run in request_evaluation_response.evaluation_runs:
+    #     logger.info(f"    {evaluation_run.problem_name}")
 
     logger.info("Starting evaluation...")
 
     for evaluation_run in request_evaluation_response.evaluation_runs:
         evaluation_run_id = evaluation_run.evaluation_run_id
         problem_name = evaluation_run.problem_name
+        logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
       
         if SIMULATE_EVALUATION_RUNS:
             await _simulate_run_evaluation_run(evaluation_run_id, problem_name)            
