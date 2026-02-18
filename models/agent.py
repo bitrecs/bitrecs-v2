@@ -37,7 +37,7 @@ class Agent(BaseModel):
         description="ISO8601 timestamp of submission creation"
     )
     ip_address: Optional[str] = None   
-    miner_uid: Optional[int] = Field(None, gt=0, description="Active UID on Subnet")
+    miner_uid: Optional[str] = None
     provider: str = Field(description="LLM provider name")
     model: str = Field(description="LLM model name")
     system_prompt_template: str = Field(description="Jinja2 template for system prompt")
