@@ -1,6 +1,4 @@
 import logging
-import signal
-import atexit
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -8,14 +6,14 @@ from pathlib import Path
 from typing import Optional
 from threading import Lock
 
-from scoring.types import MinerScores, MinerUID, EnvironmentId
+from scoring.types import MinerUID
 
 logger = logging.getLogger(__name__)
 
 class ScorePersister:
     """
     SQLite-backed persistence for miner scores.
-    Stores (uid, env_id, score, updated_at).
+ 
     """
 
     def __init__(self, base_path: str = "data/weights", filename: str = "scores.db"):
@@ -23,8 +21,6 @@ class ScorePersister:
         self.file_path = self.save_dir / filename
         self.save_dir.mkdir(parents=True, exist_ok=True)
         self._lock = Lock()
-        self._registered = False
-        self._last_data: Optional[MinerScores] = None
         self._init_db()
 
     def _init_db(self):
@@ -38,13 +34,17 @@ class ScorePersister:
                     score REAL NOT NULL,
                     success BOOLEAN,                    
                     duration REAL,
-                    created_at TEXT                         
+                    created_at TEXT,
+                    evaluation_set_id INTEGER,
+                    sample_size INTEGER                                                  
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_scores_uid ON miner_scores(uid)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_scores_run ON miner_scores(run_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_scores_hotkey ON miner_scores(hotkey)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_scores_task ON miner_scores(task_name)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_scores_evaluation_set_id ON miner_scores(evaluation_set_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_scores_sample_size ON miner_scores(sample_size)")
             
             conn.commit()
 
@@ -54,55 +54,8 @@ class ScorePersister:
         try:
             yield conn
         finally:
-            conn.close()
-
-    def register_shutdown_hooks(self):
-        """Register handlers to persist on SIGINT/SIGTERM and normal exit."""
-        if self._registered:
-            return
-
-        def _handler(signum, _frame):
-            logger.warning(f"Signal {signum} received. Saving state...")
-            self.emergency_save()
-
-        signal.signal(signal.SIGINT, _handler)
-        signal.signal(signal.SIGTERM, _handler)
-        atexit.register(self.emergency_save)
-        self._registered = True
-
-    def save_scores(self, scores: MinerScores, run_id: str, hotkey: str, task_name: str | None = None):
-        """Insert aggregated scores into sqlite."""
-        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        rows: list[tuple[str, int, str, str | None, float, bool | None, float | None, str]] = []
-
-        for uid, env_scores in scores.items():
-            # Aggregate env scores into a single score (mean)
-            score = sum(env_scores.values()) / max(len(env_scores), 1)
-            rows.append((run_id, int(uid), hotkey, task_name, float(score), None, None, now))
-
-        with self._lock, self._connect() as conn:
-            self._last_data = scores
-            conn.executemany("""
-                INSERT INTO miner_scores (run_id, uid, hotkey, task_name, score, success, duration, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, rows)
-            conn.commit()
-            logger.info(f"Persisted {len(rows)} scores to {self.file_path}")
-
-    def load_scores(self) -> MinerScores:
-        """Load scores into MinerScores format (collapsed by uid)."""
-        result: MinerScores = {}
-        with self._connect() as conn:
-            for uid, score in conn.execute("SELECT uid, score FROM miner_scores"):
-                result.setdefault(MinerUID(uid), {})[EnvironmentId("overall")] = float(score)
-        self._last_data = result
-        return result
-
-    def emergency_save(self):
-        """Save last known state during shutdown/interrupts."""
-        if self._last_data is not None:
-            logger.warning(f"Emergency save to {self.file_path}")
-            self.save_scores(self._last_data)
+            conn.close() 
+   
 
     def save_result(
         self,
@@ -114,17 +67,24 @@ class ScorePersister:
         success: bool | None = None,
         duration: float | None = None,
         created_at: str | None = None,
+        evaluation_set_id: Optional[int] = None,
+        sample_size: Optional[int] = None,
     ) -> bool:
         """Insert a single scored result with metadata."""
 
         try:
+            self.update_schema("miner_scores", {
+                "evaluation_set_id": "INTEGER",
+                "sample_size": "INTEGER"
+            })
+
             created_at = created_at or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            row = (run_id, int(uid), hotkey, task_name, float(score), success, duration, created_at)
+            row = (run_id, int(uid), hotkey, task_name, score, success, duration, created_at, evaluation_set_id, sample_size)
 
             with self._lock, self._connect() as conn:
                 conn.execute("""
-                    INSERT INTO miner_scores (run_id, uid, hotkey, task_name, score, success, duration, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO miner_scores (run_id, uid, hotkey, task_name, score, success, duration, created_at, evaluation_set_id, sample_size)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, row)
                 conn.commit()
                 logger.info(f"Saved result for uid {uid} to {self.file_path}")
@@ -133,28 +93,23 @@ class ScorePersister:
             logger.error(f"Failed to save result for uid {uid}: {e}")
             return False
 
-    def __enter__(self):
-        self.register_shutdown_hooks()
-        return self
+    def update_schema(self, table_name: str, columns: dict[str, str]):
+        """
+        Dynamically add missing columns to a table before saving results (synchronous).
+        
+        Args:
+            table_name: Name of the table to update.
+            columns: Dict of {column_name: sql_type}, e.g., {'evaluation_set_id': 'INTEGER'}
+        """
+        with self._lock, self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            columns_info = cursor.fetchall()
+            existing_columns = [col[1] for col in columns_info]
+            
+            for col_name, col_type in columns.items():
+                if col_name not in existing_columns:
+                    conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}")
+                    logger.info(f"Added column '{col_name}' of type '{col_type}' to table '{table_name}'")
+            conn.commit()
 
-    def __exit__(self, exc_type, exc, tb):
-        self.emergency_save()
-        return False  # propagate exceptions
-
-# Usage Example
-# --------------------------------------------------
-# from scoring.persist import ScorePersister
-#
-# with ScorePersister() as persister:
-#     # Load prior state (if any)
-#     previous = persister.load()
-#     if previous:
-#         print("Loaded previous state")
-#
-#     try:
-#         while True:
-#             scores = compute_some_scores()
-#             persister.save(scores)
-#     except KeyboardInterrupt:
-#         # Optional: already handled by hooks, but you can still log
-#         print("Interrupted; state saved.")

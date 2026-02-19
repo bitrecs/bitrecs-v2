@@ -30,7 +30,7 @@ from evaluator.models import EvaluationRunException
 from models.eval_type import BitrecsEvaluationType
 from validator.set_weights import set_weights_from_mapping
 from validator.http_utils import get_ridges_platform, post_ridges_platform
-from scoring.engine import calculate_scores
+from scoring.engine import calculate_scores, get_current_eval_set_id
 from scoring.persist import ScorePersister
 from utils.docker import is_running_in_container
 
@@ -41,6 +41,7 @@ PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 session_id: str | None = None
 state_backup = ScorePersister(base_path=PARENT_DIR, filename="scores.db")
+
 
 async def set_weights_loop():
     logger.info("Starting set weights loop...")
@@ -200,8 +201,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             miner_agent = await load_agent_by_evaluation_run(evaluation_run_id)
             if miner_agent is None:
                 raise Exception(f"Agent not found for evaluation run {evaluation_run_id}")            
-
+            evaluation_set_id = get_current_eval_set_id()
             logger.info("Loaded miner input YAML file successfully")
+            logger.info(f"Evaluation set ID: {evaluation_set_id}")
             logger.info(f"Miner Agent ID: {miner_agent.agent_id}")
             logger.info(f"Miner Agent Name: {miner_agent.name}")
             logger.info(f"Miner Agent Status: {miner_agent.status}")
@@ -296,6 +298,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             score = result.get("score", 0.0)
             success = result.get("success", False)
             duration = result.get("duration", 0.0)
+            samples = result.get("samples", 0)
             extra = ""
             logger.info("Evaluation Result:")
             logger.info(f"  Run ID: {run_id}")
@@ -341,13 +344,16 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 score=eval_score,
                 duration=duration
             )
-          
+
             saved = state_backup.save_result(uid=miner_agent.miner_uid, 
                                      hotkey=miner_agent.miner_hotkey, 
                                      score=eval_score, 
                                      run_id=str(evaluation_run_id), 
                                      task_name=tak_name, 
-                                     success=success, duration=duration)
+                                     success=success, 
+                                     duration=duration,
+                                     evaluation_set_id=evaluation_set_id,
+                                     sample_size=samples)
             if not saved:
                 logger.error("Failed to save result to local backup")
 

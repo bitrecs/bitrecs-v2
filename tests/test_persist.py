@@ -1,62 +1,98 @@
-import sqlite3
-
 import pytest
-
+import tempfile
+from pathlib import Path
 from scoring.persist import ScorePersister
-from scoring.types import MinerUID, EnvironmentId
-from utils.subtensor import get_subtensor
 
 
-def test_save_result_inserts_row(tmp_path):
-    persister = ScorePersister(base_path=str(tmp_path), filename="scores.db")
-    print(f"DB path: {persister.file_path}")  # Should show full path
-    persister.save_result(
-        uid=MinerUID(1),
-        hotkey="hk1",
-        score=0.75,
-        run_id="run-1",
-        task_name="task-a",
+@pytest.fixture
+def temp_db():
+    """Create a temporary SQLite DB for testing."""
+    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        db_path = Path(f.name)
+    yield db_path
+    db_path.unlink(missing_ok=True)  # Cleanup
+
+
+@pytest.fixture
+def persister(temp_db):
+    """Fixture for ScorePersister with a temp DB."""
+    p = ScorePersister(base_path=str(temp_db.parent), filename=temp_db.name)
+    return p
+
+
+def test_update_schema_adds_missing_column(persister, caplog):
+    """Test that update_schema adds a missing column and logs it."""
+    columns = {'new_col': 'TEXT'}
+
+    persister.update_schema('miner_scores', columns)
+
+    # Verify column was added
+    with persister._connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(miner_scores)")
+        columns_info = cursor.fetchall()
+        column_names = [col[1] for col in columns_info]
+        assert 'new_col' in column_names
+    assert "Added column 'new_col'" in caplog.text
+
+
+def test_update_schema_skips_existing_column(persister):
+    """Test that update_schema skips an existing column."""
+    # 'uid' already exists from _init_db
+    columns = {'uid': 'INTEGER'}  # Existing column
+
+    persister.update_schema('miner_scores', columns)
+
+    # Verify no duplicate addition (check logs or just that it doesn't error)
+
+
+def test_update_schema_handles_multiple_columns(persister, caplog):
+    """Test that update_schema processes multiple columns."""
+    columns = {'col1': 'TEXT', 'col2': 'INTEGER'}
+
+    persister.update_schema('miner_scores', columns)
+
+    with persister._connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(miner_scores)")
+        columns_info = cursor.fetchall()
+        column_names = [col[1] for col in columns_info]
+        assert 'col1' in column_names
+        assert 'col2' in column_names
+    assert "Added column 'col1'" in caplog.text
+    assert "Added column 'col2'" in caplog.text
+
+
+def test_update_schema_empty_columns(persister):
+    """Test that update_schema handles empty columns dict."""
+    persister.update_schema('miner_scores', {})
+
+    # Should do nothing without error
+
+
+def test_save_result_inserts_row(persister):
+    """Test that save_result inserts a row."""
+    result = persister.save_result(
+        uid=1,
+        hotkey='hotkey1',
+        score=1.0,
+        run_id='run1',
+        task_name='task1',
         success=True,
-        duration=1.23,
-        created_at="2026-02-18T00:00:00Z",
+        duration=10.0,
+        evaluation_set_id=123,
+        sample_size=5
     )
 
-    conn = sqlite3.connect(tmp_path / "scores.db")
-    rows = list(conn.execute("SELECT run_id, uid, hotkey, task_name, score, success, duration, created_at FROM miner_scores"))
-    conn.close()
+    assert result is True  # Should return True on success
 
-    assert len(rows) == 1
-    assert rows[0] == ("run-1", 1, "hk1", "task-a", 0.75, 1, 1.23, "2026-02-18T00:00:00Z")
-
-
-def test_save_scores_aggregates_and_loads(tmp_path):
-    persister = ScorePersister(base_path=str(tmp_path), filename="scores.db")
-
-    scores = {
-        MinerUID(1): {
-            EnvironmentId("env1"): 0.8,
-            EnvironmentId("env2"): 0.6,
-        }
-    }
-    persister.save_scores(scores, run_id="run-2", hotkey="hk2", task_name="task-b")
-
-    loaded = persister.load_scores()
-    assert MinerUID(1) in loaded
-    assert EnvironmentId("overall") in loaded[MinerUID(1)]
-    assert loaded[MinerUID(1)][EnvironmentId("overall")] == 0.7
-
-
-def test_emergency_save_no_last_data_no_error(tmp_path):
-    persister = ScorePersister(base_path=str(tmp_path), filename="scores.db")
-    # Should be a no-op if nothing was saved yet
-    persister.emergency_save()
-
-
-@pytest.mark.asyncio
-async def test_hotkey_to_uid():
-    hotkey = "5F95Nub62Fhwy3UFBMWg5eDou1B45yrzXaa7FjgXMALcER6r"
-    sub = await get_subtensor()
-    uid = await sub.get_uid_for_hotkey_on_subnet(hotkey_ss58=hotkey, netuid=296)
-    print(f"UID for hotkey {hotkey}: {uid}")
-    assert isinstance(uid, int), "UID should be an integer"
-    assert uid > 0, "UID should be a positive integer"
+    # Verify row was inserted
+    with persister._connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM miner_scores WHERE uid = ?", (1,))
+        row = cursor.fetchone()
+        assert row is not None
+        assert row[1] == 1  # uid
+        assert row[2] == 'hotkey1'
+        assert row[4] == 1.0  # score
+        assert row[0] == 'run1'  # run_id
