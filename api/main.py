@@ -546,10 +546,12 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         if not commit_valid:
             logger.warning(f"MinerSubmission commitment to chain is not valid for Gist {submission.gist_id}")
             return JSONResponse(content={"error": "Commitment to chain is not valid for this submission"}, status_code=400)
+        else:
+            logger.info(f"MinerSubmission commitment to chain is valid for Gist {submission.gist_id} from hotkey {submission.hotkey}")
         
         sub = await get_subtensor()
         miner_uid = await sub.get_uid_for_hotkey_on_subnet(hotkey_ss58=submission.hotkey, netuid=config.NETUID)
-        artifact_instance.miner_uid = miner_uid
+        artifact_instance.miner_uid = str(miner_uid)
         logger.info(f"Miner UID {miner_uid} for {submission.hotkey} ")
 
         # Assign UUID before similarity check (needed for embedding)
