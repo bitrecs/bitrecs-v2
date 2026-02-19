@@ -14,6 +14,8 @@ import asyncio
 import subprocess
 import functools
 from dotenv import load_dotenv
+
+from utils.subtensor import get_subtensor
 load_dotenv()
 import utils.logger as logger
 from bittensor_wallet.wallet import Wallet
@@ -168,16 +170,17 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 console.print("[bold red]Burn cancelled by user. Upload aborted.[/bold red]")
                 return
 
-            # Decrypt wallets and pre-connect to subtensor before starting progress to avoid long waits with spinner and no updates.
+            # Unlock wallets and pre-connect to subtensor before starting progress
             console.print("[dim]Decrypting wallets...[/dim]")
-            coldkey_keypair = wallet.coldkey  # Decrypt and cache coldkey
-            hotkey_keypair = wallet.hotkey    # Decrypt and cache hotkey
-            hotkey_address = wallet.hotkey.ss58_address  # Force address generation
+            coldkey_keypair = wallet.coldkey
+            hotkey_keypair = wallet.hotkey
+            hotkey_address = wallet.hotkey.ss58_address
             
             # Pre-connect to subtensor
             chain_endpoint = os.getenv('SUBTENSOR_ADDRESS')
             network = os.getenv('SUBTENSOR_NETWORK', 'test')
             subtensor = Subtensor(network=chain_endpoint or network)
+            #subtensor = await get_subtensor()
             
             async def burn_alpha() -> ExtrinsicReceipt:
                 payment_payload = subtensor.substrate.compose_call(
@@ -198,16 +201,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 console.print(f"[cyan]Payment Extrinsic Index:[/cyan] {receipt.extrinsic_idx}\n")
                 return receipt
             
-            async def commit_to_chain_task() -> MinerSubmission:
-                # gist_created_at = get_gist_created_at(gist_id)
-                # preamble = f"{gist_created_at.isoformat()}:{github_account}:{gist_id}:{hotkey_address}"  # Use cached address
-                # signature = hotkey_keypair.sign(preamble).hex()  # Use cached keypair
-                # submission = MinerSubmission(
-                #     created_at=gist_created_at.isoformat(),
-                #     github_account=github_account,
-                #     gist_id=gist_id,
-                #     hotkey=hotkey_address,  # Use cached address
-                #     signature=signature)
+            async def commit_to_chain_task() -> MinerSubmission:               
                 commited = await commit_to_chain_with_wallet(submission.github_account, submission.gist_id, wallet)
                 if not commited:
                     raise Exception("Commitment to chain failed")

@@ -30,7 +30,7 @@ from evaluator.models import EvaluationRunException
 from models.eval_type import BitrecsEvaluationType
 from validator.set_weights import set_weights_from_mapping
 from validator.http_utils import get_ridges_platform, post_ridges_platform
-from scoring.calculator import calculate_scores
+from scoring.engine import calculate_scores
 from scoring.persist import ScorePersister
 from utils.docker import is_running_in_container
 
@@ -60,7 +60,7 @@ async def calculate_scores_loop():
             await asyncio.wait_for(calculate_scores(), timeout=120)
         except asyncio.TimeoutError as e:
             logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
-        await asyncio.sleep(300)
+        await asyncio.sleep(900)
 
 
 async def send_heartbeat_loop():

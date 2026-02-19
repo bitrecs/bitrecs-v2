@@ -1,4 +1,12 @@
+from scoring.engine import get_current_eval_set_id
 from scoring.pareto import compute_pareto_frontier
+
+
+
+def test_latest_eval_set_id():
+    set_id = get_current_eval_set_id()
+    assert isinstance(set_id, int)
+    assert set_id > 0
 
 
 def test_pareto_frontier():
