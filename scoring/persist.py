@@ -24,6 +24,12 @@ class ScorePersister:
         self._init_db()
 
     def _init_db(self):
+        
+        self.update_schema("miner_scores", {
+            "evaluation_set_id": "INTEGER",
+            "sample_size": "INTEGER"
+        })
+
         with self._connect() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS miner_scores (
@@ -72,11 +78,7 @@ class ScorePersister:
     ) -> bool:
         """Insert a single scored result with metadata."""
 
-        try:
-            self.update_schema("miner_scores", {
-                "evaluation_set_id": "INTEGER",
-                "sample_size": "INTEGER"
-            })
+        try:        
 
             created_at = created_at or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             row = (run_id, int(uid), hotkey, task_name, score, success, duration, created_at, evaluation_set_id, sample_size)
