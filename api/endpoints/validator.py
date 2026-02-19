@@ -1,7 +1,9 @@
 import re
+import time
 import traceback
 import asyncio
 import api.config as config
+from utils.bittensor import validate_signed_timestamp
 import utils.logger as logger
 from http import HTTPStatus
 from functools import wraps
@@ -164,19 +166,19 @@ async def validator_register_as_validator(
             detail="The provided hotkey is not in the list of whitelisted validator hotkeys."
         )
     
-    # # Check if the signed timestamp is valid (i.e., matches the raw timestamp)
-    # if not validate_signed_timestamp(registration_request.timestamp, registration_request.signed_timestamp, registration_request.hotkey):
-    #     raise HTTPException(
-    #         status_code=401,
-    #         detail="The provided signed timestamp does not match the provided timestamp."
-    #     )
+    # Check if the signed timestamp is valid (i.e., matches the raw timestamp)
+    if not validate_signed_timestamp(registration_request.timestamp, registration_request.signed_timestamp, registration_request.hotkey):
+        raise HTTPException(
+            status_code=401,
+            detail="The provided signed timestamp does not match the provided timestamp."
+        )
 
-    # # Ensure that the timestamp is within 1 minute of the current time
-    # if abs(int(registration_request.timestamp) - int(time.time())) > 60:
-    #     raise HTTPException(
-    #         status_code=400,
-    #         detail="The provided timestamp is not within 1 minute of the current time."
-    #     )
+    # Ensure that the timestamp is within 5 minutes
+    if abs(int(registration_request.timestamp) - int(time.time())) > 500:
+        raise HTTPException(
+            status_code=400,
+            detail="The provided timestamp is not within 5 minutes of the current time."
+        )
 
     # Ensure that the validator is not already registered
     if is_validator_registered(registration_request.hotkey):

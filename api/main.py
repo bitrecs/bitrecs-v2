@@ -1,7 +1,5 @@
 import os
 import sys
-
-from utils.subtensor import get_subtensor
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
@@ -18,6 +16,7 @@ from uuid import UUID
 from api import config
 from typing import Annotated, Dict, Any
 from utils.version import load_version_info
+from utils.subtensor import get_subtensor
 from contextlib import asynccontextmanager
 from fastapi.responses import JSONResponse
 from fastapi import FastAPI, HTTPException, Header, Request
