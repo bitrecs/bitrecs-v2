@@ -445,9 +445,9 @@ async def check_agent_post(
             detail=f"Miner hotkey {miner_hotkey} is not a valid format"
         )
     
-    latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
-    if latest_agent_created_at_in_latest_set_id:
-        check_rate_limit(latest_agent_created_at_in_latest_set_id)    
+    # latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
+    # if latest_agent_created_at_in_latest_set_id:
+    #     check_rate_limit(latest_agent_created_at_in_latest_set_id)    
     
     if config.ENV == "prod":
         await check_if_hotkey_used(miner_hotkey)
