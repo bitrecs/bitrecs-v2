@@ -4,6 +4,7 @@ import traceback
 from api import config
 from utils import logger
 from rules.set_builder import EvaluationSetBuilder
+from utils.subtensor import get_subtensor
 
 
 async def validator_evaluation_set_builder_loop():
@@ -29,5 +30,7 @@ async def validator_evaluation_set_builder_loop():
         
 
 async def get_current_block() -> int:
-    # Placeholder function to get the current block number    
-    return random.randint(10_000, 50_0000)
+    sub = await get_subtensor()
+    current_block = await sub.get_current_block()
+    return current_block
+    
