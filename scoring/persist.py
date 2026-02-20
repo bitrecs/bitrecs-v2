@@ -1,10 +1,12 @@
 import logging
 import sqlite3
 import time
+import pandas as pd
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 from threading import Lock
+
 
 from scoring.types import MinerUID
 
@@ -24,12 +26,6 @@ class ScorePersister:
         self._init_db()
 
     def _init_db(self):
-        
-        self.update_schema("miner_scores", {
-            "evaluation_set_id": "INTEGER",
-            "sample_size": "INTEGER"
-        })
-
         with self._connect() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS miner_scores (
@@ -53,6 +49,12 @@ class ScorePersister:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_scores_sample_size ON miner_scores(sample_size)")
             
             conn.commit()
+
+        # Now update schema after table exists
+        # self.update_schema("miner_scores", {
+        #     "evaluation_set_id": "INTEGER",
+        #     "sample_size": "INTEGER"
+        # })
 
     @contextmanager
     def _connect(self):
@@ -115,3 +117,14 @@ class ScorePersister:
                     logger.info(f"Added column '{col_name}' of type '{col_type}' to table '{table_name}'")
             conn.commit()
 
+    def load_scores(self, evaluation_set_id: int) -> pd.DataFrame:
+        """Load all scores for a given evaluation set ID."""
+        cutoff_date = "2026-02-20T14:37:15Z"
+
+        with self._connect() as conn:
+            df = pd.read_sql_query(
+                "SELECT * FROM miner_scores WHERE evaluation_set_id = ? and created_at > ?",
+                conn,
+                params=(evaluation_set_id, cutoff_date)
+            )
+        return df

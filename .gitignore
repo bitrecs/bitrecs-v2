@@ -210,3 +210,4 @@ message_and_signature.*
 *.sqlite
 *.sqlite3
 scores.db
+scores2.db
