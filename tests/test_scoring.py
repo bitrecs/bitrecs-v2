@@ -1,13 +1,13 @@
 import os
-from pathlib import Path
-
 import httpx
+import typer
+from pathlib import Path
 from scoring.engine import get_current_eval_set_id
 from scoring.pareto import compute_pareto_frontier
 from scoring.persist import ScorePersister
-from pathlib import Path
-
+from scoring.threshold import compute_miner_thresholds
 from scoring.types import MinerFirstBlocks, MinerScores
+from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
 root_path = Path(__file__).parent.parent.absolute()
 
 
@@ -36,7 +36,7 @@ def test_pareto_frontier():
 
 
 def test_miner_first_blocks():
-    miner_blocks = miners_first_blocks(None)  # The function makes its own API call, so we can pass None
+    miner_blocks = miners_first_blocks()
     print(f"Miner first blocks: {miner_blocks}")
     assert isinstance(miner_blocks, dict)
     for hotkey, block in miner_blocks.items():
@@ -55,7 +55,7 @@ def test_pareto_frontier_from_db():
     data = persister.load_scores(evaluation_set_id=current_set_id)   
 
     miner_scores = df_to_miner_scores(data)
-    samples = samples_per_environment(data)    
+    samples = df_to_samples(data)    
     envs = list(samples.keys())    
     
     pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)
@@ -77,20 +77,46 @@ def test_pareto_frontier_from_db():
     assert len(pareto_result.frontier_uids) > 0
 
 
+def test_scoring_wta():    
+    current_set_id = get_current_eval_set_id()
+    print(f"Current evaluation_set_id: {current_set_id}")    
+    persister = ScorePersister(base_path=os.path.join(root_path, "data", "weights"), filename="scores2.db")
+    data = persister.load_scores(evaluation_set_id=current_set_id)
+    miner_scores = df_to_miner_scores(data)
+    samples = df_to_samples(data)
+    envs = list(samples.keys())
+    pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)
+    
+    miner_blocks = df_to_miner_blocks(data)
+   # Compute thresholds and scores with priority
+    miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
+    subset_scores = compute_subset_scores_with_priority(
+        miner_scores, miner_thresholds, miner_blocks, envs
+    )
+    weights = scores_to_weights(subset_scores)
+    typer.echo("\nSubset scores:")
+    for uid, score in sorted(subset_scores.items(), key=lambda x: x[1], reverse=True):
+        typer.echo(f"  UID {uid}: {score:.1f} points")
+
+    typer.echo("\nFinal weights:")
+    for uid, weight in sorted(weights.items(), key=lambda x: x[1], reverse=True):
+        typer.echo(f"  UID {uid}: {weight:.4f}")
+
+
+
 def df_to_miner_scores(df) -> MinerScores:
     miner_scores: MinerScores = {}
     for _, row in df.iterrows():
         uid = row['uid']
         env_id = row['task_name']
-        score = row['score']
-        
+        score = row['score']        
         if uid not in miner_scores:
             miner_scores[uid] = {}
         miner_scores[uid][env_id] = score
     return miner_scores
 
 
-def samples_per_environment(df) -> dict[str, int]:
+def df_to_samples(df) -> dict[str, int]:
     samples = {}
     for _, row in df.iterrows():
         env_id = row['task_name']
@@ -101,12 +127,27 @@ def samples_per_environment(df) -> dict[str, int]:
     return samples
 
 
-def miners_first_blocks(df) -> MinerFirstBlocks:
-    #SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")
-    SERVICE_URL = "http://localhost:8000"
+def miners_first_blocks() -> MinerFirstBlocks:
+    SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")
+    #SERVICE_URL = "http://localhost:8000"
     client = httpx.Client(base_url=SERVICE_URL)
     response = client.get("/retrieval/miner-blocks")
     assert response.status_code == 200
     data = response.json()
     return data    
     
+
+def df_to_miner_blocks(df) -> MinerFirstBlocks:
+    miner_blocks = miners_first_blocks()
+    # miner blocks uses hotkey as key, but we want to map to uid, so we need to convert
+    hotkey_to_uid = {}
+    for _, row in df.iterrows():
+        hotkey = row['hotkey']
+        uid = row['uid']
+        hotkey_to_uid[hotkey] = uid
+    miner_first_blocks: MinerFirstBlocks = {}
+    for hotkey, block in miner_blocks.items():
+        uid = hotkey_to_uid.get(hotkey)
+        if uid is not None:
+            miner_first_blocks[uid] = block
+    return miner_first_blocks
