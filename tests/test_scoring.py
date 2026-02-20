@@ -1,11 +1,13 @@
 import os
 from pathlib import Path
+
+import httpx
 from scoring.engine import get_current_eval_set_id
 from scoring.pareto import compute_pareto_frontier
 from scoring.persist import ScorePersister
 from pathlib import Path
 
-from scoring.types import MinerScores
+from scoring.types import MinerFirstBlocks, MinerScores
 root_path = Path(__file__).parent.parent.absolute()
 
 
@@ -31,6 +33,16 @@ def test_pareto_frontier():
     assert pareto_result.dominance_matrix.shape == (4, 4)
     assert pareto_result.score_matrix.shape == (4, 2)
     assert pareto_result.uid_mapping == [1, 2, 3, 4]
+
+
+def test_miner_first_blocks():
+    miner_blocks = miners_first_blocks(None)  # The function makes its own API call, so we can pass None
+    print(f"Miner first blocks: {miner_blocks}")
+    assert isinstance(miner_blocks, dict)
+    for hotkey, block in miner_blocks.items():
+        assert isinstance(hotkey, str)
+        assert isinstance(block, int)
+        assert block >= 0
 
 
 def test_pareto_frontier_from_db():    
@@ -89,3 +101,12 @@ def samples_per_environment(df) -> dict[str, int]:
     return samples
 
 
+def miners_first_blocks(df) -> MinerFirstBlocks:
+    #SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")
+    SERVICE_URL = "http://localhost:8000"
+    client = httpx.Client(base_url=SERVICE_URL)
+    response = client.get("/retrieval/miner-blocks")
+    assert response.status_code == 200
+    data = response.json()
+    return data    
+    

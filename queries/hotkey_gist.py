@@ -24,3 +24,17 @@ async def get_hotkey_from_gist(conn: DatabaseConnection, gist: str) -> Optional[
     return hotkey[0]
 
 
+
+@db_operation
+async def get_miner_first_blocks(conn: DatabaseConnection) -> dict[str, int]:
+    rows = await conn.fetch(
+        """
+        SELECT miner_hotkey, MIN(block) as first_block 
+        FROM hotkey_gist 
+        WHERE block != 0
+        GROUP BY miner_hotkey
+
+        """
+    )
+    return {row['miner_hotkey']: row['first_block'] for row in rows}
+    

@@ -164,3 +164,11 @@ async def network_statistics(request: Request) -> NetworkStatisticsResponse:
         agents_created_24_hrs=await agents_created_24_hrs(),
         top_score=await top_score()
     )
+
+
+
+@router.get("/miner-blocks")
+@limiter.limit("60/minute")
+async def miner_blocks(request: Request) -> dict[str, int]:
+    from queries.hotkey_gist import get_miner_first_blocks
+    return await get_miner_first_blocks()
