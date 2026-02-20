@@ -202,7 +202,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 return receipt
             
             async def commit_to_chain_task() -> MinerSubmission:               
-                commited = await commit_to_chain_with_wallet(submission.github_account, submission.gist_id, wallet)
+                commited, current_block = await commit_to_chain_with_wallet(submission.github_account, submission.gist_id, wallet)
                 if not commited:
                     raise Exception("Commitment to chain failed")
                 console.print(f"\n[bold green]Commitment to chain successful![/bold green]")
@@ -248,8 +248,9 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             
             end_time = time.perf_counter()
             elapsed = end_time - start_time
-            console.print(f"Upload process took {elapsed:.2f} seconds.", style="dim")                    
-
+            console.print(f"Upload process took {elapsed:.2f} seconds.", style="dim")
+        
+        console.print(f"Thank you for contributing to the Bitrecs ecosystem!", style="bold cyan")
     except Exception as e:
         end_time = time.perf_counter()
         elapsed = end_time - start_time

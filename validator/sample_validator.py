@@ -356,6 +356,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                                      sample_size=samples)
             if not saved:
                 logger.error("Failed to save result to local backup")
+            else:
+                logger.info("Saved result to local backup successfully")
 
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
                 "test_results": [problem_test_result.model_dump()],

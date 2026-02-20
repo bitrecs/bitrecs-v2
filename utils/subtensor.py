@@ -1,10 +1,10 @@
 import os
 import asyncio
 import threading
-from typing import Optional, Any
 import bittensor as bt
 import utils.logger as logger
-#from api import config
+from typing import Optional, Any
+
 
 class SubtensorWrapper:
     """
@@ -12,14 +12,6 @@ class SubtensorWrapper:
     """
 
     def __init__(self, endpoint: Optional[str] = None, fallback: Optional[str] = None):       
-
-        # self._endpoint = endpoint or os.getenv("SUBTENSOR_ENDPOINT", "finney")
-        # self._fallback = fallback or os.getenv(
-        #     "SUBTENSOR_FALLBACK", "wss://lite.sub.latent.to:443"
-        # )
-        #SUBTENSOR_NETWORK=test
-        #SUBTENSOR_ADDRESS=wss://test.finney.opentensor.ai:443
-
         self._endpoint = endpoint or os.getenv("SUBTENSOR_NETWORK", "wss://test.finney.opentensor.ai:443")
         self._fallback = fallback or "wss://test.finney.opentensor.ai:443"
         self._subtensor: Optional[bt.AsyncSubtensor] = None
@@ -67,28 +59,36 @@ class SubtensorWrapper:
         async def wrapper(*args, **kwargs):
             try:
                 subtensor = await self.ensure_connected()
-                method = getattr(subtensor, name)
+                attr = getattr(subtensor, name)
 
-                result = method(*args, **kwargs)
+                if not callable(attr):
+                    return attr
+
+                result = attr(*args, **kwargs)
                 if asyncio.iscoroutine(result):
                     return await result
                 else:
                     return result
-            except BaseException as e:
+            except Exception as e:  # Changed from BaseException
                 logger.debug(f"Method {name} failed, attempting reconnection: {e}")
 
                 async with self._lock:
                     if self._subtensor:
                         try:
                             await self._subtensor.close()
-                        except:
+                        except Exception:
                             pass
                         self._subtensor = None
 
                     self._subtensor = await self._create_connection()
 
-                method = getattr(self._subtensor, name)
-                result = method(*args, **kwargs)
+                # Retry after reconnection
+                attr = getattr(self._subtensor, name)
+
+                if not callable(attr):
+                    return attr
+
+                result = attr(*args, **kwargs)
                 if asyncio.iscoroutine(result):
                     return await result
                 else:

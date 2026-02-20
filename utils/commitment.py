@@ -3,7 +3,7 @@ import os
 import json
 import bittensor as bt
 import utils.logger as logger
-from typing import Optional
+from typing import List, Optional, Tuple
 from models.miner_submission import MinerSubmission
 from utils.gist import get_gist_hash, get_gist_sha_commits
 from bittensor.core.errors import MetadataError
@@ -13,7 +13,7 @@ from utils.verify import verify_submission_signature
 NETUID = int(os.getenv("NETUID", 296))
 
 
-async def is_commitment_valid(submission: MinerSubmission) -> bool:
+async def is_commitment_valid(submission: MinerSubmission) -> Tuple[bool, int]:
     """
     Validate a miner submission by checking the on-chain commitment    
     Each hotkey should have only one commitment        
@@ -27,7 +27,7 @@ async def is_commitment_valid(submission: MinerSubmission) -> bool:
         
         if not verify_submission_signature(submission):
             logger.warning(f"Signature verification failed for hotkey {submission.hotkey}")
-            return False
+            return False, 0
         
         sub = await get_subtensor()
         commitments = await sub.get_revealed_commitment_by_hotkey(
@@ -36,32 +36,33 @@ async def is_commitment_valid(submission: MinerSubmission) -> bool:
         )
         if not commitments:
             logger.warning(f"No commitment found for hotkey {submission.hotkey}")
-            return False
+            return False, 0
         
         #TODO: dimi add back on prod
         # if len(commitments) != 1:
         #     logger.warning(f"Multiple commitments found for hotkey {submission.hotkey}, expected only one")
         #     return False
         
+        block = commitments[-1][0]  # Get the block number of the most recent commitment
         chain_commitment = commitments[-1][1]  # Get the most recent commitment data
         parts = chain_commitment.split(":")
         if len(parts) != 2:
             logger.warning(f"Invalid commitment format for hotkey {submission.hotkey}")
-            return False
+            return False, block
         a = f"{parts[0]}:{parts[1]}"
         commit_sha = get_gist_sha_commits(submission.gist_id)[0]
         content_sha = get_gist_hash(submission.github_account, submission.gist_id)
         b = f"{commit_sha}:{content_sha}"      
         if a != b:
             logger.warning(f"Commitment data mismatch for hotkey {submission.hotkey}: expected {b}, got {a}")
-            return False        
-        return True    
+            return False, block
+        return True, block    
     except Exception as e:
         logger.error(f"Error validating commitment: {e}")
-        return False
+        return False, 0
 
 
-async def get_miner_commitments(hotkey_ss58: str) -> Optional[list]:
+async def get_miner_commitments(hotkey_ss58: str) -> Optional[List]:
     try:
         sub = await get_subtensor()
         commitments = await sub.get_revealed_commitment_by_hotkey(netuid=NETUID, hotkey_ss58=hotkey_ss58)
@@ -130,7 +131,7 @@ async def commit_to_chain_with_wallet(
     github_account: str,
     gist_id: str,   
     wallet: bt.Wallet
-) -> bool:
+) -> Tuple[bool, int]:
     """Miner commitment to chain indicating their ownership of the Gist artifact.    
     Args:      
         github_account (str): GitHub account name
@@ -143,10 +144,10 @@ async def commit_to_chain_with_wallet(
 
     commit_sha = get_gist_sha_commits(gist_id)[0]
     content_sha = get_gist_hash(github_account, gist_id)
-    preamble = f"{commit_sha}:{content_sha}"    
-   
-    async def _commit():
-        sub = await get_subtensor()
+    preamble = f"{commit_sha}:{content_sha}"
+    sub = await get_subtensor()
+
+    async def _commit():       
         data = preamble        
         while True:
             try:
@@ -166,10 +167,10 @@ async def commit_to_chain_with_wallet(
     
     try:
         await _commit()
-        
-        print(f"Commited: {preamble} for hotkey {wallet.hotkey.ss58_address}")        
+        current_block = await sub.get_current_block()   
+        print(f"Commited: {preamble} for hotkey {wallet.hotkey.ss58_address} on block {current_block}")        
         logger.info("Commit successful")
-        return True
+        return True, current_block
     
     except Exception as e:
         logger.error(f"Commit failed: {e}")

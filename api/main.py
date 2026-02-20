@@ -542,12 +542,12 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             await check_if_gist_used(submission.gist_id)     
 
         #check chain commitment
-        commit_valid = await is_commitment_valid(submission)
+        commit_valid, commit_block = await is_commitment_valid(submission)
         if not commit_valid:
             logger.warning(f"MinerSubmission commitment to chain is not valid for Gist {submission.gist_id}")
             return JSONResponse(content={"error": "Commitment to chain is not valid for this submission"}, status_code=400)
         else:
-            logger.info(f"MinerSubmission commitment to chain is valid for Gist {submission.gist_id} from hotkey {submission.hotkey}")
+            logger.info(f"MinerSubmission commitment to chain is valid for Gist {submission.gist_id} from hotkey {submission.hotkey} on block {commit_block}")
         
         sub = await get_subtensor()
         miner_uid = await sub.get_uid_for_hotkey_on_subnet(hotkey_ss58=submission.hotkey, netuid=config.NETUID)
@@ -595,7 +595,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             
         
         artifact_id = await create_agent(artifact_instance)
-        await log_hotkey_gist(hotkey=submission.hotkey, gist=submission.gist_id)
+        await log_hotkey_gist(hotkey=submission.hotkey, gist=submission.gist_id, block=commit_block)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
         
         response_content = {
