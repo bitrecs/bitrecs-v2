@@ -14,8 +14,6 @@ import asyncio
 import subprocess
 import functools
 from dotenv import load_dotenv
-
-from utils.subtensor import get_subtensor
 load_dotenv()
 import utils.logger as logger
 from bittensor_wallet.wallet import Wallet
@@ -24,7 +22,6 @@ from models.agent import Agent
 from models.miner_submission import MinerSubmission
 from rules.agent_validator import validate_artifact_template
 from rules.gist_validator import validate_artifact_gist
-from utils.commitment import commit_to_chain
 from utils.gist import get_gist, get_gist_created_at
 from rich.console import Console
 from rich.panel import Panel
@@ -34,6 +31,7 @@ from bittensor import Subtensor
 from version import __version__ as this_version
 from utils.commitment import commit_to_chain_with_wallet
 from async_substrate_interface import ExtrinsicReceipt
+from utils.subtensor import close_subtensor
 
 console = Console()
 DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
@@ -251,6 +249,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             console.print(f"Upload process took {elapsed:.2f} seconds.", style="dim")
         
         console.print(f"Thank you for contributing to the Bitrecs ecosystem!", style="bold cyan")
+        await close_subtensor()
     except Exception as e:
         end_time = time.perf_counter()
         elapsed = end_time - start_time

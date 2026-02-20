@@ -139,3 +139,11 @@ async def get_subtensor() -> SubtensorWrapper:
     wrapper = get_global_subtensor()
     await wrapper.ensure_connected()
     return wrapper
+
+
+async def close_subtensor():
+    """Close the global subtensor connection."""
+    global _GLOBAL_SUBTENSOR
+    if _GLOBAL_SUBTENSOR:
+        await _GLOBAL_SUBTENSOR.close()
+        _GLOBAL_SUBTENSOR = None
