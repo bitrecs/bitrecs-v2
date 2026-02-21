@@ -4,11 +4,11 @@ import asyncio
 import utils.logger as logger
 import validator.config as config
 from pathlib import Path
+from utils.subtensor import close_subtensor, get_subtensor
 from scoring.persist import ScorePersister
 from scoring.threshold import compute_miner_thresholds
 from scoring.types import MinerFirstBlocks, MinerScores
 from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
-from utils import subtensor
 
 
 def get_current_eval_set_id() -> int:    
@@ -73,48 +73,58 @@ def df_to_miner_blocks(df) -> MinerFirstBlocks:
 
 
 async def calculate_scores() -> bool:
-    logger.info("Calculating scores...")
-    current_set_id = get_current_eval_set_id()
-    logger.info(f"Current evaluation set ID: {current_set_id}")
+    try:
+
+        logger.info("Calculating scores...")
+        current_set_id = get_current_eval_set_id()
+        logger.info(f"Current evaluation set ID: {current_set_id}")
+        
+        root_path = Path(__file__).parent.parent.absolute()
+        #persister = ScorePersister(base_path=os.path.join(root_path, "data", "weights"), filename="scores.db")
+        persister = ScorePersister(base_path=root_path, filename="scores.db")
+        data = persister.load_scores(evaluation_set_id=current_set_id)
+        logger.info(f"Loaded {len(data)} score records")
+        if not data or len(data) == 0:
+            logger.warning("\033[33mNo score data available to process\033[0m")
+            return False
+        
+        logger.info("Calculating miner scores and weights...")
+        miner_scores = df_to_miner_scores(data)
+        samples = df_to_samples(data)
+        envs = list(samples.keys())
+        miner_blocks = df_to_miner_blocks(data)
+        miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
+        subset_scores = compute_subset_scores_with_priority(
+            miner_scores, miner_thresholds, miner_blocks, envs
+        )
+        weights = scores_to_weights(subset_scores)
+        logger.info("\nSubset scores:")
+        for uid, score in sorted(subset_scores.items(), key=lambda x: x[1], reverse=True):
+            logger.info(f"  UID {uid}: {score:.1f} points")
+
+        logger.info("\nFinal weights:")
+        for uid, weight in sorted(weights.items(), key=lambda x: x[1], reverse=True):
+            logger.info(f"  UID {uid}: {weight:.4f}")
+
+        #update weights on chain
+        weight_receiving_uid = max(weights, key=weights.get)
+        subtensor = await get_subtensor()
+        success, message = await subtensor.set_weights(
+            wallet=config.VALIDATOR_WALLET,
+            netuid=config.NETUID,
+            uids=[weight_receiving_uid],
+            weights=[1],
+            wait_for_inclusion=True,
+            wait_for_finalization=True
+        )    
+        logger.info(f"\nSet weight of UID {weight_receiving_uid} to 1 on chain: {'Success' if success else 'Failure'} - {message}")    
+        logger.info("\033[32mScores / Weights Update Complete\033[0m")
+        await close_subtensor()
+        
+        return success
     
-    root_path = Path(__file__).parent.parent.absolute()
-    #persister = ScorePersister(base_path=os.path.join(root_path, "data", "weights"), filename="scores.db")
-    persister = ScorePersister(base_path=root_path, filename="scores.db")
-    data = persister.load_scores(evaluation_set_id=current_set_id)
-    logger.info(f"Loaded {len(data)} score records")
-    if not data or len(data) == 0:
-        logger.warning("\033[33mNo score data available to process\033[0m")
-        return False
-
-    miner_scores = df_to_miner_scores(data)
-    samples = df_to_samples(data)
-    envs = list(samples.keys())
-    miner_blocks = df_to_miner_blocks(data)
-    miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
-    subset_scores = compute_subset_scores_with_priority(
-        miner_scores, miner_thresholds, miner_blocks, envs
-    )
-    weights = scores_to_weights(subset_scores)
-    logger.info("\nSubset scores:")
-    for uid, score in sorted(subset_scores.items(), key=lambda x: x[1], reverse=True):
-        logger.info(f"  UID {uid}: {score:.1f} points")
-
-    logger.info("\nFinal weights:")
-    for uid, weight in sorted(weights.items(), key=lambda x: x[1], reverse=True):
-        logger.info(f"  UID {uid}: {weight:.4f}")
-
-    #update weights on chain
-    weight_receiving_uid = max(weights, key=weights.get)
-
-    success, message = await subtensor.set_weights(
-        wallet=config.VALIDATOR_WALLET,
-        netuid=config.NETUID,
-        uids=[weight_receiving_uid],
-        weights=[1],
-        wait_for_inclusion=True,
-        wait_for_finalization=True
-    )    
-    logger.info(f"\nSet weight of UID {weight_receiving_uid} to 1 on chain: {'Success' if success else 'Failure'} - {message}")    
-    logger.info("\033[32mScores / Weights Update Complete\033[0m")
-
-    return success
+    except Exception as e:
+        import traceback
+        traceback_str = traceback.format_exc()        
+        logger.error(f"Exception in calculate_scores: {e}\n{traceback_str}")        
+        raise
