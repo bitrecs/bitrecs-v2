@@ -28,7 +28,6 @@ from models.problem import ProblemTestResult, ProblemTestResultStatus
 from models.evaluation_run import EvaluationRunErrorCode, EvaluationRunStatus
 from evaluator.models import EvaluationRunException
 from models.eval_type import BitrecsEvaluationType
-from validator.set_weights import set_weights_from_mapping
 from validator.http_utils import get_ridges_platform, post_ridges_platform
 from scoring.engine import calculate_scores, get_current_eval_set_id
 from scoring.persist import ScorePersister

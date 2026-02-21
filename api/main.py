@@ -128,7 +128,7 @@ async def lifespan(app: FastAPI):
     
     
     app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())
-    app.state.set_builder_task = asyncio.create_task(validator_evaluation_set_builder_loop())
+    #app.state.set_builder_task = asyncio.create_task(validator_evaluation_set_builder_loop())
     #app.state.restart_task = asyncio.create_task(restart_manager())        
 
     try:
@@ -139,11 +139,11 @@ async def lifespan(app: FastAPI):
         logger.info("Starting shutdown...")
         #app.state.restart_task.cancel()
         app.state.heartbeat_task.cancel()
-        app.state.set_builder_task.cancel()
+        #app.state.set_builder_task.cancel()
         try:
             #await app.state.restart_task            
             await app.state.heartbeat_task
-            await app.state.set_builder_task
+            #await app.state.set_builder_task
         except asyncio.CancelledError:
             pass
         
