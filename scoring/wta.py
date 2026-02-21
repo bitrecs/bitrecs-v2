@@ -1,17 +1,14 @@
 """Winners-take-all scoring over environment subsets with first-commit advantage."""
-
-from itertools import combinations
-
 import numpy as np
-
+from itertools import combinations
 from scoring.types import (
     EnvironmentId,
     MinerFirstBlocks,
     MinerScores,
     MinerThresholds,
-    MinerUID
+    MinerUID,
+    SubsetWeightScheme
 )
-from scoring.types import SubsetWeightScheme
 
 
 def scores_to_weights(

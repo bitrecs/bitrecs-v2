@@ -6,11 +6,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 from threading import Lock
-
-
 from scoring.types import MinerUID
 
 logger = logging.getLogger(__name__)
+
 
 class ScorePersister:
     """
@@ -49,12 +48,7 @@ class ScorePersister:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_scores_sample_size ON miner_scores(sample_size)")
             
             conn.commit()
-
-        # Now update schema after table exists
-        # self.update_schema("miner_scores", {
-        #     "evaluation_set_id": "INTEGER",
-        #     "sample_size": "INTEGER"
-        # })
+      
 
     @contextmanager
     def _connect(self):

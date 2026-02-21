@@ -1,9 +1,6 @@
 """ε-Pareto dominance computation for multi-environment scoring."""
-
-from dataclasses import dataclass, field
-
 import numpy as np
-
+from dataclasses import dataclass, field
 from scoring.types import EnvironmentId, MinerScores, MinerUID
 
 
