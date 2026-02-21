@@ -84,7 +84,7 @@ async def calculate_scores() -> bool:
         persister = ScorePersister(base_path=root_path, filename="scores.db")
         data = persister.load_scores(evaluation_set_id=current_set_id)
         logger.info(f"Loaded {len(data)} score records")
-        if not data or len(data) == 0:
+        if data.empty:
             logger.warning("\033[33mNo score data available to process\033[0m")
             return False
         
