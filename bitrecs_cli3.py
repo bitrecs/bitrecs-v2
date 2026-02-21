@@ -243,6 +243,16 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             else:
                 error = response.json().get('detail', 'Unknown error') if response.headers.get('content-type', '').startswith('application/json') else response.text
                 console.print(f"Upload failed (status {response.status_code}): {error}", style="bold red")
+                try:
+                    error_data = response.json()
+                    print(f"Upload failed (status {response.status_code}): {error_data.get('error', 'Unknown error')}")
+                    if 'details' in error_data:
+                        print(f"Details: {error_data['details']}")
+                    if 'traceback' in error_data and error_data['traceback']:
+                        print(f"Traceback:\n{error_data['traceback']}")
+                except ValueError:
+                    # If not JSON, print raw text
+                    print(f"Upload failed (status {response.status_code}): {response.text}")
             
             end_time = time.perf_counter()
             elapsed = end_time - start_time

@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
@@ -598,6 +599,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         await log_hotkey_gist(hotkey=submission.hotkey, gist=submission.gist_id, block=commit_block)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
         
+        # If successful
         response_content = {
             "request_id": request_id,
             "message": "Artifact submitted successfully",
@@ -605,12 +607,24 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             "similarity_check": "passed",
             "similar_results": [{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]
         }
-        
         return JSONResponse(status_code=201, content=response_content)
     
+    except HTTPException:
+        # Re-raise HTTPExceptions (they have specific status codes)
+        raise
     except Exception as e:
-        logger.error(f"Error submitting artifact: {e}")
-        return JSONResponse(content={"error": "Failed to submit artifact"}, status_code=400)
+        # Log full details for debugging
+        logger.error(f"Error submitting artifact (request_id: {request_id}): {e}", exc_info=True)
+        
+        # Return verbose error in response (for dev/test; in prod, make it generic)
+        error_details = {
+            "error": "Failed to submit artifact",
+            "details": str(e),  # Include exception message
+            "request_id": request_id,
+            #"traceback": traceback.format_exc() if config.ENV != "prod" else None  # Full traceback in non-prod
+            "traceback": traceback.format_exc()
+        }
+        return JSONResponse(content=error_details, status_code=400)
 
 
 
