@@ -71,14 +71,22 @@ async def calculate_scores_loop():
     
     # Immediate run for development (to see logs right away)
     try:
-        await asyncio.wait_for(calculate_scores(), timeout=120)
+        result = await asyncio.wait_for(calculate_scores(), timeout=120)
+        if result:
+            logger.info("Scores and weights updated successfully")
+        else:
+            logger.warning("Error updating scores / weights")
     except asyncio.TimeoutError as e:
         logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
     
     while True:
         await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
         try:
-            await asyncio.wait_for(calculate_scores(), timeout=120)
+            result = await asyncio.wait_for(calculate_scores(), timeout=120)
+            if result:
+                logger.info("Scores and weights updated successfully")
+            else:
+                logger.warning("Error updating scores / weights")
         except asyncio.TimeoutError as e:
             logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
 

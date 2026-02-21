@@ -72,15 +72,19 @@ def df_to_miner_blocks(df) -> MinerFirstBlocks:
     return miner_first_blocks
 
 
-async def calculate_scores():
+async def calculate_scores() -> bool:
     logger.info("Calculating scores...")
     current_set_id = get_current_eval_set_id()
     logger.info(f"Current evaluation set ID: {current_set_id}")
     
     root_path = Path(__file__).parent.parent.absolute()
-    persister = ScorePersister(base_path=os.path.join(root_path, "data", "weights"), filename="scores.db")
+    #persister = ScorePersister(base_path=os.path.join(root_path, "data", "weights"), filename="scores.db")
+    persister = ScorePersister(base_path=root_path, filename="scores.db")
     data = persister.load_scores(evaluation_set_id=current_set_id)
     logger.info(f"Loaded {len(data)} score records")
+    if not data or len(data) == 0:
+        logger.warning("\033[33mNo score data available to process\033[0m")
+        return False
 
     miner_scores = df_to_miner_scores(data)
     samples = df_to_samples(data)
@@ -110,6 +114,7 @@ async def calculate_scores():
         wait_for_inclusion=True,
         wait_for_finalization=True
     )    
-    logger.info(f"\nSet weight of UID {weight_receiving_uid} to 1 on chain: {'Success' if success else 'Failure'} - {message}")
-    
+    logger.info(f"\nSet weight of UID {weight_receiving_uid} to 1 on chain: {'Success' if success else 'Failure'} - {message}")    
     logger.info("\033[32mScores / Weights Update Complete\033[0m")
+
+    return success
