@@ -85,7 +85,7 @@ def test_scoring_wta():
     miner_scores = df_to_miner_scores(data)
     samples = df_to_samples(data)
     envs = list(samples.keys())
-    pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)
+    #pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)
     
     miner_blocks = df_to_miner_blocks(data)
    # Compute thresholds and scores with priority
@@ -101,6 +101,9 @@ def test_scoring_wta():
     typer.echo("\nFinal weights:")
     for uid, weight in sorted(weights.items(), key=lambda x: x[1], reverse=True):
         typer.echo(f"  UID {uid}: {weight:.4f}")
+
+    top_weight_uid = max(weights, key=weights.get)
+    typer.echo(f"\nTop weight UID: {top_weight_uid} with weight {weights[top_weight_uid]:.4f}")
 
 
 

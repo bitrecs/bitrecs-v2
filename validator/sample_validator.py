@@ -43,25 +43,45 @@ session_id: str | None = None
 state_backup = ScorePersister(base_path=PARENT_DIR, filename="scores.db")
 
 
-async def set_weights_loop():
-    logger.info("Starting set weights loop...")
-    while True:
-        weights_mapping = await get_ridges_platform("/scoring/weights", quiet=1)        
-        try:
-            await asyncio.wait_for(set_weights_from_mapping(weights_mapping), timeout=config.SET_WEIGHTS_TIMEOUT_SECONDS)
-        except asyncio.TimeoutError as e:
-            logger.error(f"asyncio.TimeoutError in set_weights_from_mapping(): {e}")
-        await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
+# async def set_weights_loop():
+#     logger.info("Starting set weights loop...")
+#     while True:
+#         weights_mapping = await get_ridges_platform("/scoring/weights", quiet=1)        
+#         try:
+#             await asyncio.wait_for(set_weights_from_mapping(weights_mapping), timeout=config.SET_WEIGHTS_TIMEOUT_SECONDS)
+#         except asyncio.TimeoutError as e:
+#             logger.error(f"asyncio.TimeoutError in set_weights_from_mapping(): {e}")
+#         await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
+
+
+# async def calculate_scores_loop():
+#     logger.info("Starting calculate scores loop...")
+#     while True:
+#         # Sleep first to skip the immediate run on restart
+#         await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
+        
+#         try:
+#             await asyncio.wait_for(calculate_scores(), timeout=120)
+#         except asyncio.TimeoutError as e:
+#             logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
 
 
 async def calculate_scores_loop():
     logger.info("Starting calculate scores loop...")
+    
+    # Immediate run for development (to see logs right away)
+    try:
+        await asyncio.wait_for(calculate_scores(), timeout=120)
+    except asyncio.TimeoutError as e:
+        logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
+    
     while True:
+        await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
         try:
             await asyncio.wait_for(calculate_scores(), timeout=120)
         except asyncio.TimeoutError as e:
             logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
-        await asyncio.sleep(900)
+
 
 
 async def send_heartbeat_loop():
@@ -519,8 +539,8 @@ async def main():
     
     if config.MODE == "validator":
         
-        asyncio.create_task(set_weights_loop())
-        logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")        
+        # asyncio.create_task(set_weights_loop())
+        # logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")        
 
         asyncio.create_task(calculate_scores_loop())
         logger.info("CALCULATE SCORES SYNC LOOP AS VALIDATOR")
