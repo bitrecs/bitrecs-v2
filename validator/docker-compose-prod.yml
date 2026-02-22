@@ -1,6 +1,6 @@
 services:
   validator:
-    container_name: affine-validator
+    container_name: bitrecs-validator
     build:
       context: ..
       dockerfile: validator/Dockerfile
@@ -22,8 +22,8 @@ networks:
 
   watchtower:
     image: nickfedor/watchtower
-    container_name: affine-watchtower
+    container_name: bitrecs-watchtower
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 30 affine-validator
+    command: --interval 30 bitrecs-validator

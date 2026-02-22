@@ -13,15 +13,6 @@ from models.agent import Agent, AgentStatus, AgentScored, BenchmarkAgentScored, 
 
 NUM_EVALS_PER_AGENT = config.NUM_EVALS_PER_AGENT
 
-# @db_operation
-# async def get_evaluation_set_groups(conn: DatabaseConnection) -> List[EvaluationSetGroup]:
-#     results = await conn.fetch(
-#         """
-#         SELECT DISTINCT evaluation_set_group
-#         FROM evaluations
-#         """
-#     )
-#     return [EvaluationSetGroup(result['evaluation_set_group']) for result in results]
 
 @db_operation
 async def get_agent_count(conn: DatabaseConnection) -> int:
@@ -179,8 +170,6 @@ async def get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(conn: Da
 
 @db_operation
 async def create_agent(conn: DatabaseConnection, agent: Agent) -> UUID:
-    
-
     result = await conn.fetchval(
         """
         INSERT INTO agents (
@@ -267,14 +256,8 @@ async def get_benchmark_agents(conn: DatabaseConnection) -> List[BenchmarkAgentS
 
 
 
-
-
-
 @db_operation
 async def record_upload_attempt(conn: DatabaseConnection, upload_type: str, success: bool, **kwargs) -> None:
-    # TODO ADAM: gross
-
-
     """Record an upload attempt in the upload_attempts table."""
     try:
         await conn.execute(
@@ -290,29 +273,6 @@ async def record_upload_attempt(conn: DatabaseConnection, upload_type: str, succ
         logger.error(f"Failed to record upload attempt: {e}")
 
 
-
-
-# @db_operation
-# async def get_top_agents(
-#     conn: DatabaseConnection, 
-#     number_of_agents: int = 10,
-#     page: int = 1
-# ) -> list[AgentScored]:
-#     # TODO ADAM: this query was supposed to be fixed to remove the pagination concept
-#     # TODO ADAM: maybe edge case bugs here if pagenum is 0,negative,or too high etc
-#     offset = (page - 1) * number_of_agents
-
-#     results = await conn.fetch(
-#         """
-#         select * from agent_scores 
-#         where set_id = (select max(set_id) from evaluation_sets)
-#         and agent_id not in (select agent_id from benchmark_agent_ids)
-#         order by round(final_score::numeric, 6) desc, created_at asc
-#         limit $1 offset $2
-#         """, number_of_agents, offset
-#     )
-
-#     return [AgentScored(**agent) for agent in results]
 
 
 @db_operation

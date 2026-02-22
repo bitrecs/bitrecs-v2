@@ -112,7 +112,7 @@ class EvaluationSetBuilder:
 
     @property
     def sample_size(self) -> int:
-        return 3
+        return 5
 
     @property
     def screener_1(self) -> set[BitrecsEvaluationType]:

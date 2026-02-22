@@ -1,13 +1,14 @@
 from typing import Optional
+from uuid import UUID
 from utils.database import db_operation, DatabaseConnection
 
 @db_operation
-async def log_hotkey_gist(conn: DatabaseConnection, hotkey: str, gist: str, block: int) -> None:
+async def log_hotkey_gist(conn: DatabaseConnection, hotkey: str, gist: str, block: int, artifact_id: UUID, uid: int) -> None:
     result = await conn.fetchrow(
         """
-        INSERT INTO hotkey_gist (miner_hotkey, gist, block) VALUES ($1, $2, $3)
+        INSERT INTO hotkey_gist (miner_hotkey, gist, block, uid, artifact_id) VALUES ($1, $2, $3, $4, $5)
         """,
-        hotkey, gist, block
+        hotkey, gist, block, uid, artifact_id
     )
 
 

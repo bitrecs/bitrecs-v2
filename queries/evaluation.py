@@ -41,19 +41,15 @@ async def create_new_evaluation_and_evaluation_runs(conn: DatabaseConnection, ag
         set_id = await get_latest_set_id()
     
     logger.debug(f"Creating new evaluation and evaluation runs for agent {agent_id} with validator hotkey {validator_hotkey} and set ID {set_id}")
-
     set_group = EvaluationSetGroup.from_validator_hotkey(validator_hotkey)
     problem_names = await get_all_problem_names_in_set_group_in_set_id(set_id, set_group)
-
     logger.debug(f"# of problems in set ID {set_id}, set group {set_group.value}: {len(problem_names)}")
-
     evaluation_id = await create_evaluation(
         agent_id,
         validator_hotkey,
         set_id
     )
     await create_evaluation_runs(evaluation_id, problem_names)
-
     return await get_evaluation_by_id(evaluation_id), await get_all_evaluation_runs_in_evaluation_id(evaluation_id)
 
 

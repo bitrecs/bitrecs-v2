@@ -67,7 +67,7 @@ from api.endpoints.upload import AgentUploadResponse, ErrorResponse
 
 
 
-METAGRAPH_SYNC_INTERVAL = 900
+
 
 # NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
@@ -83,14 +83,6 @@ COSINE_COMPARE_ENABLED = True
 SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.0001"))
 
 
-metagraph_manager = MetagraphSyncManager(
-    network=BT_NETWORK,
-    netuid=BT_NETUID,
-    sync_interval=METAGRAPH_SYNC_INTERVAL,
-    max_cycles_before_restart=12
-)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):    
     logger.info("V2 Server starting up")
@@ -98,8 +90,7 @@ async def lifespan(app: FastAPI):
 
     app.state.last_updated = None
     app.state.total_requests = 0
-    app.state.exceptions = 0
-    #metagraph_manager.start()
+    app.state.exceptions = 0    
     
     await initialize_database(
         username=config.DATABASE_USERNAME,
@@ -116,48 +107,23 @@ async def lifespan(app: FastAPI):
         endpoint_url=config.R2_ENDPOINT_URL
     )
     
-    # task to restart mg sync manager
-    async def restart_manager():
-        logger.info("Starting restart_manager task")
-        while True:
-            try:
-                if not metagraph_manager._process or not metagraph_manager._process.is_alive():
-                    logger.warning("Restarting dead MetagraphSyncManager process")
-                    metagraph_manager.start()
-                snapshot, _ = metagraph_manager.get_snapshot()
-                if snapshot and isinstance(snapshot, dict) and len(snapshot) > 0:
-                    metagraph_snapshot["nodes"] = snapshot
-                    logger.info(f"Metagraph snapshot updated with {len(snapshot)} nodes")
-                else:
-                    logger.warning("Invalid or empty snapshot received; skipping update")
-            except Exception as e:
-                logger.error(f"Error in restart_manager: {e}")
-            await asyncio.sleep(900)
-    
-    
     app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())
-    #app.state.set_builder_task = asyncio.create_task(validator_evaluation_set_builder_loop())
-    #app.state.restart_task = asyncio.create_task(restart_manager())        
+    #app.state.set_builder_task = asyncio.create_task(validator_evaluation_set_builder_loop())    
 
     try:
         logger.info(f"V2 API STARTED version: {this_version}")
         await set_all_unfinished_evaluation_runs_to_errored(error_message="Platform crashed while running this evaluation")
         yield
     finally:
-        logger.info("Starting shutdown...")
-        #app.state.restart_task.cancel()
+        logger.info("Starting shutdown...")        
         app.state.heartbeat_task.cancel()
         #app.state.set_builder_task.cancel()
-        try:
-            #await app.state.restart_task            
+        try:                      
             await app.state.heartbeat_task
             #await app.state.set_builder_task
         except asyncio.CancelledError:
             pass
-        
-        #metagraph_manager.stop()        
-        #logger.info("Shutting down PG writer thread pool...")
-        #app.state.thread_pool.shutdown(wait=True, cancel_futures=False)
+
         if DB_POOL:
             logger.info("Deinitializing database...")
             try:
@@ -232,8 +198,8 @@ async def read_root(request: Request):
 async def health(request: Request):
     client_ip = get_client_ip(request)
     logger.info(f"Health check from IP: {client_ip}")  
-    snapshot, synced_at = metagraph_manager.get_snapshot()
-    node_count = len(snapshot)
+    #snapshot, synced_at = metagraph_manager.get_snapshot()
+    #node_count = len(snapshot)
     thread_count = threading.active_count()
     message = "OK"
     status = "healthy"
@@ -260,7 +226,7 @@ async def health(request: Request):
      
     return {
         "status": status,
-        "nodes": node_count,
+        "nodes": 0,
         "db_status": db_status,
         "total_requests": app.state.total_requests,
         "exceptions": app.state.exceptions,
@@ -268,8 +234,8 @@ async def health(request: Request):
         "validators": validator_info,
         "similarity_threshold": str(SIMILARITY_THRESHOLD) if COSINE_COMPARE_ENABLED else "DISABLED",
         "threads": thread_count,
-        "metagraph_last_synced": int(synced_at) if synced_at else None,
-        "metagraph_age_seconds": round(time.time() - synced_at, 2) if synced_at else None,        
+        #"metagraph_last_synced": int(synced_at) if synced_at else None,
+        #"metagraph_age_seconds": round(time.time() - synced_at, 2) if synced_at else None,        
         #"thread_pool_workers": len(app.state.thread_pool._threads) if hasattr(app.state.thread_pool, '_threads') else 0,
         "memory_current_mb": round(current / 1024 / 1024, 2),
         "memory_peak_mb": round(peak / 1024 / 1024, 2),        
@@ -293,40 +259,40 @@ async def get_public_key(request: Request):
 
 
 
-@app.get("/artifact/{artifact_id}")
-@limiter.limit("60/minute")
-async def get_artifact(request: Request, artifact_id: str):
-    client_ip = get_client_ip(request)
-    logger.info(f"Artifact endpoint accessed from IP {client_ip} for ID {artifact_id}")
-    try:
-        if not artifact_id or len(artifact_id.strip()) == 0:            
-            return JSONResponse(content={"error": "Invalid artifact_id"}, status_code=400)        
+# @app.get("/artifact/{artifact_id}")
+# @limiter.limit("60/minute")
+# async def get_artifact(request: Request, artifact_id: str):
+#     client_ip = get_client_ip(request)
+#     logger.info(f"Artifact endpoint accessed from IP {client_ip} for ID {artifact_id}")
+#     try:
+#         if not artifact_id or len(artifact_id.strip()) == 0:            
+#             return JSONResponse(content={"error": "Invalid artifact_id"}, status_code=400)        
         
-        agent = await get_agent_by_id(UUID(artifact_id))
-        if not agent:
-            return JSONResponse(content={"error": "Artifact not found"}, status_code=404)
+#         agent = await get_agent_by_id(UUID(artifact_id))
+#         if not agent:
+#             return JSONResponse(content={"error": "Artifact not found"}, status_code=404)
         
-        return JSONResponse(content=agent.model_dump(mode="json"))
-    except ValueError:
-        # Invalid UUID format
-        return JSONResponse(content={"error": "Invalid artifact_id format"}, status_code=400)
-    except Exception as e:
-        logger.error(f"Error fetching artifact {artifact_id}: {e}")
-        return JSONResponse(content={"error": "Failed to fetch artifact"}, status_code=500)
+#         return JSONResponse(content=agent.model_dump(mode="json"))
+#     except ValueError:
+#         # Invalid UUID format
+#         return JSONResponse(content={"error": "Invalid artifact_id format"}, status_code=400)
+#     except Exception as e:
+#         logger.error(f"Error fetching artifact {artifact_id}: {e}")
+#         return JSONResponse(content={"error": "Failed to fetch artifact"}, status_code=500)
 
 
-@app.get("/artifacts")
-@limiter.limit("60/minute")
-async def get_artifacts(request: Request, limit: int = 10):
-    client_ip = get_client_ip(request)
-    logger.info(f"Artifacts endpoint accessed from IP {client_ip}")
-    try:
-        top_agents = await get_agents_by_top_limit(limit)    
-        logger.info(f"Returning {len(top_agents)} top agents")
-        return JSONResponse(content={"artifacts": [agent.model_dump(mode="json") for agent in top_agents]})
-    except Exception as e:
-        logger.error(f"Error fetching top agents: {e}")
-        return JSONResponse(content={"artifacts": []}, status_code=500)   
+# @app.get("/artifacts")
+# @limiter.limit("60/minute")
+# async def get_artifacts(request: Request, limit: int = 10):
+#     client_ip = get_client_ip(request)
+#     logger.info(f"Artifacts endpoint accessed from IP {client_ip}")
+#     try:
+#         top_agents = await get_agents_by_top_limit(limit)    
+#         logger.info(f"Returning {len(top_agents)} top agents")
+#         return JSONResponse(content={"artifacts": [agent.model_dump(mode="json") for agent in top_agents]})
+#     except Exception as e:
+#         logger.error(f"Error fetching top agents: {e}")
+#         return JSONResponse(content={"artifacts": []}, status_code=500)   
   
 
 
@@ -573,7 +539,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             
         
         artifact_id = await create_agent(artifact_instance)
-        await log_hotkey_gist(hotkey=submission.hotkey, gist=submission.gist_id, block=commit_block)
+        await log_hotkey_gist(hotkey=submission.hotkey, gist=submission.gist_id, block=commit_block, artifact_id=artifact_id, uid=miner_uid)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
 
         await record_evaluation_payment(

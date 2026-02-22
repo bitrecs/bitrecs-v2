@@ -1,5 +1,4 @@
 from typing import Optional
-
 from models.banned_hotkey import BannedHotkey
 from utils.database import db_operation, DatabaseConnection
 
