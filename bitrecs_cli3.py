@@ -7,6 +7,7 @@ Bitrecs CLI - Upload miner artifacts to the Bitrecs platform.
 """
 
 import os
+import secrets
 import time
 import httpx
 import click
@@ -34,8 +35,8 @@ from async_substrate_interface import ExtrinsicReceipt
 from utils.subtensor import close_subtensor
 
 console = Console()
-DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
-#DEFAULT_API_BASE_URL = "http://localhost:8000"
+#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
+DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 
 def run_cmd(cmd: str, capture: bool = True) -> tuple[int, str, str]:
@@ -154,7 +155,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 console.print(f"Error checking agent: {check_response.text}", style="bold red")
                 return
         
-            payment_response = client.get(f"{bitrecs.api_url}/upload/eval-pricing")
+            payment_response = client.get(f"{bitrecs.api_url}/eval-pricing")
             if payment_response.status_code != 200:
                 console.print("Error fetching evaluation cost", style="bold red")
                 return            
@@ -220,17 +221,37 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             
             receipt = burn_task.result()
             submission = commit_task.result()
+
+            payment_block_hash = receipt.block_hash
+            payment_extrinsic_hash = receipt.extrinsic_hash
+            #payment_block = receipt.block_number
+            payment_extrinsic_index = receipt.extrinsic_idx
+            
+            console.print(f"payment_block_hash : {payment_block_hash}")
+            console.print(f"payment_extrinsic_hash : {payment_extrinsic_hash}")
+            #console.print(f"payment_block : {payment_block}")
+            console.print(f"payment_extrinsic_index : {payment_extrinsic_index}")
+            
             
             # Wait for reveal
             console.print(f"Waiting for reveal to be included on chain before uploading...")
             await asyncio.sleep(12)
             
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
-                progress.add_task("Submitting artifact...", total=None)
+                progress.add_task("Submitting artifact...", total=None)                
+                nonce = secrets.token_hex(16)
+                submission_preamble = f"{submission.created_at}:{submission.github_account}:{submission.gist_id}:{submission.hotkey}:{payment_block_hash}:{payment_extrinsic_hash}:{payment_extrinsic_index}:{nonce}"
+                transport_signature = wallet.hotkey.sign(submission_preamble).hex()                
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                     'Accept': 'application/json',
-                    'Referer': f'{bitrecs.api_url}/'
+                    'Referer': f'{bitrecs.api_url}/',
+                    'X-Signature': transport_signature,
+                    'X-Timestamp': str(int(time.time())),
+                    'X-Nonce': nonce,
+                    'X-Payment-Block-Hash': payment_block_hash,
+                    'X-Payment-Extrinsic-Hash': payment_extrinsic_hash,
+                    'X-Payment-Extrinsic-Index': str(payment_extrinsic_index)
                 }
                 submit_url =f"{bitrecs.api_url}/submit"
                 response = client.post(submit_url, json=submission.to_dict(), timeout=120, headers=headers)

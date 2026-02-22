@@ -1,6 +1,7 @@
 import os
 import sys
 import traceback
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
@@ -29,7 +30,7 @@ from rules.agent_validator import validate_artifact_template
 from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id, get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id
 from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
-from api.utils.upload_agent_helpers import check_agent_banned, check_hotkey_registered, check_if_gist_used, check_if_hotkey_used, check_rate_limit
+from api.utils.upload_agent_helpers import check_agent_banned, check_hotkey_registered, check_if_gist_used, check_if_hotkey_used, check_rate_limit, get_tao_price
 from utils.network import get_client_ip
 from utils.bittensor import is_hotkey_valid_format
 from api.set_loop import validator_evaluation_set_builder_loop
@@ -42,7 +43,6 @@ from api.endpoints.evaluation_sets import router as evaluation_sets_router
 from api.endpoints.scoring import router as scoring_router
 from api.endpoints.statistics import router as statistics_router
 from api.endpoints.retrieval import router as retrieval_router
-from api.endpoints.upload import AgentUploadResponse, ErrorResponse, router as upload_router
 from api.endpoints.dashboard import router as dashboard_router
 from api.endpoints.metagraph import router as metagraph_router
 from api.snapshot import metagraph_snapshot
@@ -55,9 +55,16 @@ from version import __version__ as this_version
 from api.utils.limiter import limiter
 from models.miner_submission import MinerSubmission
 from utils.gist import get_gist, get_gist_created_at
-from utils.verify import verify_submission_signature
+from utils.verify import verify_submission_signature, verify_timestamp, verify_transport_signature
 from utils.commitment import is_commitment_valid
 from queries.hotkey_gist import log_hotkey_gist
+from queries.payments import record_evaluation_payment, retrieve_payment_by_hash
+from api.utils.request_cache import hourly_cache
+from models.payments import UploadPriceResponse
+
+
+from api.endpoints.upload import AgentUploadResponse, ErrorResponse
+
 
 
 METAGRAPH_SYNC_INTERVAL = 900
@@ -189,7 +196,7 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
-app.include_router(upload_router, prefix="/upload")
+#app.include_router(upload_router, prefix="/upload")
 app.include_router(retrieval_router, prefix="/retrieval")
 app.include_router(scoring_router, prefix="/scoring")
 app.include_router(validator_router, prefix="/validator")
@@ -319,101 +326,28 @@ async def get_artifacts(request: Request, limit: int = 10):
         return JSONResponse(content={"artifacts": [agent.model_dump(mode="json") for agent in top_agents]})
     except Exception as e:
         logger.error(f"Error fetching top agents: {e}")
-        return JSONResponse(content={"artifacts": []}, status_code=500)
-    
+        return JSONResponse(content={"artifacts": []}, status_code=500)   
   
 
-@app.post("/artifact")
-@limiter.limit("60/minute")
-async def submit_artifact(request: Request, artifact: Dict[str, Any]):
-    raise NotImplementedError("This endpoint is deprecated. Please use /submit with MinerSubmission instead.")
-    client_ip = get_client_ip(request)
-    logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")
-    request_id = secrets.token_hex(32)
-    logger.info(f"Request ID: {request_id}")
 
-    if config.DISALLOW_UPLOADS:
-        # raise HTTPException(
-        #     status_code=503,
-        #     detail=config.DISALLOW_UPLOADS_REASON
-        # )
-        return JSONResponse(
-            content={"error": "Artifact submissions are currently disabled"},
-            status_code=503
-        )
-    
-    try:        
-        artifact_instance = Agent(**artifact)
-        artifact_instance.ip_address = client_ip
-        
-        if artifact_instance.agent_id is not None:
-            return JSONResponse(content={"error": "agent_id must not be set by the client"}, status_code=400)
-            
-        # Validate artifact template
-        validated, reason = validate_artifact_template(artifact_instance)
-        if not validated:
-            logger.warning(reason)
-            return JSONResponse(content={"error": reason}, status_code=400)
-        
-        # Assign UUID before similarity check (needed for embedding)
-        artifact_instance.agent_id = uuid.uuid4()
-        
-        if COSINE_COMPARE_ENABLED and 1==1:
-            logger.info("Cosine similarity check is ENABLED for artifact submissions")
-            logger.info(f"Checking similarity for artifact ID: {artifact_instance.agent_id}")
-            logger.info(f"Threshold: {SIMILARITY_THRESHOLD}")
-            
-            is_too_similar, similar_agents = await check_similar_agents(
-                artifact_instance,
-                similarity_threshold=SIMILARITY_THRESHOLD,
-                max_results=5
-            )
-            
-            if is_too_similar:                
-                similar_details = [
-                    {
-                        "agent_id": str(agent_id),
-                        "similarity_score": f"{1 - distance:.4f}",
-                        "distance": f"{distance:.4f}"
-                    }
-                    for agent_id, distance in similar_agents
-                ]                
-                logger.warning(
-                    f"Artifact submission rejected due to similarity: "
-                    f"{[{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]}"
-                )                
-                return JSONResponse(
-                    status_code=409,  # Conflict
-                    content={
-                        "error": "Agent is too similar to existing agents",
-                        "message": "This agent appears to be a duplicate or very similar to existing submissions",
-                        "similar_agents": similar_details,
-                        "threshold": SIMILARITY_THRESHOLD
-                    }
-                )
-            
-        # Create the agent in database
-        #artifact_instance.agent_id = uuid.uuid4()
-        artifact_instance.ip_address = request_id
-        artifact_id = await create_agent(artifact_instance)
-        logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
-        
-        response_content = {
-            "request_id": request_id,
-            "message": "Artifact submitted successfully",
-            "artifact_id": str(artifact_id),
-            "similarity_check": "passed",
-            "similar_results": [{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]
-        }
-        
-        return JSONResponse(status_code=201, content=response_content)
-    
-    except Exception as e:
-        logger.error(f"Error submitting artifact: {e}")
-        return JSONResponse(content={"error": "Failed to submit artifact"}, status_code=400)
-
-
-
+@app.get(
+    "/eval-pricing",
+    tags=["eval-pricing"],
+    response_model=UploadPriceResponse
+)
+@hourly_cache()
+async def get_upload_price() -> UploadPriceResponse:
+    TAO_PRICE = await get_tao_price() 
+    eval_cost_usd = 60
+    # Get the amount of tao required per eval
+    eval_cost_tao = eval_cost_usd / TAO_PRICE
+    # Add a buffer against price fluctuations and eval cost variance. If this is over, we burn the difference. Determined EoD by net eval charges - net amount received
+    # This also makes production evals more expensive than local by a good margin to discourage testing in production and variance farming
+    amount_rao = int(eval_cost_tao * 1e9 * 1.4)
+    return UploadPriceResponse(
+        amount_rao=amount_rao,
+        send_address=config.UPLOAD_SEND_ADDRESS
+    )
 
 @app.post(
     "/check",
@@ -508,12 +442,52 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         raise HTTPException(
             status_code=503,
             detail=config.DISALLOW_UPLOADS_REASON
-        )        
-    
+        )
+        
     try:
+       
+        x_signature = request.headers.get("X-Signature")
+        x_timestamp = request.headers.get("X-Timestamp")       
+        x_nonce = request.headers.get("X-Nonce")        
+        payment_block_hash = request.headers.get("X-Payment-Block-Hash")
+        payment_extrinsic_hash = request.headers.get("X-Payment-Extrinsic-Hash")        
+        payment_extrinsic_index = request.headers.get("X-Payment-Extrinsic-Index")
+        if not verify_timestamp(x_timestamp):
+            logger.warning(f"Invalid or expired timestamp: {x_timestamp}")
+            raise HTTPException(status_code=400, detail="Invalid or expired timestamp")
+
+        transport_signature_valid = verify_transport_signature(
+            submission=submission,
+            transport_signature=x_signature,
+            payment_block_hash=payment_block_hash,
+            payment_extrinsic_hash=payment_extrinsic_hash,
+            payment_extrinsic_index=payment_extrinsic_index,
+            nonce=x_nonce
+        )
+        if not transport_signature_valid and 1==2:
+            logger.warning(f"Invalid transport signature for submission from hotkey {submission.hotkey}")
+            raise HTTPException(status_code=400, detail="Invalid transport signature")
+
         if not verify_submission_signature(submission):
             logger.warning(f"Invalid signature for submission from hotkey {submission.hotkey}")
-            return JSONResponse(content={"error": "Invalid signature"}, status_code=400)
+            raise HTTPException(status_code=400, detail="Invalid submission signature")
+        
+        existing_payment = await retrieve_payment_by_hash(
+            payment_block_hash=payment_block_hash,
+            payment_extrinsic_index=payment_extrinsic_index
+        )
+        if existing_payment is not None:
+            raise HTTPException(status_code=402, detail="Payment already used")
+        
+        onchain_payment_valid = await check_onchain_payment(
+            miner_hotkey=submission.hotkey,
+            payment_block_hash=payment_block_hash,
+            payment_extrinsic_index=payment_extrinsic_index
+        )
+        if not onchain_payment_valid:
+            logger.warning("On-chain payment verification failed")
+            raise HTTPException(status_code=402, detail="On-chain payment verification failed")       
+       
 
         gist_created_at = get_gist_created_at(submission.gist_id)
         gist_raw_data = get_gist(submission.github_account, submission.gist_id)
@@ -552,6 +526,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         
         sub = await get_subtensor()
         miner_uid = await sub.get_uid_for_hotkey_on_subnet(hotkey_ss58=submission.hotkey, netuid=config.NETUID)
+        coldkey = await sub.get_hotkey_owner(hotkey_ss58=submission.hotkey, block=int(commit_block))
         artifact_instance.miner_uid = str(miner_uid)
         logger.info(f"Miner UID {miner_uid} for {submission.hotkey} ")
 
@@ -598,8 +573,16 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         artifact_id = await create_agent(artifact_instance)
         await log_hotkey_gist(hotkey=submission.hotkey, gist=submission.gist_id, block=commit_block)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
+
+        await record_evaluation_payment(
+            payment_block_hash=payment_block_hash,
+            payment_extrinsic_index=payment_extrinsic_index,
+            amount_rao=0,
+            agent_id=artifact_instance.agent_id,
+            miner_hotkey=artifact_instance.miner_hotkey,
+            miner_coldkey=coldkey
+        )        
         
-        # If successful
         response_content = {
             "request_id": request_id,
             "message": "Artifact submitted successfully",
@@ -614,8 +597,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         raise
     except Exception as e:
         # Log full details for debugging
-        logger.error(f"Error submitting artifact (request_id: {request_id}): {e}", exc_info=True)
-        
+        logger.error(f"Error submitting artifact (request_id: {request_id}): {e}")        
         # Return verbose error in response (for dev/test; in prod, make it generic)
         error_details = {
             "error": "Failed to submit artifact",
@@ -626,6 +608,84 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         }
         return JSONResponse(content=error_details, status_code=400)
 
+
+
+async def check_onchain_payment(miner_hotkey, payment_block_hash, payment_extrinsic_index) -> bool:    
+    subtensor = await get_subtensor()
+    try:
+        payment_block = await subtensor.substrate.get_block(block_hash=payment_block_hash)
+    except Exception as e:
+        logger.error(f"Error retrieving payment block: {e}")
+        raise HTTPException(
+            status_code=402,
+            detail="Payment could not be verified"
+        )
+
+    # example payment block:
+    """
+    {'extrinsics': [<GenericExtrinsic(value={'extrinsic_hash': '0x6b6f2be8e0d0e7721fab46da881d894dafa221b4df73ebb2b69a8c0aa5aeb01b', 'extrinsic_length': 10, 'call': {'call_index': '0x0200', 'call_function': 'set', 'call_module': 'Timestamp', 'call_args': [{'name': 'now', 'type': 'Moment', 'value': 1763573265504}], 'call_hash': '0x5cad44676af19a09d4ae5354e08570778c06b75257a932db8183b90910d0c33e'}})>,
+            <GenericExtrinsic(value={'extrinsic_hash': '0x350253844e42eda50ed13c043c6124db65189bf00a968467c763d54861492295', 'extrinsic_length': 142, 'address': '5DhaT8U7LVwnnJNUU8VL1XEipicatoaDVVq7cHo227gogVZm', 'signature': {'Sr25519': '0x2eb063251883f68aa6fad463f32d31c7f8635ec4550e1197ce1a0913b6182a065880ea5af1b68026ad996beedb803685d6d67e56e097a4d7666c7e075da2778f'}, 'era': '00', 'nonce': 14, 'tip': 0, 'mode': {'mode': 'Disabled'}, 'call': {'call_index': '0x0503', 'call_function': 'transfer_keep_alive', 'call_module': 'Balances', 'call_args': [{'name': 'dest', 'type': 'AccountIdLookupOf', 'value': '5F4Thj3LRZdjSAnUhymAVVq2X2czSAKD4uGNCnqW8JrCHWE4'}, {'name': 'value', 'type': 'Balance', 'value': 271449345}], 'call_hash': '0x20f54967ae95d9b4304d5582d8343469894c637d2d1c557c7bb0ad1f27797797'}})>],
+'header': {'digest': {'logs': [<scale_info::17(value={'PreRuntime': ('0x61757261', '0x46f877a401000000')})>,
+                            <scale_info::17(value={'Consensus': ('0x66726f6e', '0x012f7e87441378c60d18e9b676246e74ca17064ff510b10dfed2a48191648a1a9400')})>,
+                            <scale_info::17(value={'Seal': ('0x61757261', '0x44729c195bda22d4e9dce35ed7e43fd1652e7782cb38cf27cc8489fb0460af1f4c97621e5e29c19e730051df736441d3359799c7002eb81350e169bb9fcecb80')})>]},
+        'extrinsicsRoot': '0x980d155f4b5a6f08d287c54e0a32380839cdfc0a5977200e33aa5787b48ec669',
+        'hash': '0xb9958e4374c182785bfa4467ceb971e23882079f48524e27c08e8f5b95d8b8d8',
+        'number': 13579,
+        'parentHash': '0x1065e83a02ff961d45ac34a6990477de3cba102bbba2322950815e5d59f23135',
+        'stateRoot': '0x301a04303fb97143649e44ca9c1d674606c8004082d11973c816ff67f2a13998'}}
+    """
+    block_number = payment_block['header']['number']
+    coldkey = await subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey, block=int(block_number))    
+    payment_extrinsic = payment_block['extrinsics'][int(payment_extrinsic_index)]
+
+    #payment_cost = await get_upload_price(cache_time=payment_time)
+
+    # just return true for now how to verify burn
+    return True
+
+    # Example payment extrinsic:
+    """
+    <GenericExtrinsic(value={'extrinsic_hash': '0x350253844e42eda50ed13c043c6124db65189bf00a968467c763d54861492295', 'extrinsic_length': 142, 'address': '5DhaT8U7LVwnnJNUU8VL1XEipicatoaDVVq7cHo227gogVZm', 'signature': {'Sr25519': '0x2eb063251883f68aa6fad463f32d31c7f8635ec4550e1197ce1a0913b6182a065880ea5af1b68026ad996beedb803685d6d67e56e097a4d7666c7e075da2778f'}, 'era': '00', 'nonce': 14, 'tip': 0, 'mode': {'mode': 'Disabled'}, 'call': {'call_index': '0x0503', 'call_function': 'transfer_keep_alive', 'call_module': 'Balances', 'call_args': [{'name': 'dest', 'type': 'AccountIdLookupOf', 'value': '5F4Thj3LRZdjSAnUhymAVVq2X2czSAKD4uGNCnqW8JrCHWE4'}, {'name': 'value', 'type': 'Balance', 'value': 271449345}], 'call_hash': '0x20f54967ae95d9b4304d5582d8343469894c637d2d1c557c7bb0ad1f27797797'}})>
+    """
+    payment_value = None
+    for arg in payment_extrinsic.value['call']['call_args']:
+        if arg['name'] == 'value':
+            payment_value = arg['value']
+            break
+    
+    if payment_value is None or await check_if_extrinsic_failed(payment_block_hash, int(payment_extrinsic_index)):
+        raise HTTPException(
+            status_code=402,
+            detail="Payment value not found"
+        )
+
+    # if payment_value != payment_cost.amount_rao:
+    #     raise HTTPException(
+    #         status_code=402,
+    #         detail="Payment amount does not match"
+    #     )
+    
+    # Make sure coldkey is the same as hotkeys owner coldkey
+    if coldkey != payment_extrinsic['address']:
+        raise HTTPException(
+            status_code=402,
+            detail="Coldkey does not match"
+        )
+
+    return True
+
+
+async def check_if_extrinsic_failed(block_hash: str, extrinsic_index: int) -> bool:
+    subtensor = await get_subtensor()
+    events = await subtensor.substrate.get_events(block_hash=block_hash)
+    for event in events:
+        if event.get("extrinsic_idx") != extrinsic_index:
+            continue
+        module = event["event"]["module_id"]
+        event_id = event["event"]["event_id"]
+        if module == "System" and event_id == "ExtrinsicFailed":
+            return True
+    return False
 
 
 async def check_similar_agents(

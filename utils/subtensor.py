@@ -47,7 +47,10 @@ class SubtensorWrapper:
         """Ensure we have a valid connection."""
         async with self._lock:
             if self._subtensor is None:
+                logger.info("Connecting subtensor...")
                 self._subtensor = await self._create_connection()
+            else:
+                logger.debug("Reusing existing subtensor connection")
             return self._subtensor
 
     def __getattr__(self, name: str) -> Any:
@@ -95,6 +98,10 @@ class SubtensorWrapper:
                     return result
 
         return wrapper
+
+    @property
+    def substrate(self):
+        return self._subtensor.substrate if self._subtensor else None
 
     async def close(self):
         """Close the connection."""

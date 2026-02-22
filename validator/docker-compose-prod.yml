@@ -1,0 +1,29 @@
+services:
+  validator:
+    container_name: affine-validator
+    build:
+      context: ..
+      dockerfile: validator/Dockerfile
+    volumes:
+      - ../:/app
+      - /app/.venv  # Exclude .venv from the mount
+      - /var/run/docker.sock:/var/run/docker.sock    
+      - ~/.bittensor/wallets:/root/.bittensor/wallets:ro
+      - /var/log/bitrecs/validator:/var/log/bitrecs/validator      
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - bitrecs-network
+    restart: unless-stopped
+
+networks:
+  bitrecs-network:
+    external: false
+
+  watchtower:
+    image: nickfedor/watchtower
+    container_name: affine-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 30 affine-validator

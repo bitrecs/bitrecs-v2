@@ -1,6 +1,5 @@
-from typing import Optional
 from uuid import UUID
-
+from typing import Optional
 from models.payments import Payment
 from utils.database import db_operation, DatabaseConnection
 
@@ -19,12 +18,9 @@ async def record_evaluation_payment(
         INSERT INTO evaluation_payments (
             payment_block_hash,
             payment_extrinsic_index,
-
             agent_id,
-
             miner_hotkey,
             miner_coldkey,
-
             amount_rao
         ) VALUES ($1, $2, $3, $4, $5, $6)
     """, payment_block_hash, payment_extrinsic_index, str(agent_id), miner_hotkey, miner_coldkey, amount_rao)
