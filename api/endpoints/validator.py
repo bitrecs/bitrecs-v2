@@ -59,6 +59,7 @@ def get_connected_validators_info() -> Dict[str, int]:
         "total_connected_validators": total_validators,
         "connected_screeners": screeners,
         "connected_validators": validators,
+        "hotkeys": [v.hotkey for v in SESSION_ID_TO_VALIDATOR.values()]        
     }
 
 def is_validator_registered(validator_hotkey: str) -> bool:

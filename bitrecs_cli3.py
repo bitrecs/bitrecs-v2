@@ -1,8 +1,6 @@
 """
-
 Bitrecs CLI - Upload miner artifacts to the Bitrecs platform.
 
-# https://github.com/ridgesai/ridges/blob/main/ridges.py 
 
 """
 
@@ -223,25 +221,21 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             submission = commit_task.result()
 
             payment_block_hash = receipt.block_hash
-            payment_extrinsic_hash = receipt.extrinsic_hash
-            #payment_block = receipt.block_number
-            payment_extrinsic_index = receipt.extrinsic_idx
-            
+            payment_extrinsic_hash = receipt.extrinsic_hash            
+            payment_extrinsic_index = receipt.extrinsic_idx            
             console.print(f"payment_block_hash : {payment_block_hash}")
-            console.print(f"payment_extrinsic_hash : {payment_extrinsic_hash}")
-            #console.print(f"payment_block : {payment_block}")
-            console.print(f"payment_extrinsic_index : {payment_extrinsic_index}")
-            
+            console.print(f"payment_extrinsic_hash : {payment_extrinsic_hash}")            
+            console.print(f"payment_extrinsic_index : {payment_extrinsic_index}")            
             
             # Wait for reveal
             console.print(f"Waiting for reveal to be included on chain before uploading...")
             await asyncio.sleep(12)
             
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
-                progress.add_task("Submitting artifact...", total=None)                
+                progress.add_task("Submitting artifact...", total=None)
                 nonce = secrets.token_hex(16)
                 submission_preamble = f"{submission.created_at}:{submission.github_account}:{submission.gist_id}:{submission.hotkey}:{payment_block_hash}:{payment_extrinsic_hash}:{payment_extrinsic_index}:{nonce}"
-                transport_signature = wallet.hotkey.sign(submission_preamble).hex()                
+                transport_signature = wallet.hotkey.sign(submission_preamble).hex()
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                     'Accept': 'application/json',
