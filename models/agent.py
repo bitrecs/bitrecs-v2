@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 from utils.database import DatabaseConnection, db_operation
+from utils.token import get_token_count
 
 class AgentStatus(str, Enum):
     screening_1 = 'screening_1'
@@ -46,6 +47,14 @@ class Agent(BaseModel):
     fewshot_examples: Optional[List[MessageExample]] = Field(None, max_length=64)
     eval_scores: Dict[str, float] = Field(description="Evaluation scores claimed by the miner", default_factory=dict)
 
+    @classmethod
+    def token_count(self) -> int:        
+        system_tokens = get_token_count(self.system_prompt_template)
+        user_tokens = get_token_count(self.user_prompt_template)
+        fewshot_tokens = sum(get_token_count(example.content) for example in self.fewshot_examples) if self.fewshot_examples else 0
+        total_tokens = system_tokens + user_tokens + fewshot_tokens
+        return total_tokens        
+
     @staticmethod
     def from_yaml(yaml_content: str) -> "Agent":        
         data = yaml.safe_load(yaml_content)
@@ -74,6 +83,8 @@ class Agent(BaseModel):
         except Exception as e:
             logger.error(f"Error fetching agent {agent_id}: {e}")
             raise
+
+    
 
 
 

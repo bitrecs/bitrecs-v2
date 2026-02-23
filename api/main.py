@@ -27,7 +27,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
-from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id, get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id
+from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id, get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id, record_upload_attempt
 from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
 from api.utils.upload_agent_helpers import check_agent_banned, check_hotkey_registered, check_if_gist_used, check_if_hotkey_used, check_rate_limit, get_tao_price
@@ -297,14 +297,13 @@ async def get_public_key(request: Request):
 
 
 @app.get(
-    "/eval-pricing",
-    tags=["eval-pricing"],
+    "/eval-pricing",    
     response_model=UploadPriceResponse
 )
 @hourly_cache()
 async def get_upload_price() -> UploadPriceResponse:
     TAO_PRICE = await get_tao_price() 
-    eval_cost_usd = 60
+    eval_cost_usd = 10
     # Get the amount of tao required per eval
     eval_cost_tao = eval_cost_usd / TAO_PRICE
     # Add a buffer against price fluctuations and eval cost variance. If this is over, we burn the difference. Determined EoD by net eval charges - net amount received
@@ -317,7 +316,7 @@ async def get_upload_price() -> UploadPriceResponse:
 
 @app.post(
     "/check",
-    tags=["upload"],
+    tags=["submit"],
     response_model=AgentUploadResponse
 )
 @limiter.limit("60/minute")
@@ -403,6 +402,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
     logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")
     request_id = secrets.token_hex(16)
     logger.info(f"Request ID: {request_id}")
+    upload_data = {}
 
     if config.DISALLOW_UPLOADS:
         raise HTTPException(
@@ -456,7 +456,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
        
 
         gist_created_at = get_gist_created_at(submission.gist_id)
-        gist_raw_data = get_gist(submission.github_account, submission.gist_id)
+        gist_raw_data = get_gist(submission.github_account, submission.gist_id)        
         artifact_instance = Agent.from_yaml(gist_raw_data)
         if artifact_instance.agent_id is not None:
             return JSONResponse(content={"error": "agent_id must not be set by the client"}, status_code=400)
@@ -549,15 +549,23 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             agent_id=artifact_instance.agent_id,
             miner_hotkey=artifact_instance.miner_hotkey,
             miner_coldkey=coldkey
-        )        
+        )       
 
-        # await record_upload_attempt(
-        #     upload_type="agent",
-        #     success=True,
-        #     agent_id=agent.agent_id,
-        #     http_status_code=201,
-        #     **upload_data
-        # )
+        upload_data = {
+            'hotkey': artifact_instance.miner_hotkey,
+            'agent_name': artifact_instance.name,
+            'filename': "artifact.yaml",
+            'file_size_bytes': artifact_instance.token_count(),
+            'ip_address': get_client_ip(request)
+        } 
+
+        await record_upload_attempt(
+            upload_type="agent",
+            success=True,
+            agent_id=artifact_instance.agent_id,
+            http_status_code=201,
+            **upload_data
+        )
         
         response_content = {
             "request_id": request_id,
@@ -582,6 +590,14 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             #"traceback": traceback.format_exc() if config.ENV != "prod" else None  # Full traceback in non-prod
             "traceback": traceback.format_exc()
         }
+        await record_upload_attempt(
+            upload_type="agent",
+            success=False,
+            error_type='internal_error',
+            error_message=str(e),
+            http_status_code=500,
+            **upload_data
+        )
         return JSONResponse(content=error_details, status_code=400)
 
 

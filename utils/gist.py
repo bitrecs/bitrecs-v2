@@ -32,6 +32,20 @@ def get_gist_created_at(gist_id: str) -> datetime:
         logger.error(f"Error fetching Gist metadata from {api_url}: {e}")
         raise
 
+def get_gist_file_names(gist_id: str) -> List[str]:
+    api_url = f"https://api.github.com/gists/{gist_id}"
+    try:
+        with httpx.Client() as client:
+            response = client.get(api_url, timeout=15.0)
+            response.raise_for_status()
+            data = response.json()
+            files = data.get('files', {})
+            file_names = list(files.keys())
+            return file_names
+    except Exception as e:        
+        logger.error(f"Error fetching Gist metadata from {api_url}: {e}")
+        raise
+
 def get_gist_sha_commits(gist_id: str) -> List[str]:
     api_url = f"https://api.github.com/gists/{gist_id}/commits"
     try:

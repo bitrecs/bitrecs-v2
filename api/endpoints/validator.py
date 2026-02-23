@@ -3,7 +3,6 @@ import time
 import traceback
 import asyncio
 import api.config as config
-from utils.bittensor import validate_signed_timestamp
 import utils.logger as logger
 from http import HTTPStatus
 from functools import wraps
@@ -16,20 +15,31 @@ from fastapi import Depends, APIRouter, HTTPException, Request
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
 from queries.session import insert_validator_session
-from queries.agent import get_top_agents, get_agent_by_id, update_agent_status, get_next_agent_id_awaiting_evaluation_for_validator_hotkey
-from queries.evaluation import get_hydrated_evaluation_by_id, update_evaluation_finished_at, create_new_evaluation_and_evaluation_runs, get_num_successful_validator_evaluations_for_agent_id, update_unfinished_evaluation_runs_in_evaluation_id_to_errored
-from queries.evaluation_run import get_evaluation_run_by_id, update_evaluation_run_by_id, \
-    get_all_evaluation_runs_in_evaluation_id, create_evaluation_run_log, check_if_evaluation_run_logs_exist
+from queries.agent import (
+    get_top_agents, get_agent_by_id, update_agent_status, 
+    get_next_agent_id_awaiting_evaluation_for_validator_hotkey
+)
+from queries.evaluation import (
+    get_hydrated_evaluation_by_id, 
+    update_evaluation_finished_at, 
+    create_new_evaluation_and_evaluation_runs, 
+    get_num_successful_validator_evaluations_for_agent_id,
+    update_unfinished_evaluation_runs_in_evaluation_id_to_errored
+)
+from queries.evaluation_run import (
+    get_evaluation_run_by_id, update_evaluation_run_by_id, 
+    get_all_evaluation_runs_in_evaluation_id, 
+    create_evaluation_run_log, check_if_evaluation_run_logs_exist
+)
 from models.agent import Agent, AgentStatus
 from models.evaluation import Evaluation, EvaluationStatus
 from models.evaluation_run import EvaluationRunStatus, EvaluationRunLogType
-#from utils.r2 import download_text_file_from_s3
 from utils.system_metrics import SystemMetrics
 from utils.validator_hotkeys import is_validator_hotkey_whitelisted, validator_hotkey_to_name
 from api.endpoints.validator_models import *
 from api.utils.limiter import limiter
 from utils.network import get_client_ip
-
+from utils.bittensor import validate_signed_timestamp
 
 class Validator(BaseModel):
     session_id: UUID

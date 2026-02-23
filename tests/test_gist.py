@@ -10,7 +10,7 @@ from bittensor_wallet import Wallet
 from datetime import datetime, timezone
 from rules.agent_validator import validate_artifact_template
 from utils.commitment import commit_to_chain, commit_to_chain_with_wallet, get_miner_commitments, is_commitment_valid
-from utils.gist import get_gist, get_gist_created_at, get_gist_sha_commits
+from utils.gist import get_gist, get_gist_created_at, get_gist_file_names, get_gist_sha_commits
 from models.miner_submission import MinerSubmission
 
 
@@ -56,6 +56,16 @@ def test_gist_created_at():
     print(f"Gist age in minutes: {minute_diff}")
     hour_diff = minute_diff / 60
     print(f"Gist age in hours: {hour_diff}")
+
+
+def test_gist_file_names():
+    file_names = get_gist_file_names(GIST_ID)
+    print(f"Gist file names: {file_names}")
+    assert isinstance(file_names, list), "file_names should be a list"
+    assert len(file_names) > 0, "There should be at least one file in the Gist"
+    for file_name in file_names:
+        assert isinstance(file_name, str), "Each file name should be a string"
+        assert len(file_name) > 0, "File names should not be empty"
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,6 @@ import api.config as config
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
-#from utils.s3 import upload_text_file_to_s3
 from models.evaluation import EvaluationStatus
 from models.evaluation_set import EvaluationSetGroup
 from utils.database import db_operation, DatabaseConnection
@@ -220,8 +219,7 @@ async def update_agent_status(conn: DatabaseConnection, agent_id: UUID, status: 
             """,
             agent_id
         )
-        logger.info(f"Deleted vector embeddings for agent {agent_id} due to failed_screening_1.")
-        
+        logger.info(f"Deleted vector embeddings for agent {agent_id} due to failed_screening_1.")        
 
 
 
