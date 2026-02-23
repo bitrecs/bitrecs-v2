@@ -46,11 +46,7 @@ async def calculate_scores_loop():
     logger.info("Starting calculate scores loop...")    
     # Immediate run for development (to see logs right away)
     try:
-        result = await asyncio.wait_for(calculate_scores(set_weights=False), timeout=120)
-        if result:
-            logger.info("Scores displayed successfully")
-        else:
-            logger.warning("Error displaying scores")
+        result = await asyncio.wait_for(calculate_scores(set_weights=False), timeout=120)       
     except asyncio.TimeoutError as e:
         logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
     
