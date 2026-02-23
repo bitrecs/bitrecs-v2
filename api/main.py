@@ -482,7 +482,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             'hotkey': artifact_instance.miner_hotkey,
             'agent_name': artifact_instance.name,
             'filename': "artifact.yaml",
-            'file_size_bytes': artifact_instance.token_count(),
+            'file_size_bytes': Agent.token_count(artifact_instance),
             'ip_address': get_client_ip(request)
         } 
 
