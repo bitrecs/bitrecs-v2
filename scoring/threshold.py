@@ -1,9 +1,6 @@
 """Threshold calculation for first-commit advantage scoring."""
-
 import math
-
 from scoring.types import EnvironmentId, MinerScores, MinerThresholds
-
 
 def calculate_threshold(
     prior_score: float,

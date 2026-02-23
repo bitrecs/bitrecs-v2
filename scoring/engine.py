@@ -1,6 +1,7 @@
 import os
 import httpx
 import asyncio
+from api.endpoints.scoring import weights
 import utils.logger as logger
 import validator.config as config
 from pathlib import Path
@@ -102,10 +103,10 @@ async def calculate_scores(set_weights: bool = True) -> bool:
         logger.info("\nFinal weights:")
         for uid, weight in sorted(weights.items(), key=lambda x: x[1], reverse=True):
             logger.info(f"  UID {uid}: {weight:.4f}")
-
+        
+        weight_receiving_uid = max(weights, key=weights.get)
         if set_weights:
-            #update weights on chain
-            weight_receiving_uid = max(weights, key=weights.get)
+            #update weights on chain         
             subtensor = await get_subtensor()
             success, message = await subtensor.set_weights(
                 wallet=config.VALIDATOR_WALLET,
@@ -121,6 +122,7 @@ async def calculate_scores(set_weights: bool = True) -> bool:
             return success
         
         else:
+            logger.info(f"\033[33mWeight candidate with highest score: {weight_receiving_uid}\033[0m")
             logger.info("\033[33mWeights not set on chain (set_weights=False)\033[0m")
             return False    
     except Exception as e:
