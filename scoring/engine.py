@@ -1,7 +1,5 @@
 import os
 import httpx
-import asyncio
-from api.endpoints.scoring import weights
 import utils.logger as logger
 import validator.config as config
 from pathlib import Path

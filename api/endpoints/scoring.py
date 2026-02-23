@@ -1,13 +1,10 @@
 import api.config as config
-import utils.logger as logger
 from fastapi import APIRouter, Request
 from datetime import datetime
 from pydantic import BaseModel
 from utils.ttl import ttl_cache
-from typing import Dict, Optional
+from typing import Optional
 from models.evaluation_set import EvaluationSetGroup
-from utils.bittensor import check_if_hotkey_is_registered
-from queries.scores import get_weight_receiving_agent_info
 from queries.evaluation_set import get_latest_set_id, get_set_created_at
 from queries.statistics import get_average_score_per_evaluation_set_group, get_average_wait_time_per_evaluation_set_group
 from api.utils.limiter import limiter
@@ -15,23 +12,23 @@ from api.utils.limiter import limiter
 router = APIRouter()
 
 # /scoring/weights
-@router.get("/weights")
-@limiter.limit("60/minute")
-async def weights(request: Request) -> Dict[str, float]:
-    if config.BURN:
-        return {config.OWNER_HOTKEY: 1.0}
+# @router.get("/weights")
+# @limiter.limit("60/minute")
+# async def weights(request: Request) -> Dict[str, float]:
+#     if config.BURN:
+#         return {config.OWNER_HOTKEY: 1.0}
 
-    # Try to get the weight-receiving agent's hotkey 
-    weight_receiving_agent_info = await get_weight_receiving_agent_info()
-    if weight_receiving_agent_info and "miner_hotkey" in weight_receiving_agent_info:
-        weight_receiving_hotkey = weight_receiving_agent_info["miner_hotkey"]
-        if await check_if_hotkey_is_registered(weight_receiving_hotkey):
-            return {weight_receiving_hotkey: 1.0}
-        else:
-            # Log a warning if the hotkey is not registered.            
-            logger.warning(f"Weight-receiving hotkey {weight_receiving_hotkey} is not registered on subnet {config.NETUID}.")
+#     # Try to get the weight-receiving agent's hotkey 
+#     weight_receiving_agent_info = await get_weight_receiving_agent_info()
+#     if weight_receiving_agent_info and "miner_hotkey" in weight_receiving_agent_info:
+#         weight_receiving_hotkey = weight_receiving_agent_info["miner_hotkey"]
+#         if await check_if_hotkey_is_registered(weight_receiving_hotkey):
+#             return {weight_receiving_hotkey: 1.0}
+#         else:
+#             # Log a warning if the hotkey is not registered.            
+#             logger.warning(f"Weight-receiving hotkey {weight_receiving_hotkey} is not registered on subnet {config.NETUID}.")
     
-    return {config.OWNER_HOTKEY: 1.0}
+#     return {config.OWNER_HOTKEY: 1.0}
 
 
 # /scoring/screener-info
