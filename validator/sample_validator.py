@@ -423,10 +423,7 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
         if SIMULATE_EVALUATION_RUNS:
             logger.info("\033[33mFinished SIMULATED evaluation\033[0m")
         else:
-            logger.info("\033[33mEVALUATION COMPLETE\033[0m")
-
-        #display scoring info
-        await calculate_scores(set_weights=False)
+            logger.info("\033[33mEVALUATION COMPLETE\033[0m")      
 
     except Exception as e:
         logger.error(f"Error finishing evaluation: {type(e).__name__}: {e}")
@@ -522,10 +519,6 @@ async def main():
     asyncio.create_task(send_heartbeat_loop())
     
     if config.MODE == "validator":
-        
-        # asyncio.create_task(set_weights_loop())
-        # logger.info("SETTING WEIGHTS SYNC LOOP AS VALIDATOR")        
-
         asyncio.create_task(calculate_scores_loop())
         logger.info("CALCULATE SCORES SYNC LOOP AS VALIDATOR")
     
@@ -542,6 +535,9 @@ async def main():
             
             logger.info(f"Received evaluation with {request_evaluation_response_data}")
             await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))
+
+            if config.MODE == "validator":
+                await calculate_scores(set_weights=False)
         
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 401:
