@@ -1,11 +1,9 @@
 import os
 import sys
 import traceback
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
-import base64
 import uuid
 import secrets
 import asyncio
@@ -14,26 +12,27 @@ import tracemalloc
 import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
-from uuid import UUID
 from api import config
-from typing import Annotated, Dict, Any
 from utils.version import load_version_info
 from utils.subtensor import get_subtensor
 from contextlib import asynccontextmanager
 from fastapi.responses import JSONResponse
-from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi import FastAPI, HTTPException, Request
 from slowapi.middleware import SlowAPIMiddleware
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
-from queries.agent import create_agent, get_agent_count, get_agents_by_top_limit, get_agent_by_id, get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id, record_upload_attempt
+from queries.agent import (
+    create_agent, get_agent_count, 
+    record_upload_attempt
+)
 from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
-from api.utils.upload_agent_helpers import check_agent_banned, check_hotkey_registered, check_if_gist_used, check_if_hotkey_used, check_rate_limit, get_tao_price
+from api.utils.upload_agent_helpers import (
+    check_agent_banned, check_if_gist_used, check_if_hotkey_used, 
+    get_tao_price
+)
 from utils.network import get_client_ip
 from utils.bittensor import is_hotkey_valid_format
-from api.set_loop import validator_evaluation_set_builder_loop
 from api.endpoints.validator import get_connected_validators_info, router as validator_router
 from api.endpoints.debug import router as debug_router
 from api.endpoints.agent import router as agent_router
@@ -44,10 +43,7 @@ from api.endpoints.scoring import router as scoring_router
 from api.endpoints.statistics import router as statistics_router
 from api.endpoints.retrieval import router as retrieval_router
 from api.endpoints.dashboard import router as dashboard_router
-from api.endpoints.metagraph import router as metagraph_router
-from api.snapshot import metagraph_snapshot
 from api.heartbeat import validator_heartbeat_timeout_loop
-from api.metagraph_sync_manager import MetagraphSyncManager
 from llm.open_router import OpenRouter
 from rules.agent_comparer import AgentComparer
 from utils.r2 import validate_r2_bucket_connection
@@ -61,27 +57,14 @@ from queries.hotkey_gist import log_hotkey_gist
 from queries.payments import record_evaluation_payment, retrieve_payment_by_hash
 from api.utils.request_cache import hourly_cache
 from models.payments import UploadPriceResponse
-
-
 from api.endpoints.upload import AgentUploadResponse, ErrorResponse
 
-
-
-
-
-# NONCE_HISTORY = TTLCache(maxsize=1_000_000, ttl=60 * 60 * 72)
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
 BT_NETUID = int(os.environ.get("BT_NETUID", 296))
-B64_PRIVATE_KEY = os.environ.get("B64_PRIVATE_KEY")
-if not B64_PRIVATE_KEY:
-    raise ValueError("B64_PRIVATE_KEY environment variable not set")
-PRIVATE_KEY = Ed25519PrivateKey.from_private_bytes(base64.b64decode(B64_PRIVATE_KEY))
-PUBLIC_KEY = PRIVATE_KEY.public_key()
 
 #COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
 COSINE_COMPARE_ENABLED = True
 SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.0001"))
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):    
@@ -163,6 +146,8 @@ async def add_security_headers(request: Request, call_next):
 
 
 #app.include_router(upload_router, prefix="/upload")
+#app.include_router(metagraph_router, prefix="/metagraph")
+
 app.include_router(retrieval_router, prefix="/retrieval")
 app.include_router(scoring_router, prefix="/scoring")
 app.include_router(validator_router, prefix="/validator")
@@ -173,7 +158,7 @@ app.include_router(evaluation_run_router, prefix="/evaluation-run")
 app.include_router(evaluations_router, prefix="/evaluation")
 app.include_router(statistics_router, prefix="/statistics")
 app.include_router(dashboard_router, prefix="/dashboard")
-app.include_router(metagraph_router, prefix="/metagraph")
+
 
 
 
@@ -197,9 +182,7 @@ async def read_root(request: Request):
 @limiter.limit("60/minute")
 async def health(request: Request):
     client_ip = get_client_ip(request)
-    logger.info(f"Health check from IP: {client_ip}")  
-    #snapshot, synced_at = metagraph_manager.get_snapshot()
-    #node_count = len(snapshot)
+    logger.info(f"Health check from IP: {client_ip}")   
     thread_count = threading.active_count()
     message = "OK"
     status = "healthy"
@@ -233,67 +216,13 @@ async def health(request: Request):
         "agent_count": agent_count,
         "validators": validator_info,
         "similarity_threshold": str(SIMILARITY_THRESHOLD) if COSINE_COMPARE_ENABLED else "DISABLED",
-        "threads": thread_count,
-        #"metagraph_last_synced": int(synced_at) if synced_at else None,
-        #"metagraph_age_seconds": round(time.time() - synced_at, 2) if synced_at else None,        
-        #"thread_pool_workers": len(app.state.thread_pool._threads) if hasattr(app.state.thread_pool, '_threads') else 0,
+        "threads": thread_count,     
         "memory_current_mb": round(current / 1024 / 1024, 2),
         "memory_peak_mb": round(peak / 1024 / 1024, 2),        
         "message": message,
         "version": version_file.strip() if version_file else "N/A"        
     }
 
-
-@app.get("/public_key")
-@limiter.limit("120/minute")
-async def get_public_key(request: Request):
-    client_ip = get_client_ip(request)
-    logger.info(f"Public key requested from IP: {client_ip}")
-    public_key_raw_bytes = PUBLIC_KEY.public_bytes(
-        encoding=Encoding.Raw,
-        format=PublicFormat.Raw
-    )
-    public_key_hex = public_key_raw_bytes.hex()
-    return JSONResponse(status_code=200, content={"public_key": public_key_hex})
-
-
-
-
-# @app.get("/artifact/{artifact_id}")
-# @limiter.limit("60/minute")
-# async def get_artifact(request: Request, artifact_id: str):
-#     client_ip = get_client_ip(request)
-#     logger.info(f"Artifact endpoint accessed from IP {client_ip} for ID {artifact_id}")
-#     try:
-#         if not artifact_id or len(artifact_id.strip()) == 0:            
-#             return JSONResponse(content={"error": "Invalid artifact_id"}, status_code=400)        
-        
-#         agent = await get_agent_by_id(UUID(artifact_id))
-#         if not agent:
-#             return JSONResponse(content={"error": "Artifact not found"}, status_code=404)
-        
-#         return JSONResponse(content=agent.model_dump(mode="json"))
-#     except ValueError:
-#         # Invalid UUID format
-#         return JSONResponse(content={"error": "Invalid artifact_id format"}, status_code=400)
-#     except Exception as e:
-#         logger.error(f"Error fetching artifact {artifact_id}: {e}")
-#         return JSONResponse(content={"error": "Failed to fetch artifact"}, status_code=500)
-
-
-# @app.get("/artifacts")
-# @limiter.limit("60/minute")
-# async def get_artifacts(request: Request, limit: int = 10):
-#     client_ip = get_client_ip(request)
-#     logger.info(f"Artifacts endpoint accessed from IP {client_ip}")
-#     try:
-#         top_agents = await get_agents_by_top_limit(limit)    
-#         logger.info(f"Returning {len(top_agents)} top agents")
-#         return JSONResponse(content={"artifacts": [agent.model_dump(mode="json") for agent in top_agents]})
-#     except Exception as e:
-#         logger.error(f"Error fetching top agents: {e}")
-#         return JSONResponse(content={"artifacts": []}, status_code=500)   
-  
 
 
 @app.get(
@@ -303,11 +232,9 @@ async def get_public_key(request: Request):
 @hourly_cache()
 async def get_upload_price() -> UploadPriceResponse:
     TAO_PRICE = await get_tao_price() 
-    eval_cost_usd = 10
-    # Get the amount of tao required per eval
+    eval_cost_usd = 10    
     eval_cost_tao = eval_cost_usd / TAO_PRICE
-    # Add a buffer against price fluctuations and eval cost variance. If this is over, we burn the difference. Determined EoD by net eval charges - net amount received
-    # This also makes production evals more expensive than local by a good margin to discourage testing in production and variance farming
+    # Add a buffer against price fluctuations and eval cost variance
     amount_rao = int(eval_cost_tao * 1e9 * 1.4)
     return UploadPriceResponse(
         amount_rao=amount_rao,
