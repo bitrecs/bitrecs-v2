@@ -47,13 +47,15 @@ class Agent(BaseModel):
     fewshot_examples: Optional[List[MessageExample]] = Field(None, max_length=64)
     eval_scores: Dict[str, float] = Field(description="Evaluation scores claimed by the miner", default_factory=dict)
 
-    @classmethod
-    def token_count(self) -> int:        
-        system_tokens = get_token_count(self.system_prompt_template)
-        user_tokens = get_token_count(self.user_prompt_template)
-        fewshot_tokens = sum(get_token_count(example.content) for example in self.fewshot_examples) if self.fewshot_examples else 0
+    @staticmethod
+    def token_count(agent: "Agent") -> int:
+        if not agent:
+            return 0
+        system_tokens = get_token_count(agent.system_prompt_template if agent.system_prompt_template else "")
+        user_tokens = get_token_count(agent.user_prompt_template if agent.user_prompt_template else "")
+        fewshot_tokens = sum(get_token_count(example.content) for example in agent.fewshot_examples) if agent.fewshot_examples else 0
         total_tokens = system_tokens + user_tokens + fewshot_tokens
-        return total_tokens        
+        return total_tokens
 
     @staticmethod
     def from_yaml(yaml_content: str) -> "Agent":        

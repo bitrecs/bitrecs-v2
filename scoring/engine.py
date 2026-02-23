@@ -72,13 +72,11 @@ def df_to_miner_blocks(df) -> MinerFirstBlocks:
     return miner_first_blocks
 
 
-async def calculate_scores() -> bool:
+async def calculate_scores(set_weights: bool = True) -> bool:
     try:
-
         logger.info("Calculating scores...")
         current_set_id = get_current_eval_set_id()
-        logger.info(f"Current evaluation set ID: {current_set_id}")
-        
+        logger.info(f"Current evaluation set ID: {current_set_id}")        
         root_path = Path(__file__).parent.parent.absolute()        
         persister = ScorePersister(base_path=root_path, filename="scores.db")
         data = persister.load_scores(evaluation_set_id=current_set_id)
@@ -105,23 +103,26 @@ async def calculate_scores() -> bool:
         for uid, weight in sorted(weights.items(), key=lambda x: x[1], reverse=True):
             logger.info(f"  UID {uid}: {weight:.4f}")
 
-        #update weights on chain
-        weight_receiving_uid = max(weights, key=weights.get)
-        subtensor = await get_subtensor()
-        success, message = await subtensor.set_weights(
-            wallet=config.VALIDATOR_WALLET,
-            netuid=config.NETUID,
-            uids=[weight_receiving_uid],
-            weights=[1],
-            wait_for_inclusion=True,
-            wait_for_finalization=True
-        )    
-        logger.info(f"\nSet weight of UID {weight_receiving_uid} to 1 on chain: {'Success' if success else 'Failure'} - {message}")    
-        logger.info("\033[32mScores / Weights Update Complete\033[0m")
-        await close_subtensor()
+        if set_weights:
+            #update weights on chain
+            weight_receiving_uid = max(weights, key=weights.get)
+            subtensor = await get_subtensor()
+            success, message = await subtensor.set_weights(
+                wallet=config.VALIDATOR_WALLET,
+                netuid=config.NETUID,
+                uids=[weight_receiving_uid],
+                weights=[1],
+                wait_for_inclusion=True,
+                wait_for_finalization=True
+            )    
+            logger.info(f"\nSet weight of UID {weight_receiving_uid} to 1 on chain: {'Success' if success else 'Failure'} - {message}")    
+            logger.info("\033[32mScores / Weights Update Complete\033[0m")
+            await close_subtensor()        
+            return success
         
-        return success
-    
+        else:
+            logger.info("\033[33mWeights not set on chain (set_weights=False)\033[0m")
+            return False    
     except Exception as e:
         import traceback
         traceback_str = traceback.format_exc()        

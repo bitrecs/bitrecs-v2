@@ -323,4 +323,12 @@ async def test_find_similar_agents(db_setup, sample_agent1, sample_agent2, sampl
         logger.info(f"  - Agent {agent_id}: distance = {dist:.4f}")
 
 
-
+def test_agent_token_count():
+    artifact = load_agent_from_yaml(MINER_YAML_PATH)
+    assert artifact is not None
+    assert isinstance(artifact, Agent)
+    token_count = Agent.token_count(artifact)
+    assert isinstance(token_count, int)
+    assert token_count > 0, f"Token count should be greater than 0, got {token_count}"
+    assert 1076 == token_count, f"Expected token count 1076, got {token_count}"
+    

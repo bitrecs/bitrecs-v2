@@ -42,39 +42,15 @@ session_id: str | None = None
 state_backup = ScorePersister(base_path=PARENT_DIR, filename="scores.db")
 
 
-# async def set_weights_loop():
-#     logger.info("Starting set weights loop...")
-#     while True:
-#         weights_mapping = await get_ridges_platform("/scoring/weights", quiet=1)        
-#         try:
-#             await asyncio.wait_for(set_weights_from_mapping(weights_mapping), timeout=config.SET_WEIGHTS_TIMEOUT_SECONDS)
-#         except asyncio.TimeoutError as e:
-#             logger.error(f"asyncio.TimeoutError in set_weights_from_mapping(): {e}")
-#         await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
-
-
-# async def calculate_scores_loop():
-#     logger.info("Starting calculate scores loop...")
-#     while True:
-#         # Sleep first to skip the immediate run on restart
-#         await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
-        
-#         try:
-#             await asyncio.wait_for(calculate_scores(), timeout=120)
-#         except asyncio.TimeoutError as e:
-#             logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
-
-
 async def calculate_scores_loop():
-    logger.info("Starting calculate scores loop...")
-    
+    logger.info("Starting calculate scores loop...")    
     # Immediate run for development (to see logs right away)
     try:
-        result = await asyncio.wait_for(calculate_scores(), timeout=120)
+        result = await asyncio.wait_for(calculate_scores(set_weights=False), timeout=120)
         if result:
-            logger.info("Scores and weights updated successfully")
+            logger.info("Scores displayed successfully")
         else:
-            logger.warning("Error updating scores / weights")
+            logger.warning("Error displaying scores")
     except asyncio.TimeoutError as e:
         logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
     
@@ -88,7 +64,6 @@ async def calculate_scores_loop():
                 logger.warning("Error updating scores / weights")
         except asyncio.TimeoutError as e:
             logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
-
 
 
 async def send_heartbeat_loop():
@@ -159,8 +134,7 @@ async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
 
 
 async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
-    logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")
-    
+    logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")    
     max_retries = 5  # Number of retries for 401 errors
     for attempt in range(max_retries):
         try:
@@ -223,8 +197,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
         logger.info(f"Sleeping for {sleep} seconds before {eval_type.value} ...")
         await asyncio.sleep(sleep)
 
-        try:        
-
+        try:
             miner_agent = await load_agent_by_evaluation_run(evaluation_run_id)
             if miner_agent is None:
                 raise Exception(f"Agent not found for evaluation run {evaluation_run_id}")            
@@ -451,6 +424,10 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
             logger.info("\033[33mFinished SIMULATED evaluation\033[0m")
         else:
             logger.info("\033[33mEVALUATION COMPLETE\033[0m")
+
+        #display scoring info
+        await calculate_scores(set_weights=False)
+
     except Exception as e:
         logger.error(f"Error finishing evaluation: {type(e).__name__}: {e}")
         logger.error(traceback.format_exc())
