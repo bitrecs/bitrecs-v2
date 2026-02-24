@@ -32,7 +32,7 @@ from validator.http_utils import get_ridges_platform, post_ridges_platform
 from scoring.engine import calculate_scores, get_current_eval_set_id
 from scoring.persist import ScorePersister
 from utils.docker import is_running_in_container
-
+from validator.r2_sync import r2_sync
 
 EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
@@ -72,6 +72,18 @@ async def send_heartbeat_loop():
             await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
     except Exception as e:
         logger.error(f"Error in send_heartbeat_loop(): {type(e).__name__}: {e}")
+        logger.error(traceback.format_exc())
+        os._exit(1)
+
+
+async def r2_sync_loop():
+    try:
+        logger.info("Starting R2 sync loop...")
+        while True:
+            await r2_sync()
+            await asyncio.sleep(config.R2_SYNC_INTERVAL_SECONDS)
+    except Exception as e:
+        logger.error(f"Error in r2_sync_loop(): {type(e).__name__}: {e}")
         logger.error(traceback.format_exc())
         os._exit(1)
 
@@ -516,7 +528,7 @@ async def main():
     
     if config.MODE == "validator":
         asyncio.create_task(calculate_scores_loop())
-        logger.info("CALCULATE SCORES SYNC LOOP AS VALIDATOR")
+        asyncio.create_task(r2_sync_loop())
     
     # Loop forever, just keep requesting evaluations and running them
     while True:

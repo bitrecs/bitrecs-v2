@@ -125,7 +125,10 @@ if not UPDATE_AUTOMATICALLY:
     logger.fatal("UPDATE_AUTOMATICALLY is not set in .env")
 UPDATE_AUTOMATICALLY = UPDATE_AUTOMATICALLY.lower() == "true"
 
-
+R2_SYNC_INTERVAL_SECONDS = os.getenv("R2_SYNC_INTERVAL_SECONDS")
+if not R2_SYNC_INTERVAL_SECONDS:
+    logger.fatal("R2_SYNC_INTERVAL_SECONDS is not set in .env")
+R2_SYNC_INTERVAL_SECONDS = int(R2_SYNC_INTERVAL_SECONDS)
 
 logger.info("=== Validator Configuration ===")
 
@@ -151,6 +154,7 @@ logger.info(f"Send Heartbeat Interval: {SEND_HEARTBEAT_INTERVAL_SECONDS} second(
 logger.info(f"Set Weights Interval: {SET_WEIGHTS_INTERVAL_SECONDS} second(s)")
 logger.info(f"Set Weights Timeout: {SET_WEIGHTS_TIMEOUT_SECONDS} second(s)")
 logger.info(f"Request Evaluation Interval: {REQUEST_EVALUATION_INTERVAL_SECONDS} second(s)")
+logger.info(f"R2 Sync Interval: {R2_SYNC_INTERVAL_SECONDS} second(s)")
 logger.info("-------------------------------")
 
 if SIMULATE_EVALUATION_RUNS:
