@@ -43,6 +43,7 @@ from api.endpoints.scoring import router as scoring_router
 from api.endpoints.statistics import router as statistics_router
 from api.endpoints.retrieval import router as retrieval_router
 from api.endpoints.dashboard import router as dashboard_router
+from api.endpoints.backup import router as backup_router
 from api.heartbeat import validator_heartbeat_timeout_loop
 from llm.open_router import OpenRouter
 from rules.agent_comparer import AgentComparer
@@ -158,7 +159,7 @@ app.include_router(evaluation_run_router, prefix="/evaluation-run")
 app.include_router(evaluations_router, prefix="/evaluation")
 app.include_router(statistics_router, prefix="/statistics")
 app.include_router(dashboard_router, prefix="/dashboard")
-
+app.include_router(backup_router, prefix="/backup")
 
 
 

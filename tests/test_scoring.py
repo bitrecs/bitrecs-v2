@@ -10,6 +10,8 @@ from scoring.types import MinerFirstBlocks, MinerScores
 from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
 root_path = Path(__file__).parent.parent.absolute()
 
+DATA_FILE_PATH = os.path.join(root_path, "data", "weights")
+DATA_FILE = "scores.db"
 
 def test_latest_eval_set_id():
     set_id = get_current_eval_set_id()
@@ -49,8 +51,10 @@ def test_pareto_frontier_from_db():
     current_set_id = get_current_eval_set_id()
     print(f"Current evaluation_set_id: {current_set_id}")
     
-    persister = ScorePersister(base_path=os.path.join(root_path, "data", "weights"), filename="scores2.db")
+    persister = ScorePersister(base_path=DATA_FILE_PATH, filename=DATA_FILE)
     print(f"{persister.file_path}")    
+    if not os.path.exists(persister.file_path):
+        raise FileNotFoundError(f"Database file not found at {persister.file_path}")
     
     data = persister.load_scores(evaluation_set_id=current_set_id)   
 
@@ -80,7 +84,7 @@ def test_pareto_frontier_from_db():
 def test_scoring_wta():    
     current_set_id = get_current_eval_set_id()
     print(f"Current evaluation_set_id: {current_set_id}")    
-    persister = ScorePersister(base_path=os.path.join(root_path, "data", "weights"), filename="scores2.db")
+    persister = ScorePersister(base_path=DATA_FILE_PATH, filename=DATA_FILE)
     data = persister.load_scores(evaluation_set_id=current_set_id)
     miner_scores = df_to_miner_scores(data)
     samples = df_to_samples(data)
