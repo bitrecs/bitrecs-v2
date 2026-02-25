@@ -24,25 +24,36 @@ def get_current_eval_set_id() -> int:
     
 
 def df_to_miner_scores(df) -> MinerScores:
+    """
+    Aggregate scores across multiple validators per uid+task.
+    Uses mean to be robust against outlier validators.
+    """
     miner_scores: MinerScores = {}
-    for _, row in df.iterrows():
+    
+    # Group by uid + task_name, take mean score across all validators
+    grouped = df.groupby(['uid', 'task_name'])['score'].mean().reset_index()
+    
+    for _, row in grouped.iterrows():
         uid = row['uid']
         env_id = row['task_name']
-        score = row['score']        
+        score = row['score']
         if uid not in miner_scores:
             miner_scores[uid] = {}
         miner_scores[uid][env_id] = score
+    
+    logger.info(f"Aggregated scores: {len(grouped)} uid+task combinations (mean across validators)")
     return miner_scores
 
 
 def df_to_samples(df) -> dict[str, int]:
+    """
+    Get sample size per task - take max across validators.
+    """
     samples = {}
-    for _, row in df.iterrows():
-        env_id = row['task_name']
-        sample_size = row['sample_size']
-        if env_id not in samples:
-            samples[env_id] = 0
-        samples[env_id] = sample_size
+    # Take max sample_size per task across validators
+    grouped = df.groupby('task_name')['sample_size'].max().reset_index()
+    for _, row in grouped.iterrows():
+        samples[row['task_name']] = row['sample_size']
     return samples
 
 
