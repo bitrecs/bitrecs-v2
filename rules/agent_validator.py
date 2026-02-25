@@ -1,4 +1,3 @@
-
 import utils.logger as logger
 from typing import Tuple
 from models.agent import Agent
@@ -21,18 +20,18 @@ VALID_TEMPLATE_VARIABLES = {
     'order_json'
 }
 
-def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:    
-    # if agent.agent_id is not None:
-    #     return False, "agent_id must not be set by the client" 
-    
-    # if len(agent.miner_hotkey) == 0:
-    #     return False, "miner_hotkey must not be empty"
+# Variables that must only appear once in the template
+VARIABLE_COUNT_RESTRICTIONS = {
+    'product_catalog': 1,
+    'order_json': 1,
+    'cart_json': 1    
+}
+
+def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
     if len(agent.name) == 0:
         return False, "name must not be empty"
     if agent.version_num <= 0:
-        return False, "version_num must be greater than 0"
-    # if agent.miner_uid <= 0:
-    #     return False, "miner_uid must be greater than 0"
+        return False, "version_num must be greater than 0" 
     if len(agent.provider) == 0:
         return False, "provider must not be empty"
     if len(agent.model) == 0:
@@ -62,26 +61,43 @@ def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
         return False, f"user_prompt_template is not a valid Jinja2 template: {e}"
     
     env = Environment()
-    matched_vars = set()    
-    for template_str, template_name in [(agent.system_prompt_template, "system_prompt_template"), (agent.user_prompt_template, "user_prompt_template")]:
+    matched_vars = set()
+    variable_counts = {var: 0 for var in VARIABLE_COUNT_RESTRICTIONS}
+    for template_str, template_name in [
+        (agent.system_prompt_template, "system_prompt_template"),
+        (agent.user_prompt_template, "user_prompt_template")
+    ]:
         try:
             ast = env.parse(template_str)
             variables_used = set()
             for node in ast.find_all(nodes.Name):
-                variables_used.add(node.name)            
-            
+                variables_used.add(node.name)
+                if node.name in VARIABLE_COUNT_RESTRICTIONS:
+                    variable_counts[node.name] += 1
+
             invalid_vars = variables_used - VALID_TEMPLATE_VARIABLES
             if invalid_vars:
-                return False, f"{template_name} contains invalid variable(s): {', '.join(invalid_vars)}. Allowed variables are: {', '.join(sorted(VALID_TEMPLATE_VARIABLES))}"
-            
+                return False, (
+                    f"{template_name} contains invalid variable(s): {', '.join(invalid_vars)}. "
+                    f"Allowed variables are: {', '.join(sorted(VALID_TEMPLATE_VARIABLES))}"
+                )
+
             matched_vars.update(variables_used)
         except Exception as e:
             return False, f"Error parsing variables in {template_name}: {e}"
+
+    # Check variable count restrictions
+    for var, max_count in VARIABLE_COUNT_RESTRICTIONS.items():
+        if variable_counts[var] > max_count:
+            return False, (
+                f"Variable '{var}' appears {variable_counts[var]} times, "
+                f"but may only appear {max_count} time(s) in the templates."
+            )
 
     if len(matched_vars) == 0:
         return False, "No valid template variables found in either prompt template"
     
     logger.info(f"\033[32mTemplate validation successful. Used variables: {', '.join(sorted(matched_vars))} \033[0m")
     return True, f"Valid template. Used variables: {', '.join(sorted(matched_vars))}"
-    
+
 
