@@ -13,6 +13,7 @@ import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
 from api import config
+from api.auth import bearer_auth_middleware
 from utils.version import load_version_info
 from utils.subtensor import get_subtensor
 from contextlib import asynccontextmanager
@@ -132,6 +133,8 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
+if config.ENV == "prod" and 1==2:
+    app.add_middleware(bearer_auth_middleware)
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -467,7 +470,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             
         
         artifact_id = await create_agent(artifact_instance)
-        await log_hotkey_gist(hotkey=submission.hotkey, gist=submission.gist_id, block=commit_block, artifact_id=artifact_id, uid=miner_uid)
+        await log_hotkey_gist(hotkey=submission.hotkey, gist=submission.gist_id, block=commit_block, artifact_id=artifact_id, uid=miner_uid, github_account=submission.github_account)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
 
         await record_evaluation_payment(
