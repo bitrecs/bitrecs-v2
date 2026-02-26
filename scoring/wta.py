@@ -92,7 +92,16 @@ def find_subset_winner_with_priority(
     # Sort by first_block (earlier first), then by uid for determinism
     sorted_uids = sorted(uids, key=lambda u: (miner_first_blocks.get(u, float("inf")), u))
 
-    for candidate in sorted_uids:
+    # skip miners with zero scores on ALL tasks in subset
+    # They can't meaningfully "win" a subset they didn't participate in
+    def has_any_score(uid: MinerUID) -> bool:
+        return any(miner_scores[uid].get(env, 0.0) > 0.0 for env in subset)
+
+    eligible_uids = [u for u in sorted_uids if has_any_score(u)]
+    if not eligible_uids:
+        return None
+
+    for candidate in eligible_uids:
         dominates_all = True
         candidate_block = miner_first_blocks.get(candidate, float("inf"))
 

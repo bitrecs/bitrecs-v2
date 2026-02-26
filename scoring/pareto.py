@@ -27,8 +27,8 @@ class ParetoResult:
 def compute_epsilon(
     values: np.ndarray,
     n_samples: int,
-    min_epsilon: float = 0.01,
-    max_epsilon: float = 0.2,
+    min_epsilon: float = 0.005,   # tighter: 200+ miners = finer resolution needed
+    max_epsilon: float = 0.05,    # was 0.2 — too loose for dense miner fields
 ) -> float:
     """
     Compute epsilon tolerance based on standard error.
