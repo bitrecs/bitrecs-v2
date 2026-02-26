@@ -1,8 +1,6 @@
 import time
 import socket
-from itertools import islice
 from enum import Enum
-
 
 class LLMProvider(Enum):
     OLLAMA_LOCAL = 1

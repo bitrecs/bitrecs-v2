@@ -14,7 +14,7 @@ class OpenRouter:
                  model="google/gemini-flash-1.5-8b", 
                  system_prompt="You are a helpful assistant.", 
                  temp=0.0,
-                 embedding_dimensions=768  # Default to 768 for efficiency
+                 embedding_dimensions=768
         ):
 
         self.OPENROUTER_API_KEY = key

@@ -103,10 +103,9 @@ async def get_health_from_docker(url: str) -> dict | None:
 
 
 async def get_run_log_from_docker(run_id: str, port: int, hostname: str) -> str | None:
-    """ Fetch run log from Docker container """
-    timeout = (10, 60)
+    """ Fetch run log from Docker container """    
     try:        
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=(10, 60)) as client:
             url =  f"http://{hostname}:{port}/run_log/{run_id}"
             response = await client.get(url, headers={"Content-Type": "application/json"})
             if response.status_code == 200:
@@ -344,7 +343,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             await env.cleanup()
 
             eval_status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL
-            eval_score = float(score) if isinstance(score, (int, float)) else None
+            eval_score = float(score) if isinstance(score, (int, float)) else 0.0
             problem_test_result = ProblemTestResult(
                 name=tak_name,
                 category="default",

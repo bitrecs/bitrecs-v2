@@ -484,7 +484,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             'agent_name': artifact_instance.name,
             'filename': "artifact.yaml",
             'file_size_bytes': Agent.token_count(artifact_instance),
-            'ip_address': get_client_ip(request)
+            'ip_address': client_ip
         } 
 
         await record_upload_attempt(

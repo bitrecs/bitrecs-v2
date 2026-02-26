@@ -3,16 +3,18 @@ import pytest
 import httpx
 from dotenv import load_dotenv
 
-from utils.subtensor import get_subtensor
+from tests.test_api import SERVICE_URL
 load_dotenv()
 from models.agent import Agent
 from bittensor_wallet import Wallet
 from datetime import datetime, timezone
+from utils.subtensor import get_subtensor
 from rules.agent_validator import validate_artifact_template
 from utils.commitment import commit_to_chain, commit_to_chain_with_wallet, get_miner_commitments, is_commitment_valid
 from utils.gist import get_gist, get_gist_created_at, get_gist_file_names, get_gist_sha_commits
 from models.miner_submission import MinerSubmission
-
+from api.endpoints.agent import agent_get_gist
+from uuid import UUID
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -150,3 +152,18 @@ async def test_commit_block_info():
     current_block = await sub.get_current_block()
     print(f"Current block number: {current_block}")
     assert isinstance(current_block, int), "Current block number should be an integer"
+
+
+@pytest.mark.asyncio
+async def test_agent_get_gist_info(): 
+    test_agent_id = UUID("ec1762f5-ce4f-42f6-b8c0-99c047f2f2e4")
+    SERVICE_URL = "http://localhost:8000"   
+    with httpx.Client(follow_redirects=True) as client:
+        client.get(f"{SERVICE_URL}/agent/get-gist-info?agent_id={test_agent_id}", timeout=15.0)
+        response = client.get(f"{SERVICE_URL}/agent/get-gist-info?agent_id={test_agent_id}", timeout=15.0)
+        print(f"Response status code: {response.status_code}")
+        print(f"Response content: {response.text}")
+        assert response.status_code == 200, f"Expected status code 200, got {response.status_code}"
+        gist_info = response.json()
+        print(f"Gist info from API: {gist_info}")   
+        assert gist_info["gist_id"] == "5c0cfaa5cb64c1deaf852138a357e404", f"Expected gist_id '5c0cfaa5cb64c1deaf852138a357e404', got '{gist_info['gist_id']}'"

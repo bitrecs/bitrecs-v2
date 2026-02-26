@@ -70,8 +70,7 @@ class Agent(BaseModel):
     def from_path(path: str) -> "Agent":
         with open(path, 'r', encoding='utf-8') as f:
             yaml_content = f.read()
-        return Agent.from_yaml(yaml_content)   
-
+        return Agent.from_yaml(yaml_content)
 
     @staticmethod
     @db_operation
@@ -85,10 +84,6 @@ class Agent(BaseModel):
         except Exception as e:
             logger.error(f"Error fetching agent {agent_id}: {e}")
             raise
-
-    
-
-
 
     @staticmethod
     def parse_agent_from_db_row(row: dict) -> "Agent":
@@ -106,12 +101,10 @@ class PossiblyBenchmarkAgent(Agent):
 
 class BenchmarkAgentScored(Agent):
     benchmark_description: Optional[str] = None
-
     set_id: int
     approved: bool
     validator_count: int
     final_score: float
-
 
 class AgentScored(Agent):
     set_id: int

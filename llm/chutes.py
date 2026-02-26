@@ -13,7 +13,7 @@ class Chutes:
                  model="deepseek-ai/DeepSeek-V3", 
                  system_prompt="You are a helpful assistant.", 
                  temp=0.0,
-                 embedding_dimensions=768  # Default to 768 for efficiency
+                 embedding_dimensions=768
         ):
         
         self.CHUTES_API_KEY = key

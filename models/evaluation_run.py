@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from typing import List, Optional
 from models.problem import ProblemTestResult
 
-
 class EvaluationRunErrorCode(IntEnum):
     
     def __new__(cls, code: int, message: str):

@@ -1,5 +1,7 @@
 from typing import Optional
 from uuid import UUID
+from models.miner_submission import GistInfo
+from utils import gist
 from utils.database import db_operation, DatabaseConnection
 
 @db_operation
@@ -34,8 +36,33 @@ async def get_miner_first_blocks(conn: DatabaseConnection) -> dict[str, int]:
         FROM hotkey_gist 
         WHERE block != 0
         GROUP BY miner_hotkey
-
         """
     )
     return {row['miner_hotkey']: row['first_block'] for row in rows}
+
+
+@db_operation
+async def get_gist_info_from_agent_id(conn: DatabaseConnection, agent_id: UUID) -> Optional[GistInfo]:
+    row = await conn.fetchrow(
+        """
+        SELECT created_at, gist, github_account, miner_hotkey, block 
+        FROM hotkey_gist 
+        WHERE artifact_id = $1
+        """,
+        agent_id      
+    )   
+    if not row:
+        return None
     
+    created_at = row['created_at'].isoformat() if row['created_at'] is not None else ""
+    gist_id = row['gist'] or ""
+    github_account = row['github_account'] or ""
+    hotkey = row['miner_hotkey'] or ""
+    block = row['block']
+    return GistInfo(
+        created_at=created_at,
+        gist_id=gist_id,
+        github_account=github_account,
+        hotkey=hotkey,
+        block=block
+    )
