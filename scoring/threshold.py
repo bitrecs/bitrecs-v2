@@ -1,6 +1,5 @@
 """Threshold calculation for first-commit advantage scoring."""
 import math
-import numpy as np
 from scoring.types import EnvironmentId, MinerScores, MinerThresholds
 
 def calculate_threshold(
@@ -8,7 +7,7 @@ def calculate_threshold(
     sample_count: int,
     z_score: float = 1.5,
     min_gap: float = 0.02,
-    max_gap: float = 0.10,
+    max_gap: float = 0.08,
 ) -> float:
     """
     Calculate the score threshold a later miner must beat.
@@ -38,10 +37,10 @@ def calculate_threshold(
 
 def compute_miner_thresholds(
     miner_scores: MinerScores,
-    episodes_per_env: dict,
-    base_gap: float = 0.05,     # reduced from 0.10 — still meaningful but not entrenchment
-    min_gap: float = 0.02,      # floor: always need at least 2% improvement
-    max_gap: float = 0.08,      # ceiling: prevents over-protection of early mediocre miners
+    episodes_per_env: int | dict[EnvironmentId, int],
+    z_score: float = 1.5,
+    min_gap: float = 0.02,
+    max_gap: float = 0.08,
 ) -> MinerThresholds:
     """
     Compute thresholds for all miners across all environments.
@@ -67,9 +66,12 @@ def compute_miner_thresholds(
             else:
                 n_samples = episodes_per_env.get(env_id, 50)
 
-            # For now: flat gap, clamped
-            # TODO when 200+ miners: make proportional to sample size
-            gap = float(np.clip(base_gap, min_gap, max_gap))
-            thresholds[uid][env_id] = score + gap
+            thresholds[uid][env_id] = calculate_threshold(
+                prior_score=score,
+                sample_count=n_samples,
+                z_score=z_score,
+                min_gap=min_gap,
+                max_gap=max_gap,
+            )
 
     return thresholds

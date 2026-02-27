@@ -113,12 +113,10 @@ class ScorePersister:
 
     def load_scores(self, evaluation_set_id: int) -> pd.DataFrame:
         """Load all scores for a given evaluation set ID."""
-        cutoff_date = "2026-02-20T14:37:15Z"
-
         with self._connect() as conn:
             df = pd.read_sql_query(
-                "SELECT * FROM miner_scores WHERE evaluation_set_id = ? and created_at > ?",
+                "SELECT * FROM miner_scores WHERE evaluation_set_id = ?",
                 conn,
-                params=(evaluation_set_id, cutoff_date)
+                params=(evaluation_set_id,)
             )
         return df
