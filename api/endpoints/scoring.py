@@ -12,7 +12,7 @@ from utils.ttl import ttl_cache
 from scoring.pareto import compute_pareto_frontier
 from scoring.threshold import compute_miner_thresholds
 from scoring.wta import compute_subset_scores_with_priority, find_subset_winner_with_priority, scores_to_weights
-from scoring.engine import df_to_miner_blocks, df_to_miner_scores, df_to_samples, get_current_eval_set_id
+from scoring.engine import df_to_miner_scores, df_to_samples, get_current_eval_set_id
 from models.evaluation_set import EvaluationSetGroup
 from queries.evaluation_set import get_latest_set_id, get_set_created_at
 from queries.statistics import get_average_score_per_evaluation_set_group, get_average_wait_time_per_evaluation_set_group

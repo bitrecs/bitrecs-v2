@@ -114,18 +114,11 @@ async def upsert_to_postgres(conn, sqlite_path: str) -> None:
             for row in rows
         ]
         
-        # Upsert query
+        # Upsert query - run_id is a UUID and unique per row
         upsert_query = """
         INSERT INTO miner_scores (run_id, uid, hotkey, task_name, score, success, duration, created_at, evaluation_set_id, sample_size)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        ON CONFLICT (run_id, uid, task_name) DO UPDATE SET
-            hotkey = EXCLUDED.hotkey,
-            score = EXCLUDED.score,
-            success = EXCLUDED.success,
-            duration = EXCLUDED.duration,
-            created_at = EXCLUDED.created_at,
-            evaluation_set_id = EXCLUDED.evaluation_set_id,
-            sample_size = EXCLUDED.sample_size
+        ON CONFLICT (run_id) DO NOTHING
         """
         
         await conn.executemany(upsert_query, data)
