@@ -17,8 +17,9 @@ DATA_FILE_PATH = os.path.join(root_path, "data", "weights")
 DATA_FILE = "scores.db"
 
 
-def test_latest_eval_set_id():
-    set_id = get_current_eval_set_id()
+@pytest.mark.asyncio
+async def test_latest_eval_set_id():
+    set_id = await get_current_eval_set_id()
     assert isinstance(set_id, int)
     assert set_id > 0
 
@@ -51,8 +52,9 @@ def test_miner_first_blocks():
         assert block >= 0
 
 
-def test_pareto_frontier_from_db():    
-    current_set_id = get_current_eval_set_id()
+@pytest.mark.asyncio
+async def test_pareto_frontier_from_db():    
+    current_set_id = await get_current_eval_set_id()
     print(f"Current evaluation_set_id: {current_set_id}")
     
     persister = ScorePersister(base_path=DATA_FILE_PATH, filename=DATA_FILE)
@@ -93,9 +95,7 @@ async def test_pareto_frontier_api():
         assert response.status_code == 200
         data = response.json()
         pretty = json.dumps(data, indent=2) 
-        print(f"{pretty}")
-
-        
+        print(f"{pretty}")        
         assert "frontier_uids" in data
         assert "dominance_matrix" in data
         assert "score_matrix" in data
@@ -112,12 +112,13 @@ async def test_wta_api():
         data = response.json()
         pretty = json.dumps(data, indent=2) 
         print(f"{pretty}")
+        assert "subset_scores" in data
+        assert "weights" in data
 
 
-
-
-def test_scoring_wta():    
-    current_set_id = get_current_eval_set_id()
+@pytest.mark.asyncio
+async def test_scoring_wta():    
+    current_set_id = await get_current_eval_set_id()
     print(f"Current evaluation_set_id: {current_set_id}")    
     persister = ScorePersister(base_path=DATA_FILE_PATH, filename=DATA_FILE)
     data = persister.load_scores(evaluation_set_id=current_set_id)

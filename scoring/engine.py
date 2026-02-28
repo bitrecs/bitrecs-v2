@@ -10,10 +10,18 @@ from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
 from queries.evaluation_set import get_latest_set_id
 
 
-async def get_current_eval_set_id() -> int:
+async def get_current_eval_set_id() -> int:    
     """Get current evaluation set ID directly from DB, not via HTTP self-call."""
-    return await get_latest_set_id()
-
+    try:
+        return await get_latest_set_id()
+    except Exception as e:
+        SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")    
+        if not SERVICE_URL:
+            SERVICE_URL = "http://localhost:8000"
+        client = httpx.Client(base_url=SERVICE_URL)
+        response = client.get("/scoring/latest-set-info")        
+        data = response.json()
+        return data["latest_set_id"]
 
 def df_to_miner_scores(df) -> MinerScores:
     """
@@ -52,8 +60,7 @@ def df_to_samples(df) -> dict[str, int]:
 def miners_first_blocks() -> MinerFirstBlocks:
     SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")    
     if not SERVICE_URL:
-        SERVICE_URL = "http://localhost:8000"  # Default to localhost if not set
-    
+        SERVICE_URL = "http://localhost:8000"    
     client = httpx.Client(base_url=SERVICE_URL)
     response = client.get("/retrieval/miner-blocks")
     assert response.status_code == 200

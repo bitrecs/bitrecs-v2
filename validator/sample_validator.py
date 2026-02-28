@@ -34,6 +34,7 @@ from scoring.persist import ScorePersister
 from utils.docker import is_running_in_container
 from validator.r2_sync import r2_sync
 
+
 EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
@@ -144,6 +145,12 @@ async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
     return agent
 
 
+# async def get_evaluation_set_id() -> int:
+#     response = await get_ridges_platform("/scoring/latest-set-info", quiet=2)
+#     set = ScoringLatestSetInfo(**response)
+#     return set.latest_set_id
+
+
 async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
     logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")    
     max_retries = 5  # Number of retries for 401 errors
@@ -211,14 +218,14 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
         try:
             miner_agent = await load_agent_by_evaluation_run(evaluation_run_id)
             if miner_agent is None:
-                raise Exception(f"Agent not found for evaluation run {evaluation_run_id}")            
-            evaluation_set_id = get_current_eval_set_id()
+                raise Exception(f"Miner Artifact not found for evaluation run {evaluation_run_id}")            
+            evaluation_set_id = await get_current_eval_set_id()
             logger.info("Loaded miner input YAML file successfully")
             logger.info(f"Evaluation set ID: {evaluation_set_id}")
-            logger.info(f"Miner Agent ID: {miner_agent.agent_id}")
-            logger.info(f"Miner Agent Name: {miner_agent.name}")
-            logger.info(f"Miner Agent Status: {miner_agent.status}")
-            logger.info(f"Miner Agent Hotkey: {miner_agent.miner_hotkey}")
+            logger.info(f"Miner Artifact ID: {miner_agent.agent_id}")
+            logger.info(f"Miner Artifact Name: {miner_agent.name}")
+            logger.info(f"Miner Artifact Status: {miner_agent.status}")
+            logger.info(f"Miner Artifact Hotkey: {miner_agent.miner_hotkey}")
 
             logger.info(f"Testing model: {miner_agent.model} with provider: {miner_agent.provider}")
 
