@@ -1,7 +1,6 @@
 import os
 import httpx
 import utils.logger as logger
-import validator.config as config
 from pathlib import Path
 from utils.subtensor import close_subtensor, get_subtensor
 from scoring.persist import ScorePersister
@@ -82,7 +81,7 @@ def df_to_miner_blocks(df) -> MinerFirstBlocks:
     return miner_first_blocks
 
 
-async def calculate_scores(set_weights: bool = True) -> bool:
+async def calculate_scores(netuid: int, validator_hotkey: str, set_weights: bool = True) -> bool:
     try:
         logger.info("Calculating scores...")
         current_set_id = get_current_eval_set_id()
@@ -115,11 +114,14 @@ async def calculate_scores(set_weights: bool = True) -> bool:
         
         weight_receiving_uid = max(weights, key=weights.get)
         if set_weights:
+            if not validator_hotkey or not netuid:
+                logger.error("Validator hotkey or netuid not provided, cannot set weights on chain")
+                return False
             #update weights on chain         
             subtensor = await get_subtensor()
             success, message = await subtensor.set_weights(
-                wallet=config.VALIDATOR_WALLET,
-                netuid=config.NETUID,
+                wallet=validator_hotkey,
+                netuid=netuid,
                 uids=[weight_receiving_uid],
                 weights=[1],
                 wait_for_inclusion=True,

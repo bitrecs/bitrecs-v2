@@ -46,14 +46,18 @@ async def calculate_scores_loop():
     logger.info("Starting calculate scores loop...")    
     # Immediate run for development (to see logs right away)
     try:
-        result = await asyncio.wait_for(calculate_scores(set_weights=False), timeout=120)       
+        result = await asyncio.wait_for(calculate_scores(netuid=config.NETUID, 
+                                                         validator_hotkey=config.VALIDATOR_HOTKEY,
+                                                         set_weights=False), timeout=120)       
     except asyncio.TimeoutError as e:
         logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
     
     while True:
         await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
         try:
-            result = await asyncio.wait_for(calculate_scores(), timeout=120)
+            result = await asyncio.wait_for(calculate_scores(netuid=config.NETUID, 
+                                                             validator_hotkey=config.VALIDATOR_HOTKEY,
+                                                             set_weights=True), timeout=120)
             if result:
                 logger.info("Scores and weights updated successfully")
             else:
@@ -544,7 +548,7 @@ async def main():
             await _run_evaluation(ValidatorRequestEvaluationResponse(**request_evaluation_response_data))
 
             if config.MODE == "validator":
-                await calculate_scores(set_weights=False)
+                await calculate_scores(netuid=config.NETUID, validator_hotkey=config.VALIDATOR_HOTKEY, set_weights=False)
         
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 401:
