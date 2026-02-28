@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from api import config
 from api.auth import bearer_auth_middleware
+from api.db_sync import r2_download_and_sync
 from utils.version import load_version_info
 from utils.subtensor import get_subtensor
 from contextlib import asynccontextmanager
@@ -92,8 +93,9 @@ async def lifespan(app: FastAPI):
         endpoint_url=config.R2_ENDPOINT_URL
     )
     
-    app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())
+    app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())    
     #app.state.set_builder_task = asyncio.create_task(validator_evaluation_set_builder_loop())    
+    app.state.r2_sync_task = asyncio.create_task(r2_download_and_sync())
 
     try:
         logger.info(f"V2 API STARTED version: {this_version}")
@@ -103,9 +105,11 @@ async def lifespan(app: FastAPI):
         logger.info("Starting shutdown...")        
         app.state.heartbeat_task.cancel()
         #app.state.set_builder_task.cancel()
+        app.state.r2_sync_task.cancel()
         try:                      
             await app.state.heartbeat_task
             #await app.state.set_builder_task
+            await app.state.r2_sync_task
         except asyncio.CancelledError:
             pass
 

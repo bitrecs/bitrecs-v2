@@ -1,5 +1,7 @@
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
+ENV PROJECT_ROOT=/app
+
 # Install git (required for the version script)
 RUN apt-get update && \
     apt-get install -y git && \

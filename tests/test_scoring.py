@@ -1,6 +1,9 @@
+import json
 import os
 import httpx
+import pytest
 import typer
+import utils.logger as logger
 from pathlib import Path
 from scoring.engine import get_current_eval_set_id
 from scoring.pareto import compute_pareto_frontier
@@ -12,6 +15,7 @@ root_path = Path(__file__).parent.parent.absolute()
 
 DATA_FILE_PATH = os.path.join(root_path, "data", "weights")
 DATA_FILE = "scores.db"
+
 
 def test_latest_eval_set_id():
     set_id = get_current_eval_set_id()
@@ -79,6 +83,37 @@ def test_pareto_frontier_from_db():
     print(f"  Score DataFrame:\n{score_df}")
     
     assert len(pareto_result.frontier_uids) > 0
+
+@pytest.mark.asyncio
+async def test_pareto_frontier_api():
+    SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")
+    SERVICE_URL = "http://localhost:8000"
+    async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
+        response = await client.get("/scoring/pareto")
+        assert response.status_code == 200
+        data = response.json()
+        pretty = json.dumps(data, indent=2) 
+        print(f"{pretty}")
+
+        
+        assert "frontier_uids" in data
+        assert "dominance_matrix" in data
+        assert "score_matrix" in data
+        assert "uid_mapping" in data
+
+
+@pytest.mark.asyncio
+async def test_wta_api():
+    SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")
+    SERVICE_URL = "http://localhost:8000"
+    async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
+        response = await client.get("/scoring/wta")
+        assert response.status_code == 200
+        data = response.json()
+        pretty = json.dumps(data, indent=2) 
+        print(f"{pretty}")
+
+
 
 
 def test_scoring_wta():    

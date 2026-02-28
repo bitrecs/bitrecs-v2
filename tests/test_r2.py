@@ -115,3 +115,50 @@ def test_validator_backup_r2_via_url():
     )
     uploaded = put_r2_upload(upload_request, wallet.hotkey) 
     assert uploaded is True
+
+
+@pytest.mark.asyncio
+async def test_r2_download_and_sync_to_postgres(db_setup):  # Use the existing fixture
+    """Unit test: Download scores.db from R2 for a random validator and sync to PostgreSQL."""
+    if not all([os.getenv("R2_BUCKET_NAME"), os.getenv("R2_ACCESS_KEY_ID"), os.getenv("R2_SECRET_ACCESS_KEY"), os.getenv("R2_ENDPOINT_URL")]):
+        pytest.skip("R2 credentials not set in environment.")
+    
+    test_validators = ["5FNL6e4JsB3ZPUGk1x1izK1xnTWsZDZrVF6WaRp1gNpoTvsM", "5FtH6Aj3xKbkNdgbZUghkTeJrkJexn6eBRZSnS8Zgc3oo4GX", "5Eyj7B2PzUMzRpW59eXziw4LazsQkn8bESF5gnbchyTdZEhX"]    
+    hotkey = random.choice(test_validators)
+    r2_key = f"{hotkey}/scores.db"    
+    
+    import tempfile
+    download_dir = tempfile.mkdtemp()
+    
+    # Download from R2
+    from api.db_sync import download_db_from_r2, upsert_to_postgres
+    db_path = download_db_from_r2("v2-testnet", r2_key, download_dir)
+    assert db_path is not None, f"Failed to download {r2_key}"
+    
+    try:
+        # Count rows before upsert
+        from utils.database import db_operation
+        @db_operation
+        async def count_rows_before(conn):
+            result = await conn.fetchval("SELECT COUNT(*) FROM miner_scores")
+            return result
+        count_before = await count_rows_before()
+        
+        # Upsert to PostgreSQL
+        await upsert_to_postgres(db_path)
+        
+        # Count rows after upsert
+        @db_operation
+        async def count_rows_after(conn):
+            result = await conn.fetchval("SELECT COUNT(*) FROM miner_scores")
+            return result
+        count_after = await count_rows_after()
+        
+        # Assert rows were added/updated (at least 1 row expected)
+        assert count_after > count_before, "No rows were upserted"
+    finally:
+        # Clean up temp file and dir
+        import shutil
+        if os.path.exists(db_path):
+            os.unlink(db_path)
+        shutil.rmtree(download_dir)
