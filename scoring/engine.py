@@ -7,20 +7,13 @@ from scoring.persist import ScorePersister
 from scoring.threshold import compute_miner_thresholds
 from scoring.types import MinerFirstBlocks, MinerScores
 from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
+from queries.evaluation_set import get_latest_set_id
 
 
-def get_current_eval_set_id() -> int:    
-    platform_url = os.environ.get("RIDGES_PLATFORM_URL", "")
-    client = httpx.Client(base_url=platform_url)
-    response = client.get("/scoring/latest-set-info")
-    result = response.json()
-    logger.info(f"Latest evaluation set info: {result}")
-    if response.status_code == 200 and "latest_set_id" in result:
-        return result["latest_set_id"]
-    else:        
-        logger.error(f"Failed to retrieve latest evaluation set ID: {response.status_code} - {response.text}")
-        raise Exception("Failed to retrieve latest evaluation set ID")
-    
+async def get_current_eval_set_id() -> int:
+    """Get current evaluation set ID directly from DB, not via HTTP self-call."""
+    return await get_latest_set_id()
+
 
 def df_to_miner_scores(df) -> MinerScores:
     """
@@ -58,6 +51,9 @@ def df_to_samples(df) -> dict[str, int]:
 
 def miners_first_blocks() -> MinerFirstBlocks:
     SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")    
+    if not SERVICE_URL:
+        SERVICE_URL = "http://localhost:8000"  # Default to localhost if not set
+    
     client = httpx.Client(base_url=SERVICE_URL)
     response = client.get("/retrieval/miner-blocks")
     assert response.status_code == 200
@@ -84,7 +80,7 @@ def df_to_miner_blocks(df) -> MinerFirstBlocks:
 async def calculate_scores(netuid: int, validator_hotkey: str, set_weights: bool = True) -> bool:
     try:
         logger.info("Calculating scores...")
-        current_set_id = get_current_eval_set_id()
+        current_set_id = await get_current_eval_set_id()
         logger.info(f"Current evaluation set ID: {current_set_id}")        
         root_path = Path(__file__).parent.parent.absolute()        
         persister = ScorePersister(base_path=root_path, filename="scores.db")

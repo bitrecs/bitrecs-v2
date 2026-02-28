@@ -7,6 +7,7 @@ from itertools import combinations
 from typing import Any, Dict, Optional
 from api.utils.limiter import limiter
 from queries.scores import get_miner_scores
+from scoring.types import MinerFirstBlocks
 from utils.ttl import ttl_cache
 from scoring.pareto import compute_pareto_frontier
 from scoring.threshold import compute_miner_thresholds
@@ -74,7 +75,7 @@ async def latest_set_info(request: Request) -> ScoringLatestSetInfo:
 @router.get("/pareto")
 @limiter.limit("60/minute")
 async def pareto_frontier(request: Request) -> Dict[str, Any]:
-    current_set_id = get_current_eval_set_id()
+    current_set_id = await get_current_eval_set_id()
     print(f"Current evaluation_set_id: {current_set_id}") 
     data = await get_miner_scores(evaluation_set_id=current_set_id)
     miner_scores = df_to_miner_scores(data)
@@ -109,16 +110,40 @@ async def pareto_frontier(request: Request) -> Dict[str, Any]:
     }
 
 
+
+
+async def miners_first_blocks2() -> MinerFirstBlocks:
+    from queries.hotkey_gist import get_miner_first_blocks
+    return await get_miner_first_blocks()
+    
+
+async def df_to_miner_blocks2(df) -> MinerFirstBlocks:
+    miner_blocks = await miners_first_blocks2()
+    # miner blocks uses hotkey as key, but we want to map to uid, so we need to convert
+    hotkey_to_uid = {}
+    for _, row in df.iterrows():
+        hotkey = row['hotkey']
+        uid = row['uid']
+        hotkey_to_uid[hotkey] = uid
+    miner_first_blocks: MinerFirstBlocks = {}
+    for hotkey, block in miner_blocks.items():
+        uid = hotkey_to_uid.get(hotkey)
+        if uid is not None:
+            miner_first_blocks[uid] = block
+    return miner_first_blocks
+
+
+
 @router.get("/wta")
 @limiter.limit("60/minute")
 async def winner_take_all(request: Request) -> Dict[str, Any]:
-    current_set_id = get_current_eval_set_id()
+    current_set_id = await get_current_eval_set_id()
     print(f"Current evaluation_set_id: {current_set_id}")  
     data = await get_miner_scores(evaluation_set_id=current_set_id)
     miner_scores = df_to_miner_scores(data)
     samples = df_to_samples(data)
     envs = list(samples.keys())
-    miner_blocks = df_to_miner_blocks(data)
+    miner_blocks = await df_to_miner_blocks2(data)
     miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
     subset_scores = compute_subset_scores_with_priority(
         miner_scores, miner_thresholds, miner_blocks, envs
