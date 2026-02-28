@@ -111,14 +111,9 @@ async def pareto_frontier(request: Request) -> Dict[str, Any]:
 
 
 
-
-async def miners_first_blocks2() -> MinerFirstBlocks:
+async def df_to_miner_blocks2(df) -> MinerFirstBlocks:    
     from queries.hotkey_gist import get_miner_first_blocks
-    return await get_miner_first_blocks()
-    
-
-async def df_to_miner_blocks2(df) -> MinerFirstBlocks:
-    miner_blocks = await miners_first_blocks2()
+    miner_blocks = await get_miner_first_blocks()
     # miner blocks uses hotkey as key, but we want to map to uid, so we need to convert
     hotkey_to_uid = {}
     for _, row in df.iterrows():
@@ -148,9 +143,8 @@ async def winner_take_all(request: Request) -> Dict[str, Any]:
     subset_scores = compute_subset_scores_with_priority(
         miner_scores, miner_thresholds, miner_blocks, envs
     )
-    weights = scores_to_weights(subset_scores)
+    weights = scores_to_weights(subset_scores)    
     
-    # Aggregate subset winners into stats (using pandas)
     subset_winners = {
         str(subset): find_subset_winner_with_priority(miner_scores, miner_thresholds, miner_blocks, subset)
         for subset_size in range(1, len(envs) + 1)
