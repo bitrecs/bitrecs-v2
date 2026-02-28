@@ -9,8 +9,8 @@ resolution-markers = [
 
 [[package]]
 name = "affinetes"
-version = "0.1.0"
-source = { git = "https://github.com/AffineFoundation/affinetes.git?rev=main#150ddc579e75ae702c071e4cb3346f0ba821d67e" }
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "docker" },
@@ -20,6 +20,10 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "tabulate" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/20/ac/84cb9e52aa333df27cf24d403d099b7e66acffe0be8ed966e0adcb8909ce/affinetes-0.2.0.tar.gz", hash = "sha256:5d0711f32f1600e2575acf917d821849f2bd9290afe3cbb07412c497b61268a8", size = 72814, upload-time = "2026-02-03T06:05:38.474Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/21/5a/bbd2a5d30a20c727ef334d3c6e13b351087c06b769295c005be9ead36276/affinetes-0.2.0-py3-none-any.whl", hash = "sha256:e74e4f4f4f31815ae5e55478ac651c36da16f8763cd08e8a94ec5d5572b05be7", size = 77831, upload-time = "2026-02-03T06:05:36.994Z" },
 ]
 
 [[package]]
@@ -328,7 +332,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "affinetes", git = "https://github.com/AffineFoundation/affinetes.git?rev=main" },
+    { name = "affinetes", specifier = ">=0.2.0" },
     { name = "aioboto3", specifier = ">=15.5.0" },
     { name = "async-substrate-interface", specifier = ">=1.6.1" },
     { name = "asyncpg", specifier = ">=0.31.0" },
