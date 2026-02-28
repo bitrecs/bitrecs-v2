@@ -66,7 +66,7 @@ BT_NETWORK = os.environ.get("BT_NETWORK", "test")
 BT_NETUID = int(os.environ.get("BT_NETUID", 296))
 
 #COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
-COSINE_COMPARE_ENABLED = True
+COSINE_COMPARE_ENABLED = False
 SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.0001"))
 
 @asynccontextmanager
@@ -93,8 +93,7 @@ async def lifespan(app: FastAPI):
         endpoint_url=config.R2_ENDPOINT_URL
     )
     
-    app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())    
-    #app.state.set_builder_task = asyncio.create_task(validator_evaluation_set_builder_loop())    
+    app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())
     app.state.r2_sync_task = asyncio.create_task(r2_download_and_sync())
 
     try:
@@ -103,12 +102,10 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         logger.info("Starting shutdown...")        
-        app.state.heartbeat_task.cancel()
-        #app.state.set_builder_task.cancel()
+        app.state.heartbeat_task.cancel()        
         app.state.r2_sync_task.cancel()
         try:                      
-            await app.state.heartbeat_task
-            #await app.state.set_builder_task
+            await app.state.heartbeat_task            
             await app.state.r2_sync_task
         except asyncio.CancelledError:
             pass
