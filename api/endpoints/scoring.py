@@ -1,7 +1,5 @@
-import os
 import api.config as config
 import pandas as pd
-from pathlib import Path
 from fastapi import APIRouter, Request
 from datetime import datetime
 from pydantic import BaseModel
@@ -10,9 +8,7 @@ from typing import Any, Dict, Optional
 from api.utils.limiter import limiter
 from queries.scores import get_miner_scores
 from utils.ttl import ttl_cache
-from tests.test_scoring import df_to_miner_blocks
 from scoring.pareto import compute_pareto_frontier
-from scoring.persist import ScorePersister
 from scoring.threshold import compute_miner_thresholds
 from scoring.wta import compute_subset_scores_with_priority, find_subset_winner_with_priority, scores_to_weights
 from scoring.engine import df_to_miner_blocks, df_to_miner_scores, df_to_samples, get_current_eval_set_id
@@ -79,25 +75,12 @@ async def latest_set_info(request: Request) -> ScoringLatestSetInfo:
 @limiter.limit("60/minute")
 async def pareto_frontier(request: Request) -> Dict[str, Any]:
     current_set_id = get_current_eval_set_id()
-    print(f"Current evaluation_set_id: {current_set_id}")
-    # Use env var for project root, fallback to relative path (assumes api/endpoints/ is 3 levels deep)
-    # ROOT_DIR = Path(os.getenv("PROJECT_ROOT", Path(__file__).parent.parent.parent))
-    # DATA_FILE_PATH = ROOT_DIR / "data" / "weights"
-    # DATA_FILE = "combined_20260227_083554.sqlite"
-    # persister = ScorePersister(base_path=DATA_FILE_PATH, filename=DATA_FILE)
-    # print(f"{persister.file_path}")
-    # if not Path(persister.file_path).exists(): 
-    #     raise FileNotFoundError(f"Database file not found at {persister.file_path}")
-    
-    # data = persister.load_scores(evaluation_set_id=current_set_id)   
+    print(f"Current evaluation_set_id: {current_set_id}") 
     data = await get_miner_scores(evaluation_set_id=current_set_id)
-
     miner_scores = df_to_miner_scores(data)
-    samples = df_to_samples(data)    
+    samples = df_to_samples(data)
     envs = list(samples.keys())    
-    
-    pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)
-    
+    pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)    
     # Aggregate dominance into stats
     dominance_df = pd.DataFrame({
         'uid': pareto_result.uid_mapping,
@@ -130,17 +113,7 @@ async def pareto_frontier(request: Request) -> Dict[str, Any]:
 @limiter.limit("60/minute")
 async def winner_take_all(request: Request) -> Dict[str, Any]:
     current_set_id = get_current_eval_set_id()
-    print(f"Current evaluation_set_id: {current_set_id}")
-    # Use env var for project root, fallback to relative path (assumes api/endpoints/ is 3 levels deep)
-    # ROOT_DIR = Path(os.getenv("PROJECT_ROOT", Path(__file__).parent.parent.parent))
-    # DATA_FILE_PATH = ROOT_DIR / "data" / "weights"
-    # DATA_FILE = "combined_20260227_083554.sqlite"
-    # persister = ScorePersister(base_path=DATA_FILE_PATH, filename=DATA_FILE)
-    # print(f"{persister.file_path}")
-    # if not Path(persister.file_path).exists(): 
-    #     raise FileNotFoundError(f"Database file not found at {persister.file_path}")
-    
-    # data = persister.load_scores(evaluation_set_id=current_set_id)       
+    print(f"Current evaluation_set_id: {current_set_id}")  
     data = await get_miner_scores(evaluation_set_id=current_set_id)
     miner_scores = df_to_miner_scores(data)
     samples = df_to_samples(data)
