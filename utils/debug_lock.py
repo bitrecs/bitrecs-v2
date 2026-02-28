@@ -59,7 +59,7 @@ class DebugLock:
 
         self.entry_id = str(uuid.uuid4())
         self.waiting_at = time.monotonic()
-        logger.info(f"[DebugLock] {self.label}: Trying to acquire lock...")
+        logger.debug(f"[DebugLock] {self.label}: Trying to acquire lock...")
         await DEBUG_MANAGER.add_waiting(self.entry_id, self.label, self.waiting_at)
 
         try:
@@ -78,7 +78,7 @@ class DebugLock:
         self.acquired_at = time.monotonic()
         await DEBUG_MANAGER.move_to_locked(self.entry_id, self.acquired_at)
         elapsed = self.acquired_at - self.waiting_at
-        logger.info(f"[DebugLock] {self.label}: Lock acquired after waiting for {elapsed:.2f} seconds")
+        logger.debug(f"[DebugLock] {self.label}: Lock acquired after waiting for {elapsed:.2f} seconds")
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
@@ -89,7 +89,7 @@ class DebugLock:
         self.released_at = time.monotonic()
         elapsed = self.released_at - self.acquired_at
         await DEBUG_MANAGER.remove_locked(self.entry_id, self.released_at)
-        logger.info(f"[DebugLock] {self.label}: Lock released after being locked for {elapsed:.2f} seconds")
+        logger.debug(f"[DebugLock] {self.label}: Lock released after being locked for {elapsed:.2f} seconds")
 
 def get_debug_lock_info():
     return DEBUG_MANAGER.get_info()

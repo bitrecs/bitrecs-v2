@@ -150,6 +150,16 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    logger.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal Server Error", "detail": str(exc)}
+    )
+
+
 #app.include_router(upload_router, prefix="/upload")
 #app.include_router(metagraph_router, prefix="/metagraph")
 
