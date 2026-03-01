@@ -327,9 +327,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info(f"  Success: {success}")
             logger.info(f"  Duration: {duration} seconds")
             logger.info("  Extra:")
-            if 'extra' in result and 'result' in result['extra']:
-                logger.info(result['extra']['result'])
+            if 'extra' in result and 'result' in result['extra']:                
                 extra = result['extra']['result']
+                logger.info(f"    {extra}")
             else:
                 logger.info("    No extra details available")   
             
