@@ -30,7 +30,7 @@ from queries.agent import (
 from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
 from api.utils.upload_agent_helpers import (
-    check_agent_banned, check_if_gist_used, check_if_hotkey_used, 
+    check_agent_banned, check_if_gist_used, check_if_hotkey_is_validator, check_if_hotkey_used, 
     get_tao_price
 )
 from utils.network import get_client_ip
@@ -287,6 +287,7 @@ async def check_agent_post(
             detail=f"Miner hotkey {miner_hotkey} is not a valid format"
         )
     
+    await check_if_hotkey_is_validator(miner_hotkey)
     # latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
     # if latest_agent_created_at_in_latest_set_id:
     #     check_rate_limit(latest_agent_created_at_in_latest_set_id)    

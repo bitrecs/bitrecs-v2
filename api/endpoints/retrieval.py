@@ -14,7 +14,7 @@ from queries.agent import (
     get_benchmark_agents, get_all_agents_by_miner_hotkey, 
     get_latest_agent_for_miner_hotkey, get_possibly_benchmark_agent_by_id
 )
-from queries.statistics import top_score, agents_created_24_hrs, score_improvement_24_hrs
+from queries.statistics import TopScoreOverTime, get_top_scores_over_time, top_score, agents_created_24_hrs, score_improvement_24_hrs
 from utils.bittensor import is_hotkey_valid_format
 from api.utils.limiter import limiter
 router = APIRouter()
@@ -128,15 +128,15 @@ async def agent_code(request: Request, agent_id: UUID) -> str:
 
 
 
-# /retrieval/top-scores-over-time
-# @router.get("/top-scores-over-time")
-# @limiter.limit("60/minute")
-# @ttl_cache(ttl_seconds=60 * 15) # 15 minutes
-# async def top_scores_over_time(request: Request) -> List[TopScoreOverTime]:
-#     return await get_top_scores_over_time()
+#/retrieval/top-scores-over-time
+@router.get("/top-scores-over-time")
+@limiter.limit("60/minute")
+@ttl_cache(ttl_seconds=60 * 15) # 15 minutes
+async def top_scores_over_time(request: Request) -> List[TopScoreOverTime]:
+    return await get_top_scores_over_time()
 
 
-# /retrieval/perfectly-solved-over-time
+# #/retrieval/perfectly-solved-over-time
 # class PerfectlySolvedOverTimeResponse(BaseModel):
 #     perfectly_solved_over_times: List[PerfectlySolvedOverTime]
 #     problem_set_creation_times: List[ProblemSetCreationTime]

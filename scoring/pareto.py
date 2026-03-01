@@ -48,16 +48,10 @@ def compute_epsilon(
     if n_samples <= 1:
         return max_epsilon
 
-    # Standard deviation of the scores
-    std = np.std(values)
-
-    # Standard error of the mean
-    se = std / np.sqrt(n_samples)
-
-    # Use 2 standard errors for 95% confidence
+    # Worst-case standard error for a binomial proportion
+    se = 0.5 / np.sqrt(n_samples)
     epsilon = 2 * se
 
-    # Clamp to reasonable range
     return float(np.clip(epsilon, min_epsilon, max_epsilon))
 
 

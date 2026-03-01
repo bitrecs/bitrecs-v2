@@ -7,8 +7,18 @@ from bittensor_wallet.keypair import Keypair
 from api.config import MINER_AGENT_UPLOAD_RATE_LIMIT_SECONDS
 from queries.banned_hotkey import get_banned_hotkey, is_hotkey_used
 from utils.bittensor import check_if_hotkey_is_registered
+from utils.validator_hotkeys import WHITELISTED_VALIDATORS
 
 MAX_FILE_SIZE_MB = 1
+
+async def check_if_hotkey_is_validator(hotkey: str) -> None:
+    match = [w for w in WHITELISTED_VALIDATORS if w["hotkey"] == hotkey]
+    if match:
+        logger.error(f"A miner attempted to upload an agent with a hotkey that belongs to a whitelisted validator: {hotkey}.")
+        raise HTTPException(
+            status_code=400,
+            detail="Hotkey belongs to a whitelisted validator and cannot be used for agent submission. Please register a new hotkey"
+        )   
 
 
 async def check_if_hotkey_used(hotkey: str) -> None:

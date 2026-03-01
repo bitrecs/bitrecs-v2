@@ -89,7 +89,7 @@ async def test_pareto_frontier_from_db():
 @pytest.mark.asyncio
 async def test_pareto_frontier_api():
     SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")
-    SERVICE_URL = "http://localhost:8000"
+    #SERVICE_URL = "http://localhost:8000"
     async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
         response = await client.get("/scoring/pareto")
         assert response.status_code == 200
@@ -105,7 +105,7 @@ async def test_pareto_frontier_api():
 @pytest.mark.asyncio
 async def test_wta_api():
     SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")
-    SERVICE_URL = "http://localhost:8000"
+    #SERVICE_URL = "http://localhost:8000"
     async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
         response = await client.get("/scoring/wta")
         assert response.status_code == 200
