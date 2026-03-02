@@ -10,6 +10,7 @@ from scoring.types import MinerFirstBlocks, MinerScores
 from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
 from queries.evaluation_set import get_latest_set_id
 
+MINER_BURN = 0.5
 
 async def get_current_eval_set_id() -> int:    
     """Get current evaluation set ID directly from DB, not via HTTP self-call."""
@@ -126,12 +127,14 @@ async def calculate_scores(netuid: int, validator_hotkey: str, set_weights: bool
                 logger.error(f"Validator hotkey mismatch: expected {validator_hotkey}, got {wallet.hotkey}")
                 return False
             #update weights on chain         
+            miner_weight = 1 * MINER_BURN
+            burn_weight = 1 - miner_weight
             subtensor = await get_subtensor()
             success, message = await subtensor.set_weights(
                 wallet=wallet,
                 netuid=netuid,
-                uids=[weight_receiving_uid],
-                weights=[1],
+                uids=[0, weight_receiving_uid],
+                weights=[burn_weight, miner_weight],
                 wait_for_inclusion=True,
                 wait_for_finalization=True
             )    
