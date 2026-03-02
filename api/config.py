@@ -172,6 +172,8 @@ if not NUM_EVALS_PER_AGENT:
 NUM_EVALS_PER_AGENT = int(NUM_EVALS_PER_AGENT)
 
 
+COST_PER_MINER_SUBMISSION_USD = int(os.getenv("COST_PER_MINER_SUBMISSION_USD", 20))
+
 
 logger.info("=== API Configuration ===")
 

@@ -30,8 +30,7 @@ from queries.agent import (
 from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
 from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
 from api.utils.upload_agent_helpers import (
-    check_agent_banned, check_if_gist_used, check_if_hotkey_is_validator, check_if_hotkey_used, 
-    get_tao_price
+    check_agent_banned, check_if_gist_used, check_if_hotkey_is_validator, check_if_hotkey_used, get_bitrecs_price
 )
 from utils.network import get_client_ip
 from utils.bittensor import is_hotkey_valid_format
@@ -241,12 +240,13 @@ async def health(request: Request):
     response_model=UploadPriceResponse
 )
 @hourly_cache()
-async def get_upload_price() -> UploadPriceResponse:
-    TAO_PRICE = await get_tao_price() 
-    eval_cost_usd = 10    
-    eval_cost_tao = eval_cost_usd / TAO_PRICE
+async def get_upload_price() -> UploadPriceResponse:        
+    PRICE_BUFFER = 1.1
+    BITRECS_PRICE = await get_bitrecs_price() # 1.20 USD
+    eval_cost_usd = config.COST_PER_MINER_SUBMISSION_USD    
+    eval_cost_alpha = eval_cost_usd / BITRECS_PRICE    
     # Add a buffer against price fluctuations and eval cost variance
-    amount_rao = int(eval_cost_tao * 1e9 * 1.4)
+    amount_rao = int(eval_cost_alpha * 1e9 * PRICE_BUFFER)
     return UploadPriceResponse(
         amount_rao=amount_rao,
         send_address=config.UPLOAD_SEND_ADDRESS
@@ -342,13 +342,11 @@ async def miner_submission(request: Request, submission: MinerSubmission):
     request_id = secrets.token_hex(16)
     logger.info(f"Request ID: {request_id}")
     upload_data = {}
-
     if config.DISALLOW_UPLOADS:
         raise HTTPException(
             status_code=503,
             detail=config.DISALLOW_UPLOADS_REASON
-        )
-        
+        )        
     try:
        
         x_signature = request.headers.get("X-Signature")
@@ -389,7 +387,8 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         onchain_payment_valid = await check_onchain_payment(
             miner_hotkey=submission.hotkey,
             payment_block_hash=payment_block_hash,
-            payment_extrinsic_index=payment_extrinsic_index
+            payment_extrinsic_index=payment_extrinsic_index,
+            amount_rao=existing_payment.amount_rao
         )
         if not onchain_payment_valid:
             logger.warning("On-chain payment verification failed")
@@ -543,7 +542,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
 
 
 
-async def check_onchain_payment(miner_hotkey, payment_block_hash, payment_extrinsic_index) -> bool:    
+async def check_onchain_payment(miner_hotkey, payment_block_hash, payment_extrinsic_index, amount_rao) -> bool:    
     subtensor = await get_subtensor()
     try:
         payment_block = await subtensor.substrate.get_block(block_hash=payment_block_hash)
@@ -573,33 +572,28 @@ async def check_onchain_payment(miner_hotkey, payment_block_hash, payment_extrin
 
     failed = await check_if_extrinsic_failed(payment_block_hash, int(payment_extrinsic_index))
     if failed:
-        return False
-
-    #payment_cost = await get_upload_price(cache_time=payment_time)
-    # just return true for now how to verify burn
-    return True
-
-    # Example payment extrinsic:
+        return False 
+    
     """
     <GenericExtrinsic(value={'extrinsic_hash': '0x350253844e42eda50ed13c043c6124db65189bf00a968467c763d54861492295', 'extrinsic_length': 142, 'address': '5DhaT8U7LVwnnJNUU8VL1XEipicatoaDVVq7cHo227gogVZm', 'signature': {'Sr25519': '0x2eb063251883f68aa6fad463f32d31c7f8635ec4550e1197ce1a0913b6182a065880ea5af1b68026ad996beedb803685d6d67e56e097a4d7666c7e075da2778f'}, 'era': '00', 'nonce': 14, 'tip': 0, 'mode': {'mode': 'Disabled'}, 'call': {'call_index': '0x0503', 'call_function': 'transfer_keep_alive', 'call_module': 'Balances', 'call_args': [{'name': 'dest', 'type': 'AccountIdLookupOf', 'value': '5F4Thj3LRZdjSAnUhymAVVq2X2czSAKD4uGNCnqW8JrCHWE4'}, {'name': 'value', 'type': 'Balance', 'value': 271449345}], 'call_hash': '0x20f54967ae95d9b4304d5582d8343469894c637d2d1c557c7bb0ad1f27797797'}})>
     """
-    payment_value = None
+    onchain_payment_value_rao = None
     for arg in payment_extrinsic.value['call']['call_args']:
         if arg['name'] == 'value':
-            payment_value = arg['value']
+            onchain_payment_value_rao = arg['value']
             break
     
-    if payment_value is None or await check_if_extrinsic_failed(payment_block_hash, int(payment_extrinsic_index)):
+    if onchain_payment_value_rao is None:
         raise HTTPException(
             status_code=402,
             detail="Payment value not found"
         )
 
-    # if payment_value != payment_cost.amount_rao:
-    #     raise HTTPException(
-    #         status_code=402,
-    #         detail="Payment amount does not match"
-    #     )
+    if onchain_payment_value_rao != amount_rao:
+        raise HTTPException(
+            status_code=402,
+            detail="Payment amount does not match"
+        )
     
     # Make sure coldkey is the same as hotkeys owner coldkey
     if coldkey != payment_extrinsic['address']:
