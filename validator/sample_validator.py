@@ -28,7 +28,7 @@ from models.problem import ProblemTestResult, ProblemTestResultStatus
 from models.evaluation_run import EvaluationRunErrorCode, EvaluationRunStatus
 from evaluator.models import EvaluationRunException
 from models.eval_type import BitrecsEvaluationType
-from validator.http_utils import get_ridges_platform, post_ridges_platform
+from validator.http_utils import get_bitrecs_platform, post_bitrecs_platform
 from scoring.engine import calculate_scores, get_current_eval_set_id
 from scoring.persist import ScorePersister
 from utils.docker import is_running_in_container
@@ -73,7 +73,7 @@ async def send_heartbeat_loop():
         while True:
             logger.info("Sending heartbeat...")
             system_metrics = await get_system_metrics()
-            await post_ridges_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
+            await post_bitrecs_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
             await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
     except Exception as e:
         logger.error(f"Error in send_heartbeat_loop(): {type(e).__name__}: {e}")
@@ -140,7 +140,7 @@ async def get_eval_log(run_id: str) -> str | None:
 
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
     """Load an agent by its evaluation run ID."""
-    response = await get_ridges_platform(f"/agent/get-by-evaluation-run-id?evaluation_run_id={evaluation_run_id}", quiet=2)
+    response = await get_bitrecs_platform(f"/agent/get-by-evaluation-run-id?evaluation_run_id={evaluation_run_id}", quiet=2)
     agent = Agent(**response)
     return agent
 
@@ -156,7 +156,7 @@ async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, upda
     max_retries = 5  # Number of retries for 401 errors
     for attempt in range(max_retries):
         try:
-            await post_ridges_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(
+            await post_bitrecs_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(
                 evaluation_run_id=evaluation_run_id,
                 updated_status=updated_status,
                 **(extra or {})
@@ -437,7 +437,7 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
 
        
     try:
-        await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
+        await post_bitrecs_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
         if SIMULATE_EVALUATION_RUNS:
             logger.info("\033[33mFinished SIMULATED evaluation\033[0m")
         else:
@@ -455,7 +455,7 @@ async def disconnect(reason: str):
         return    
     try:
         logger.info("Disconnecting validator...")
-        await post_ridges_platform("/validator/disconnect", ValidatorDisconnectRequest(reason=reason), bearer_token=session_id)
+        await post_bitrecs_platform("/validator/disconnect", ValidatorDisconnectRequest(reason=reason), bearer_token=session_id)
         logger.info("Disconnected validator")
     except Exception as e:
         logger.error(f"Error in disconnect(): {type(e).__name__}: {e}")
@@ -475,14 +475,14 @@ async def register_validator():
             if config.MODE == "validator":
                 timestamp = int(time.time())
                 signed_timestamp = config.VALIDATOR_HOTKEY.sign(str(timestamp)).hex()
-                register_response = ValidatorRegistrationResponse(**(await post_ridges_platform("/validator/register-as-validator", ValidatorRegistrationRequest(
+                register_response = ValidatorRegistrationResponse(**(await post_bitrecs_platform("/validator/register-as-validator", ValidatorRegistrationRequest(
                     timestamp=timestamp,
                     signed_timestamp=signed_timestamp,
                     hotkey=config.VALIDATOR_HOTKEY.ss58_address,
                     commit_hash=COMMIT_HASH
                 ))))
             elif config.MODE == "screener":
-                register_response = ScreenerRegistrationResponse(**(await post_ridges_platform("/validator/register-as-screener", ScreenerRegistrationRequest(
+                register_response = ScreenerRegistrationResponse(**(await post_bitrecs_platform("/validator/register-as-screener", ScreenerRegistrationRequest(
                     name=config.SCREENER_NAME,
                     password=config.SCREENER_PASSWORD,
                     commit_hash=COMMIT_HASH
@@ -544,7 +544,7 @@ async def main():
     while True:
         try:
             logger.info("Requesting an evaluation...")
-            request_evaluation_response_data = await post_ridges_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
+            request_evaluation_response_data = await post_bitrecs_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
             # If no evaluation is available, wait and try again
             if request_evaluation_response_data is None:
                 logger.info(f"No evaluations available. Waiting for {config.REQUEST_EVALUATION_INTERVAL_SECONDS} seconds...")
