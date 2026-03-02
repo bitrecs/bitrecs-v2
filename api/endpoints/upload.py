@@ -1,607 +1,607 @@
-import os
-import uuid
-import asyncio
-import utils.logger as logger
-from api import config 
-from typing import Optional
-from bittensor import Subtensor
-from models.agent import Agent
-from utils.debug_lock import DebugLock
-from pydantic import BaseModel, Field
-from api.utils.request_cache import hourly_cache
-from queries.payments import retrieve_payment_by_hash, record_evaluation_payment
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
-from queries.agent import create_agent, record_upload_attempt
-from queries.agent import (
-    get_latest_agent_for_miner_hotkey, 
-    get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id)
-from queries.banned_hotkey import get_banned_hotkey
-from api.utils.upload_agent_helpers import (
-    get_miner_hotkey, check_if_yaml_file, check_agent_banned, 
-    check_rate_limit, check_signature, check_hotkey_registered, 
-    check_file_size)
-from utils.coingecko import get_tao_price
-from utils.network import get_client_ip
+# import os
+# import uuid
+# import asyncio
+# import utils.logger as logger
+# from api import config 
+# from typing import Optional
+# from bittensor import Subtensor
+# from models.agent import Agent
+# from utils.debug_lock import DebugLock
+# from pydantic import BaseModel, Field
+# from api.utils.request_cache import hourly_cache
+# from queries.payments import retrieve_payment_by_hash, record_evaluation_payment
+# from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
+# from queries.agent import create_agent, record_upload_attempt
+# from queries.agent import (
+#     get_latest_agent_for_miner_hotkey, 
+#     get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id)
+# from queries.banned_hotkey import get_banned_hotkey
+# from api.utils.upload_agent_helpers import (
+#     get_miner_hotkey, check_if_yaml_file, check_agent_banned, 
+#     check_rate_limit, check_signature, check_hotkey_registered, 
+#     check_file_size)
+# from utils.coingecko import get_tao_price
+# from utils.network import get_client_ip
 
 
-subtensor = Subtensor(network=config.SUBTENSOR_NETWORK)
+# subtensor = Subtensor(network=config.SUBTENSOR_NETWORK)
 
-# We use a lock per hotkey to prevent multiple agents being uploaded at the same time for the same hotkey
-hotkey_locks: dict[str, asyncio.Lock] = {}
-hotkey_locks_lock = asyncio.Lock()
-async def get_hotkey_lock(hotkey: str) -> asyncio.Lock:
-    async with hotkey_locks_lock:
-        if hotkey not in hotkey_locks:
-            hotkey_locks[hotkey] = asyncio.Lock()
-        return hotkey_locks[hotkey]
+# # We use a lock per hotkey to prevent multiple agents being uploaded at the same time for the same hotkey
+# hotkey_locks: dict[str, asyncio.Lock] = {}
+# hotkey_locks_lock = asyncio.Lock()
+# async def get_hotkey_lock(hotkey: str) -> asyncio.Lock:
+#     async with hotkey_locks_lock:
+#         if hotkey not in hotkey_locks:
+#             hotkey_locks[hotkey] = asyncio.Lock()
+#         return hotkey_locks[hotkey]
 
-prod = False
-if os.getenv("ENV") == "prod":
-    logger.info("Agent Upload running in production mode.")
-    prod = True
-else:
-    logger.info("Agent Upload running in development mode.")
+# prod = False
+# if os.getenv("ENV") == "prod":
+#     logger.info("Agent Upload running in production mode.")
+#     prod = True
+# else:
+#     logger.info("Agent Upload running in development mode.")
 
-class AgentUploadResponse(BaseModel):
-    """Response model for successful agent upload"""
-    status: str = Field(..., description="Status of the upload operation")
-    message: str = Field(..., description="Detailed message about the upload result")
+# class AgentUploadResponse(BaseModel):
+#     """Response model for successful agent upload"""
+#     status: str = Field(..., description="Status of the upload operation")
+#     message: str = Field(..., description="Detailed message about the upload result")
 
-class ErrorResponse(BaseModel):
-    """Error response model"""
-    detail: str = Field(..., description="Error message describing what went wrong")
+# class ErrorResponse(BaseModel):
+#     """Error response model"""
+#     detail: str = Field(..., description="Error message describing what went wrong")
 
-router = APIRouter()
+# router = APIRouter()
 
-@router.post(
-    "/agent/check",
-    tags=["upload"],
-    response_model=AgentUploadResponse
-)
-async def check_agent_post(
-    request: Request,
-    agent_file: UploadFile = File(..., description="Python file containing the agent code (must be named agent.py)"),
-    public_key: str = Form(..., description="Public key of the miner in hex format"),
-    file_info: str = Form(..., description="File information containing miner hotkey and version number (format: hotkey:version)"),
-    signature: str = Form(..., description="Signature to verify the authenticity of the upload"),
-    name: str = Form(..., description="Name of the agent"),
-    payment_time: float = Form(..., description="Timestamp of the payment"),
-) -> AgentUploadResponse:
-    if config.DISALLOW_UPLOADS:
-        raise HTTPException(
-            status_code=503,
-            detail=config.DISALLOW_UPLOADS_REASON
-        )
-    miner_hotkey = get_miner_hotkey(file_info)
-    latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
-    if latest_agent_created_at_in_latest_set_id:
-        check_rate_limit(latest_agent_created_at_in_latest_set_id)
-    check_signature(public_key, file_info, signature)
-    await check_hotkey_registered(miner_hotkey)
-    await check_agent_banned(miner_hotkey=miner_hotkey) 
-    check_if_yaml_file(agent_file.filename)
-    await check_file_size(agent_file)
+# @router.post(
+#     "/agent/check",
+#     tags=["upload"],
+#     response_model=AgentUploadResponse
+# )
+# async def check_agent_post(
+#     request: Request,
+#     agent_file: UploadFile = File(..., description="Python file containing the agent code (must be named agent.py)"),
+#     public_key: str = Form(..., description="Public key of the miner in hex format"),
+#     file_info: str = Form(..., description="File information containing miner hotkey and version number (format: hotkey:version)"),
+#     signature: str = Form(..., description="Signature to verify the authenticity of the upload"),
+#     name: str = Form(..., description="Name of the agent"),
+#     payment_time: float = Form(..., description="Timestamp of the payment"),
+# ) -> AgentUploadResponse:
+#     if config.DISALLOW_UPLOADS:
+#         raise HTTPException(
+#             status_code=503,
+#             detail=config.DISALLOW_UPLOADS_REASON
+#         )
+#     miner_hotkey = get_miner_hotkey(file_info)
+#     latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
+#     if latest_agent_created_at_in_latest_set_id:
+#         check_rate_limit(latest_agent_created_at_in_latest_set_id)
+#     check_signature(public_key, file_info, signature)
+#     await check_hotkey_registered(miner_hotkey)
+#     await check_agent_banned(miner_hotkey=miner_hotkey) 
+#     check_if_yaml_file(agent_file.filename)
+#     await check_file_size(agent_file)
     
-    coldkey = subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey)
-    miner_balance = subtensor.get_balance(address=coldkey).rao
-    payment_cost = await get_upload_price(cache_time=payment_time)
-    if payment_cost.amount_rao > miner_balance:
-        raise HTTPException(
-            status_code=402,
-            detail=f"Insufficient balance. You need {payment_cost.amount_rao} RAO to upload this agent. You have {miner_balance} RAO."
-        )
-    return AgentUploadResponse(
-        status="success",
-        message=f"Agent check successful"
-    )
+#     coldkey = subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey)
+#     miner_balance = subtensor.get_balance(address=coldkey).rao
+#     payment_cost = await get_upload_price(cache_time=payment_time)
+#     if payment_cost.amount_rao > miner_balance:
+#         raise HTTPException(
+#             status_code=402,
+#             detail=f"Insufficient balance. You need {payment_cost.amount_rao} RAO to upload this agent. You have {miner_balance} RAO."
+#         )
+#     return AgentUploadResponse(
+#         status="success",
+#         message=f"Agent check successful"
+#     )
 
-@router.post(
-    "/agent",
-    tags=["upload"],
-    response_model=AgentUploadResponse,
-    responses={
-        400: {"model": ErrorResponse, "description": "Bad Request - Invalid input or validation failed"},
-        402: {"model": ErrorResponse, "description": "Payment Required - Payment failed or insufficient funds"},
-        409: {"model": ErrorResponse, "description": "Conflict - Upload request already processed"},
-        429: {"model": ErrorResponse, "description": "Too Many Requests - Rate limit exceeded"},
-        500: {"model": ErrorResponse, "description": "Internal Server Error - Server-side processing failed"},
-        503: {"model": ErrorResponse, "description": "Service Unavailable - No screeners available for evaluation"}
-    }
-)
-async def post_agent(
-    request: Request,
-    agent_file: UploadFile = File(..., description="Python file containing the agent code (must be named agent.py)"),
-    public_key: str = Form(..., description="Public key of the miner in hex format"),
-    file_info: str = Form(..., description="File information containing miner hotkey and version number (format: hotkey:version)"),
-    signature: str = Form(..., description="Signature to verify the authenticity of the upload"),
-    name: str = Form(..., description="Name of the agent"),
-    payment_block_hash: str = Form(..., description="Block hash in which payment was made"),
-    payment_extrinsic_index: str = Form(..., description="Index in the block for payment extrinsic"),
-    payment_time: float = Form(..., description="Timestamp of the payment"),
-) -> AgentUploadResponse:
-    """
-    Upload a new agent version for evaluation
+# @router.post(
+#     "/agent",
+#     tags=["upload"],
+#     response_model=AgentUploadResponse,
+#     responses={
+#         400: {"model": ErrorResponse, "description": "Bad Request - Invalid input or validation failed"},
+#         402: {"model": ErrorResponse, "description": "Payment Required - Payment failed or insufficient funds"},
+#         409: {"model": ErrorResponse, "description": "Conflict - Upload request already processed"},
+#         429: {"model": ErrorResponse, "description": "Too Many Requests - Rate limit exceeded"},
+#         500: {"model": ErrorResponse, "description": "Internal Server Error - Server-side processing failed"},
+#         503: {"model": ErrorResponse, "description": "Service Unavailable - No screeners available for evaluation"}
+#     }
+# )
+# async def post_agent(
+#     request: Request,
+#     agent_file: UploadFile = File(..., description="Python file containing the agent code (must be named agent.py)"),
+#     public_key: str = Form(..., description="Public key of the miner in hex format"),
+#     file_info: str = Form(..., description="File information containing miner hotkey and version number (format: hotkey:version)"),
+#     signature: str = Form(..., description="Signature to verify the authenticity of the upload"),
+#     name: str = Form(..., description="Name of the agent"),
+#     payment_block_hash: str = Form(..., description="Block hash in which payment was made"),
+#     payment_extrinsic_index: str = Form(..., description="Index in the block for payment extrinsic"),
+#     payment_time: float = Form(..., description="Timestamp of the payment"),
+# ) -> AgentUploadResponse:
+#     """
+#     Upload a new agent version for evaluation
     
-    This endpoint allows miners to upload their agent code for evaluation. The agent must:
-    - Be a yaml file
-    - Be under 1MB in size
-    - Pass static code safety checks
-    - Pass similarity validation to prevent copying
-    - Be properly signed with the miner's keypair
+#     This endpoint allows miners to upload their agent code for evaluation. The agent must:
+#     - Be a yaml file
+#     - Be under 1MB in size
+#     - Pass static code safety checks
+#     - Pass similarity validation to prevent copying
+#     - Be properly signed with the miner's keypair
     
-    Rate limiting may apply based on configuration.
-    """
-    client_ip = get_client_ip(request)
-    if config.DISALLOW_UPLOADS:
-        raise HTTPException(
-            status_code=503,
-            detail=config.DISALLOW_UPLOADS_REASON
-        )
+#     Rate limiting may apply based on configuration.
+#     """
+#     client_ip = get_client_ip(request)
+#     if config.DISALLOW_UPLOADS:
+#         raise HTTPException(
+#             status_code=503,
+#             detail=config.DISALLOW_UPLOADS_REASON
+#         )
 
-    # Extract upload attempt data for tracking
-    miner_hotkey = get_miner_hotkey(file_info)
-    agent_file.file.seek(0, 2)
-    file_size_bytes = agent_file.file.tell()
-    agent_file.file.seek(0)
+#     # Extract upload attempt data for tracking
+#     miner_hotkey = get_miner_hotkey(file_info)
+#     agent_file.file.seek(0, 2)
+#     file_size_bytes = agent_file.file.tell()
+#     agent_file.file.seek(0)
     
-    upload_data = {
-        'hotkey': miner_hotkey,
-        'agent_name': name,
-        'filename': agent_file.filename,
-        'file_size_bytes': file_size_bytes,
-        'ip_address': get_client_ip(request)
-    }
+#     upload_data = {
+#         'hotkey': miner_hotkey,
+#         'agent_name': name,
+#         'filename': agent_file.filename,
+#         'file_size_bytes': file_size_bytes,
+#         'ip_address': get_client_ip(request)
+#     }
     
-    try:
-        logger.debug(f"Platform received a /upload/agent API request. Beginning process handle-upload-agent.")
-        logger.info(f"Uploading agent {name} for miner {miner_hotkey}.")
+#     try:
+#         logger.debug(f"Platform received a /upload/agent API request. Beginning process handle-upload-agent.")
+#         logger.info(f"Uploading agent {name} for miner {miner_hotkey}.")
 
-        if prod:
-            check_signature(public_key, file_info, signature)
-            await check_hotkey_registered(miner_hotkey)
-            await check_agent_banned(miner_hotkey=miner_hotkey) 
+#         if prod:
+#             check_signature(public_key, file_info, signature)
+#             await check_hotkey_registered(miner_hotkey)
+#             await check_agent_banned(miner_hotkey=miner_hotkey) 
         
-        #check_if_python_file(agent_file.filename)
-        check_if_yaml_file(agent_file.filename)
+#         #check_if_python_file(agent_file.filename)
+#         check_if_yaml_file(agent_file.filename)
         
-        # Verify payment
-        # Check if payment has already been used for an agent
-        existing_payment = await retrieve_payment_by_hash(
-            payment_block_hash=payment_block_hash,
-            payment_extrinsic_index=payment_extrinsic_index
-        )
+#         # Verify payment
+#         # Check if payment has already been used for an agent
+#         existing_payment = await retrieve_payment_by_hash(
+#             payment_block_hash=payment_block_hash,
+#             payment_extrinsic_index=payment_extrinsic_index
+#         )
 
-        if existing_payment is not None:
-            raise HTTPException(
-                status_code=402,
-                detail="Payment already used"
-            )
+#         if existing_payment is not None:
+#             raise HTTPException(
+#                 status_code=402,
+#                 detail="Payment already used"
+#             )
 
-        # Retrieve payment details from the chain
-        try:
-            payment_block = subtensor.substrate.get_block(block_hash=payment_block_hash)
-        except Exception as e:
-            logger.error(f"Error retrieving payment block: {e}")
-            raise HTTPException(
-                status_code=402,
-                detail="Payment could not be verified"
-            )
+#         # Retrieve payment details from the chain
+#         try:
+#             payment_block = subtensor.substrate.get_block(block_hash=payment_block_hash)
+#         except Exception as e:
+#             logger.error(f"Error retrieving payment block: {e}")
+#             raise HTTPException(
+#                 status_code=402,
+#                 detail="Payment could not be verified"
+#             )
 
-        # example payment block:
-        """
-        {'extrinsics': [<GenericExtrinsic(value={'extrinsic_hash': '0x6b6f2be8e0d0e7721fab46da881d894dafa221b4df73ebb2b69a8c0aa5aeb01b', 'extrinsic_length': 10, 'call': {'call_index': '0x0200', 'call_function': 'set', 'call_module': 'Timestamp', 'call_args': [{'name': 'now', 'type': 'Moment', 'value': 1763573265504}], 'call_hash': '0x5cad44676af19a09d4ae5354e08570778c06b75257a932db8183b90910d0c33e'}})>,
-                <GenericExtrinsic(value={'extrinsic_hash': '0x350253844e42eda50ed13c043c6124db65189bf00a968467c763d54861492295', 'extrinsic_length': 142, 'address': '5DhaT8U7LVwnnJNUU8VL1XEipicatoaDVVq7cHo227gogVZm', 'signature': {'Sr25519': '0x2eb063251883f68aa6fad463f32d31c7f8635ec4550e1197ce1a0913b6182a065880ea5af1b68026ad996beedb803685d6d67e56e097a4d7666c7e075da2778f'}, 'era': '00', 'nonce': 14, 'tip': 0, 'mode': {'mode': 'Disabled'}, 'call': {'call_index': '0x0503', 'call_function': 'transfer_keep_alive', 'call_module': 'Balances', 'call_args': [{'name': 'dest', 'type': 'AccountIdLookupOf', 'value': '5F4Thj3LRZdjSAnUhymAVVq2X2czSAKD4uGNCnqW8JrCHWE4'}, {'name': 'value', 'type': 'Balance', 'value': 271449345}], 'call_hash': '0x20f54967ae95d9b4304d5582d8343469894c637d2d1c557c7bb0ad1f27797797'}})>],
- 'header': {'digest': {'logs': [<scale_info::17(value={'PreRuntime': ('0x61757261', '0x46f877a401000000')})>,
-                                <scale_info::17(value={'Consensus': ('0x66726f6e', '0x012f7e87441378c60d18e9b676246e74ca17064ff510b10dfed2a48191648a1a9400')})>,
-                                <scale_info::17(value={'Seal': ('0x61757261', '0x44729c195bda22d4e9dce35ed7e43fd1652e7782cb38cf27cc8489fb0460af1f4c97621e5e29c19e730051df736441d3359799c7002eb81350e169bb9fcecb80')})>]},
-            'extrinsicsRoot': '0x980d155f4b5a6f08d287c54e0a32380839cdfc0a5977200e33aa5787b48ec669',
-            'hash': '0xb9958e4374c182785bfa4467ceb971e23882079f48524e27c08e8f5b95d8b8d8',
-            'number': 13579,
-            'parentHash': '0x1065e83a02ff961d45ac34a6990477de3cba102bbba2322950815e5d59f23135',
-            'stateRoot': '0x301a04303fb97143649e44ca9c1d674606c8004082d11973c816ff67f2a13998'}}
-        """
-        block_number = payment_block['header']['number']
-        coldkey = subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey, block=int(block_number))
-        payment_extrinsic = payment_block['extrinsics'][int(payment_extrinsic_index)]
+#         # example payment block:
+#         """
+#         {'extrinsics': [<GenericExtrinsic(value={'extrinsic_hash': '0x6b6f2be8e0d0e7721fab46da881d894dafa221b4df73ebb2b69a8c0aa5aeb01b', 'extrinsic_length': 10, 'call': {'call_index': '0x0200', 'call_function': 'set', 'call_module': 'Timestamp', 'call_args': [{'name': 'now', 'type': 'Moment', 'value': 1763573265504}], 'call_hash': '0x5cad44676af19a09d4ae5354e08570778c06b75257a932db8183b90910d0c33e'}})>,
+#                 <GenericExtrinsic(value={'extrinsic_hash': '0x350253844e42eda50ed13c043c6124db65189bf00a968467c763d54861492295', 'extrinsic_length': 142, 'address': '5DhaT8U7LVwnnJNUU8VL1XEipicatoaDVVq7cHo227gogVZm', 'signature': {'Sr25519': '0x2eb063251883f68aa6fad463f32d31c7f8635ec4550e1197ce1a0913b6182a065880ea5af1b68026ad996beedb803685d6d67e56e097a4d7666c7e075da2778f'}, 'era': '00', 'nonce': 14, 'tip': 0, 'mode': {'mode': 'Disabled'}, 'call': {'call_index': '0x0503', 'call_function': 'transfer_keep_alive', 'call_module': 'Balances', 'call_args': [{'name': 'dest', 'type': 'AccountIdLookupOf', 'value': '5F4Thj3LRZdjSAnUhymAVVq2X2czSAKD4uGNCnqW8JrCHWE4'}, {'name': 'value', 'type': 'Balance', 'value': 271449345}], 'call_hash': '0x20f54967ae95d9b4304d5582d8343469894c637d2d1c557c7bb0ad1f27797797'}})>],
+#  'header': {'digest': {'logs': [<scale_info::17(value={'PreRuntime': ('0x61757261', '0x46f877a401000000')})>,
+#                                 <scale_info::17(value={'Consensus': ('0x66726f6e', '0x012f7e87441378c60d18e9b676246e74ca17064ff510b10dfed2a48191648a1a9400')})>,
+#                                 <scale_info::17(value={'Seal': ('0x61757261', '0x44729c195bda22d4e9dce35ed7e43fd1652e7782cb38cf27cc8489fb0460af1f4c97621e5e29c19e730051df736441d3359799c7002eb81350e169bb9fcecb80')})>]},
+#             'extrinsicsRoot': '0x980d155f4b5a6f08d287c54e0a32380839cdfc0a5977200e33aa5787b48ec669',
+#             'hash': '0xb9958e4374c182785bfa4467ceb971e23882079f48524e27c08e8f5b95d8b8d8',
+#             'number': 13579,
+#             'parentHash': '0x1065e83a02ff961d45ac34a6990477de3cba102bbba2322950815e5d59f23135',
+#             'stateRoot': '0x301a04303fb97143649e44ca9c1d674606c8004082d11973c816ff67f2a13998'}}
+#         """
+#         block_number = payment_block['header']['number']
+#         coldkey = subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey, block=int(block_number))
+#         payment_extrinsic = payment_block['extrinsics'][int(payment_extrinsic_index)]
 
-        payment_cost = await get_upload_price(cache_time=payment_time)
+#         payment_cost = await get_upload_price(cache_time=payment_time)
 
-        # Example payment extrinsic:
-        """
-        <GenericExtrinsic(value={'extrinsic_hash': '0x350253844e42eda50ed13c043c6124db65189bf00a968467c763d54861492295', 'extrinsic_length': 142, 'address': '5DhaT8U7LVwnnJNUU8VL1XEipicatoaDVVq7cHo227gogVZm', 'signature': {'Sr25519': '0x2eb063251883f68aa6fad463f32d31c7f8635ec4550e1197ce1a0913b6182a065880ea5af1b68026ad996beedb803685d6d67e56e097a4d7666c7e075da2778f'}, 'era': '00', 'nonce': 14, 'tip': 0, 'mode': {'mode': 'Disabled'}, 'call': {'call_index': '0x0503', 'call_function': 'transfer_keep_alive', 'call_module': 'Balances', 'call_args': [{'name': 'dest', 'type': 'AccountIdLookupOf', 'value': '5F4Thj3LRZdjSAnUhymAVVq2X2czSAKD4uGNCnqW8JrCHWE4'}, {'name': 'value', 'type': 'Balance', 'value': 271449345}], 'call_hash': '0x20f54967ae95d9b4304d5582d8343469894c637d2d1c557c7bb0ad1f27797797'}})>
-        """
-        payment_value = None
-        for arg in payment_extrinsic.value['call']['call_args']:
-            if arg['name'] == 'value':
-                payment_value = arg['value']
-                break
+#         # Example payment extrinsic:
+#         """
+#         <GenericExtrinsic(value={'extrinsic_hash': '0x350253844e42eda50ed13c043c6124db65189bf00a968467c763d54861492295', 'extrinsic_length': 142, 'address': '5DhaT8U7LVwnnJNUU8VL1XEipicatoaDVVq7cHo227gogVZm', 'signature': {'Sr25519': '0x2eb063251883f68aa6fad463f32d31c7f8635ec4550e1197ce1a0913b6182a065880ea5af1b68026ad996beedb803685d6d67e56e097a4d7666c7e075da2778f'}, 'era': '00', 'nonce': 14, 'tip': 0, 'mode': {'mode': 'Disabled'}, 'call': {'call_index': '0x0503', 'call_function': 'transfer_keep_alive', 'call_module': 'Balances', 'call_args': [{'name': 'dest', 'type': 'AccountIdLookupOf', 'value': '5F4Thj3LRZdjSAnUhymAVVq2X2czSAKD4uGNCnqW8JrCHWE4'}, {'name': 'value', 'type': 'Balance', 'value': 271449345}], 'call_hash': '0x20f54967ae95d9b4304d5582d8343469894c637d2d1c557c7bb0ad1f27797797'}})>
+#         """
+#         payment_value = None
+#         for arg in payment_extrinsic.value['call']['call_args']:
+#             if arg['name'] == 'value':
+#                 payment_value = arg['value']
+#                 break
         
-        # if payment_value is None or check_if_extrinsic_failed(payment_block_hash, int(payment_extrinsic_index)):
-        #     raise HTTPException(
-        #         status_code=402,
-        #         detail="Payment value not found"
-        #     )
+#         # if payment_value is None or check_if_extrinsic_failed(payment_block_hash, int(payment_extrinsic_index)):
+#         #     raise HTTPException(
+#         #         status_code=402,
+#         #         detail="Payment value not found"
+#         #     )
 
-        if payment_value != payment_cost.amount_rao:
-            raise HTTPException(
-                status_code=402,
-                detail="Payment amount does not match"
-            )
+#         if payment_value != payment_cost.amount_rao:
+#             raise HTTPException(
+#                 status_code=402,
+#                 detail="Payment amount does not match"
+#             )
         
-        # Make sure coldkey is the same as hotkeys owner coldkey
-        if coldkey != payment_extrinsic['address']:
-            raise HTTPException(
-                status_code=402,
-                detail="Coldkey does not match"
-            )
+#         # Make sure coldkey is the same as hotkeys owner coldkey
+#         if coldkey != payment_extrinsic['address']:
+#             raise HTTPException(
+#                 status_code=402,
+#                 detail="Coldkey does not match"
+#             )
 
-        # Make sure destination is our upload send address
-        destination = None
-        for arg in payment_extrinsic.value['call']['call_args']:
-            if arg['name'] == 'dest':
-                destination = arg['value']
-                break
-        if destination != config.UPLOAD_SEND_ADDRESS:
-            raise HTTPException(
-                status_code=402,
-                detail=f"Destination does not match. The payment should be sent to {config.UPLOAD_SEND_ADDRESS}"
-            )
+#         # Make sure destination is our upload send address
+#         destination = None
+#         for arg in payment_extrinsic.value['call']['call_args']:
+#             if arg['name'] == 'dest':
+#                 destination = arg['value']
+#                 break
+#         if destination != config.UPLOAD_SEND_ADDRESS:
+#             raise HTTPException(
+#                 status_code=402,
+#                 detail=f"Destination does not match. The payment should be sent to {config.UPLOAD_SEND_ADDRESS}"
+#             )
 
-        agent_text = (await agent_file.read()).decode("utf-8")
+#         agent_text = (await agent_file.read()).decode("utf-8")
 
-        # Parse the YAML content
-        # try:
-        #     agent_data = yaml.safe_load(agent_text)
-        # except yaml.YAMLError as e:
-        #     raise HTTPException(status_code=400, detail=f"Invalid YAML format: {str(e)}")
+#         # Parse the YAML content
+#         # try:
+#         #     agent_data = yaml.safe_load(agent_text)
+#         # except yaml.YAMLError as e:
+#         #     raise HTTPException(status_code=400, detail=f"Invalid YAML format: {str(e)}")
 
-        hotkey_lock = await get_hotkey_lock(miner_hotkey)
-        async with DebugLock(hotkey_lock, f"Agent upload lock for miner {miner_hotkey}"):
-            latest_agent: Optional[Agent] = await get_latest_agent_for_miner_hotkey(miner_hotkey=miner_hotkey)
+#         hotkey_lock = await get_hotkey_lock(miner_hotkey)
+#         async with DebugLock(hotkey_lock, f"Agent upload lock for miner {miner_hotkey}"):
+#             latest_agent: Optional[Agent] = await get_latest_agent_for_miner_hotkey(miner_hotkey=miner_hotkey)
             
-            latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
+#             latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
             
-            if prod and latest_agent_created_at_in_latest_set_id:
-                check_rate_limit(latest_agent_created_at_in_latest_set_id)
+#             if prod and latest_agent_created_at_in_latest_set_id:
+#                 check_rate_limit(latest_agent_created_at_in_latest_set_id)
             
-            # Merge parsed data with required fields
-            # agent_kwargs = {
-            #     "agent_id": uuid.uuid4(),
-            #     "miner_hotkey": miner_hotkey,
-            #     "name": name if not latest_agent else latest_agent.name,
-            #     "version_num": latest_agent.version_num + 1 if latest_agent else 0,
-            #     "created_at": datetime.now(timezone.utc),
-            #     "status": AgentStatus.screening_1,
-            #     "ip_address": get_client_ip(request),
-            #     **agent_data  # Add parsed YAML fields
-            # }
+#             # Merge parsed data with required fields
+#             # agent_kwargs = {
+#             #     "agent_id": uuid.uuid4(),
+#             #     "miner_hotkey": miner_hotkey,
+#             #     "name": name if not latest_agent else latest_agent.name,
+#             #     "version_num": latest_agent.version_num + 1 if latest_agent else 0,
+#             #     "created_at": datetime.now(timezone.utc),
+#             #     "status": AgentStatus.screening_1,
+#             #     "ip_address": get_client_ip(request),
+#             #     **agent_data  # Add parsed YAML fields
+#             # }
             
-            agent = Agent.from_yaml(agent_text)
-            agent.miner_hotkey = miner_hotkey  
-            agent.name = name if not latest_agent else latest_agent.name
-            agent.version_num = latest_agent.version_num + 1 if latest_agent else 0
-            #agent.miner_uid = subtensor.get_hotkey_uid(miner_hotkey)
-            agent.agent_id = uuid.uuid4()
-            agent.ip_address = client_ip
-            artifact_id = await create_agent(agent)
-            logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
+#             agent = Agent.from_yaml(agent_text)
+#             agent.miner_hotkey = miner_hotkey  
+#             agent.name = name if not latest_agent else latest_agent.name
+#             agent.version_num = latest_agent.version_num + 1 if latest_agent else 0
+#             #agent.miner_uid = subtensor.get_hotkey_uid(miner_hotkey)
+#             agent.agent_id = uuid.uuid4()
+#             agent.ip_address = client_ip
+#             artifact_id = await create_agent(agent)
+#             logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
 
-        await record_evaluation_payment(
-            payment_block_hash=payment_block_hash,
-            payment_extrinsic_index=payment_extrinsic_index,
-            amount_rao=payment_value,
-            agent_id=agent.agent_id,
-            miner_hotkey=miner_hotkey,
-            miner_coldkey=coldkey
-        )
+#         await record_evaluation_payment(
+#             payment_block_hash=payment_block_hash,
+#             payment_extrinsic_index=payment_extrinsic_index,
+#             amount_rao=payment_value,
+#             agent_id=agent.agent_id,
+#             miner_hotkey=miner_hotkey,
+#             miner_coldkey=coldkey
+#         )
 
-        logger.info(f"Successfully uploaded agent {agent.agent_id} for miner {miner_hotkey}.")
+#         logger.info(f"Successfully uploaded agent {agent.agent_id} for miner {miner_hotkey}.")
 
-        # Record successful upload
-        await record_upload_attempt(
-            upload_type="agent",
-            success=True,
-            agent_id=agent.agent_id,
-            http_status_code=201,
-            **upload_data
-        )
+#         # Record successful upload
+#         await record_upload_attempt(
+#             upload_type="agent",
+#             success=True,
+#             agent_id=agent.agent_id,
+#             http_status_code=201,
+#             **upload_data
+#         )
 
-        return AgentUploadResponse(
-            status="success",
-            message=f"Successfully uploaded agent {agent.agent_id} for miner {miner_hotkey}."
-        )
+#         return AgentUploadResponse(
+#             status="success",
+#             message=f"Successfully uploaded agent {agent.agent_id} for miner {miner_hotkey}."
+#         )
     
-    except HTTPException as e:
-        # Determine error type and get ban reason if applicable
-        error_type = 'banned' if e.status_code == 403 and 'banned' in e.detail.lower() else \
-                    'rate_limit' if e.status_code == 429 else 'validation_error'
-        banned_hotkey = await get_banned_hotkey(miner_hotkey) if error_type == 'banned' and miner_hotkey else None
+#     except HTTPException as e:
+#         # Determine error type and get ban reason if applicable
+#         error_type = 'banned' if e.status_code == 403 and 'banned' in e.detail.lower() else \
+#                     'rate_limit' if e.status_code == 429 else 'validation_error'
+#         banned_hotkey = await get_banned_hotkey(miner_hotkey) if error_type == 'banned' and miner_hotkey else None
         
-        # Record failed upload attempt
-        await record_upload_attempt(
-            upload_type="agent",
-            success=False,
-            error_type=error_type,
-            error_message=e.detail,
-            ban_reason=banned_hotkey.banned_reason if banned_hotkey else None,
-            http_status_code=e.status_code,
-            **upload_data
-        )
-        raise
+#         # Record failed upload attempt
+#         await record_upload_attempt(
+#             upload_type="agent",
+#             success=False,
+#             error_type=error_type,
+#             error_message=e.detail,
+#             ban_reason=banned_hotkey.banned_reason if banned_hotkey else None,
+#             http_status_code=e.status_code,
+#             **upload_data
+#         )
+#         raise
     
-    except Exception as e:
-        # Record internal error
-        await record_upload_attempt(
-            upload_type="agent",
-            success=False,
-            error_type='internal_error',
-            error_message=str(e),
-            http_status_code=500,
-            **upload_data
-        )
-        raise
+#     except Exception as e:
+#         # Record internal error
+#         await record_upload_attempt(
+#             upload_type="agent",
+#             success=False,
+#             error_type='internal_error',
+#             error_message=str(e),
+#             http_status_code=500,
+#             **upload_data
+#         )
+#         raise
 
 
-@router.post(
-    "/agent/burn",
-    tags=["upload"],
-    response_model=AgentUploadResponse,
-    responses={
-        400: {"model": ErrorResponse, "description": "Bad Request - Invalid input or validation failed"},
-        402: {"model": ErrorResponse, "description": "Payment Required - Payment failed or insufficient funds"},
-        409: {"model": ErrorResponse, "description": "Conflict - Upload request already processed"},
-        429: {"model": ErrorResponse, "description": "Too Many Requests - Rate limit exceeded"},
-        500: {"model": ErrorResponse, "description": "Internal Server Error - Server-side processing failed"},
-        503: {"model": ErrorResponse, "description": "Service Unavailable - No screeners available for evaluation"}
-    }
-)
-async def post_agent_burn(
-    request: Request,
-    agent_file: UploadFile = File(..., description="Python file containing the agent code (must be named agent.py)"),
-    public_key: str = Form(..., description="Public key of the miner in hex format"),
-    file_info: str = Form(..., description="File information containing miner hotkey and version number (format: hotkey:version)"),
-    signature: str = Form(..., description="Signature to verify the authenticity of the upload"),
-    name: str = Form(..., description="Name of the agent"),
-    payment_block_hash: str = Form(..., description="Block hash in which payment was made"),
-    payment_extrinsic_index: str = Form(..., description="Index in the block for payment extrinsic"),
-    payment_time: float = Form(..., description="Timestamp of the payment"),
-) -> AgentUploadResponse:
-    """
-    Upload a new agent version for evaluation using burn_alpha as payment.
-    """
-    client_ip = get_client_ip(request)
-    if config.DISALLOW_UPLOADS:
-        raise HTTPException(
-            status_code=503,
-            detail=config.DISALLOW_UPLOADS_REASON
-        )
+# @router.post(
+#     "/agent/burn",
+#     tags=["upload"],
+#     response_model=AgentUploadResponse,
+#     responses={
+#         400: {"model": ErrorResponse, "description": "Bad Request - Invalid input or validation failed"},
+#         402: {"model": ErrorResponse, "description": "Payment Required - Payment failed or insufficient funds"},
+#         409: {"model": ErrorResponse, "description": "Conflict - Upload request already processed"},
+#         429: {"model": ErrorResponse, "description": "Too Many Requests - Rate limit exceeded"},
+#         500: {"model": ErrorResponse, "description": "Internal Server Error - Server-side processing failed"},
+#         503: {"model": ErrorResponse, "description": "Service Unavailable - No screeners available for evaluation"}
+#     }
+# )
+# async def post_agent_burn(
+#     request: Request,
+#     agent_file: UploadFile = File(..., description="Python file containing the agent code (must be named agent.py)"),
+#     public_key: str = Form(..., description="Public key of the miner in hex format"),
+#     file_info: str = Form(..., description="File information containing miner hotkey and version number (format: hotkey:version)"),
+#     signature: str = Form(..., description="Signature to verify the authenticity of the upload"),
+#     name: str = Form(..., description="Name of the agent"),
+#     payment_block_hash: str = Form(..., description="Block hash in which payment was made"),
+#     payment_extrinsic_index: str = Form(..., description="Index in the block for payment extrinsic"),
+#     payment_time: float = Form(..., description="Timestamp of the payment"),
+# ) -> AgentUploadResponse:
+#     """
+#     Upload a new agent version for evaluation using burn_alpha as payment.
+#     """
+#     client_ip = get_client_ip(request)
+#     if config.DISALLOW_UPLOADS:
+#         raise HTTPException(
+#             status_code=503,
+#             detail=config.DISALLOW_UPLOADS_REASON
+#         )
 
-    # Extract upload attempt data for tracking
-    miner_hotkey = get_miner_hotkey(file_info)
-    agent_file.file.seek(0, 2)
-    file_size_bytes = agent_file.file.tell()
-    agent_file.file.seek(0)
+#     # Extract upload attempt data for tracking
+#     miner_hotkey = get_miner_hotkey(file_info)
+#     agent_file.file.seek(0, 2)
+#     file_size_bytes = agent_file.file.tell()
+#     agent_file.file.seek(0)
     
-    upload_data = {
-        'hotkey': miner_hotkey,
-        'agent_name': name,
-        'filename': agent_file.filename,
-        'file_size_bytes': file_size_bytes,
-        'ip_address': get_client_ip(request)    
-    }
+#     upload_data = {
+#         'hotkey': miner_hotkey,
+#         'agent_name': name,
+#         'filename': agent_file.filename,
+#         'file_size_bytes': file_size_bytes,
+#         'ip_address': get_client_ip(request)    
+#     }
     
-    try:
-        logger.debug(f"Platform received a /upload/agent/burn API request. Beginning process handle-upload-agent-burn.")
-        logger.info(f"Uploading agent {name} for miner {miner_hotkey} via burn.")
+#     try:
+#         logger.debug(f"Platform received a /upload/agent/burn API request. Beginning process handle-upload-agent-burn.")
+#         logger.info(f"Uploading agent {name} for miner {miner_hotkey} via burn.")
 
-        if prod:
-            check_signature(public_key, file_info, signature)
-            await check_hotkey_registered(miner_hotkey)
-            await check_agent_banned(miner_hotkey=miner_hotkey) 
+#         if prod:
+#             check_signature(public_key, file_info, signature)
+#             await check_hotkey_registered(miner_hotkey)
+#             await check_agent_banned(miner_hotkey=miner_hotkey) 
         
-        # Verify payment
-        # Check if payment has already been used for an agent
-        existing_payment = await retrieve_payment_by_hash(
-            payment_block_hash=payment_block_hash,
-            payment_extrinsic_index=payment_extrinsic_index
-        )
+#         # Verify payment
+#         # Check if payment has already been used for an agent
+#         existing_payment = await retrieve_payment_by_hash(
+#             payment_block_hash=payment_block_hash,
+#             payment_extrinsic_index=payment_extrinsic_index
+#         )
 
-        if existing_payment is not None:
-            raise HTTPException(
-                status_code=402,
-                detail="Payment already used"
-            )
+#         if existing_payment is not None:
+#             raise HTTPException(
+#                 status_code=402,
+#                 detail="Payment already used"
+#             )
 
-        # Retrieve payment details from the chain
-        try:
-            payment_block = subtensor.substrate.get_block(block_hash=payment_block_hash)
-        except Exception as e:
-            logger.error(f"Error retrieving payment block: {e}")
-            raise HTTPException(
-                status_code=402,
-                detail="Payment could not be verified"
-            )
+#         # Retrieve payment details from the chain
+#         try:
+#             payment_block = subtensor.substrate.get_block(block_hash=payment_block_hash)
+#         except Exception as e:
+#             logger.error(f"Error retrieving payment block: {e}")
+#             raise HTTPException(
+#                 status_code=402,
+#                 detail="Payment could not be verified"
+#             )
 
-        block_number = payment_block['header']['number']
-        coldkey = subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey, block=int(block_number))
-        payment_extrinsic = payment_block['extrinsics'][int(payment_extrinsic_index)]
-        payment_cost = await get_upload_price(cache_time=payment_time)
+#         block_number = payment_block['header']['number']
+#         coldkey = subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey, block=int(block_number))
+#         payment_extrinsic = payment_block['extrinsics'][int(payment_extrinsic_index)]
+#         payment_cost = await get_upload_price(cache_time=payment_time)
 
-        # Check for Extrinsic failure
-        if check_if_extrinsic_failed(payment_block_hash, int(payment_extrinsic_index)):
-            raise HTTPException(
-                status_code=402,
-                detail="Payment extrinsic failed on chain"
-            )
+#         # Check for Extrinsic failure
+#         if check_if_extrinsic_failed(payment_block_hash, int(payment_extrinsic_index)):
+#             raise HTTPException(
+#                 status_code=402,
+#                 detail="Payment extrinsic failed on chain"
+#             )
 
-        # Verify it is a SubtensorModule.burn_alpha call
-        call_module = payment_extrinsic.value['call']['call_module']
-        call_function = payment_extrinsic.value['call']['call_function']
+#         # Verify it is a SubtensorModule.burn_alpha call
+#         call_module = payment_extrinsic.value['call']['call_module']
+#         call_function = payment_extrinsic.value['call']['call_function']
         
-        if call_module != 'SubtensorModule' or call_function != 'burn_alpha':
-             raise HTTPException(
-                status_code=402,
-                detail=f"Invalid payment method. Expected SubtensorModule.burn_alpha, got {call_module}.{call_function}"
-            )
+#         if call_module != 'SubtensorModule' or call_function != 'burn_alpha':
+#              raise HTTPException(
+#                 status_code=402,
+#                 detail=f"Invalid payment method. Expected SubtensorModule.burn_alpha, got {call_module}.{call_function}"
+#             )
 
-        # Extract arguments
-        # Args: hotkey, amount, netuid
-        # Note: The order/names depend on the metadata, but we can try to look them up by name
-        call_args = {arg['name']: arg['value'] for arg in payment_extrinsic.value['call']['call_args']}
+#         # Extract arguments
+#         # Args: hotkey, amount, netuid
+#         # Note: The order/names depend on the metadata, but we can try to look them up by name
+#         call_args = {arg['name']: arg['value'] for arg in payment_extrinsic.value['call']['call_args']}
         
-        payment_netuid = call_args.get('netuid')
-        payment_amount = call_args.get('amount')
-        payment_hotkey = call_args.get('hotkey') # This is likely the SS58 address or public key
+#         payment_netuid = call_args.get('netuid')
+#         payment_amount = call_args.get('amount')
+#         payment_hotkey = call_args.get('hotkey') # This is likely the SS58 address or public key
 
-        if payment_netuid is None or payment_amount is None or payment_hotkey is None:
-             raise HTTPException(
-                status_code=402,
-                detail="Could not parse burn_alpha arguments"
-            )
+#         if payment_netuid is None or payment_amount is None or payment_hotkey is None:
+#              raise HTTPException(
+#                 status_code=402,
+#                 detail="Could not parse burn_alpha arguments"
+#             )
 
-        # 1. Verify Netuid
-        if int(payment_netuid) != config.NETUID:
-             raise HTTPException(
-                status_code=402,
-                detail=f"Invalid Netuid. Expected {config.NETUID}, got {payment_netuid}"
-            )
+#         # 1. Verify Netuid
+#         if int(payment_netuid) != config.NETUID:
+#              raise HTTPException(
+#                 status_code=402,
+#                 detail=f"Invalid Netuid. Expected {config.NETUID}, got {payment_netuid}"
+#             )
 
-        # 2. Verify Amount
-        if int(payment_amount) != payment_cost.amount_rao:
-             raise HTTPException(
-                status_code=402,
-                detail=f"Payment amount does not match. Expected {payment_cost.amount_rao}, got {payment_amount}"
-            )
+#         # 2. Verify Amount
+#         if int(payment_amount) != payment_cost.amount_rao:
+#              raise HTTPException(
+#                 status_code=402,
+#                 detail=f"Payment amount does not match. Expected {payment_cost.amount_rao}, got {payment_amount}"
+#             )
             
-        # 3. Verify Hotkey    
-        if payment_hotkey != miner_hotkey:
-             raise HTTPException(
-                status_code=402,
-                detail=f"Burn hotkey does not match miner hotkey. Expected {miner_hotkey}, got {payment_hotkey}"
-            )
+#         # 3. Verify Hotkey    
+#         if payment_hotkey != miner_hotkey:
+#              raise HTTPException(
+#                 status_code=402,
+#                 detail=f"Burn hotkey does not match miner hotkey. Expected {miner_hotkey}, got {payment_hotkey}"
+#             )
 
-        # 4. Verify Signer
-        # burn_alpha is typically signed by the coldkey (owner)
-        if coldkey != payment_extrinsic['address']:
-            raise HTTPException(
-                status_code=402,
-                detail=f"Signer coldkey does not match miner owner. Expected {coldkey}, got {payment_extrinsic['address']}"
-            )
+#         # 4. Verify Signer
+#         # burn_alpha is typically signed by the coldkey (owner)
+#         if coldkey != payment_extrinsic['address']:
+#             raise HTTPException(
+#                 status_code=402,
+#                 detail=f"Signer coldkey does not match miner owner. Expected {coldkey}, got {payment_extrinsic['address']}"
+#             )
 
 
-        agent_text = (await agent_file.read()).decode("utf-8")
-        hotkey_lock = await get_hotkey_lock(miner_hotkey)
-        async with DebugLock(hotkey_lock, f"Agent upload lock for miner {miner_hotkey}"):
-            latest_agent: Optional[Agent] = await get_latest_agent_for_miner_hotkey(miner_hotkey=miner_hotkey)
-            latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
+#         agent_text = (await agent_file.read()).decode("utf-8")
+#         hotkey_lock = await get_hotkey_lock(miner_hotkey)
+#         async with DebugLock(hotkey_lock, f"Agent upload lock for miner {miner_hotkey}"):
+#             latest_agent: Optional[Agent] = await get_latest_agent_for_miner_hotkey(miner_hotkey=miner_hotkey)
+#             latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
             
-            if prod and latest_agent_created_at_in_latest_set_id:
-                check_rate_limit(latest_agent_created_at_in_latest_set_id)
+#             if prod and latest_agent_created_at_in_latest_set_id:
+#                 check_rate_limit(latest_agent_created_at_in_latest_set_id)
             
-            agent = Agent.from_yaml(agent_text)
-            agent.miner_hotkey = miner_hotkey  
-            agent.name = name if not latest_agent else latest_agent.name
-            agent.version_num = latest_agent.version_num + 1 if latest_agent else 0
-            #agent.miner_uid = subtensor.get_hotkey_uid(miner_hotkey)
-            agent.agent_id = uuid.uuid4()
-            agent.ip_address = client_ip
-            artifact_id = await create_agent(agent)
-            logger.info(f"Artifact submitted successfully with ID: {artifact_id}")        
+#             agent = Agent.from_yaml(agent_text)
+#             agent.miner_hotkey = miner_hotkey  
+#             agent.name = name if not latest_agent else latest_agent.name
+#             agent.version_num = latest_agent.version_num + 1 if latest_agent else 0
+#             #agent.miner_uid = subtensor.get_hotkey_uid(miner_hotkey)
+#             agent.agent_id = uuid.uuid4()
+#             agent.ip_address = client_ip
+#             artifact_id = await create_agent(agent)
+#             logger.info(f"Artifact submitted successfully with ID: {artifact_id}")        
 
-        await record_evaluation_payment(
-            payment_block_hash=payment_block_hash,
-            payment_extrinsic_index=payment_extrinsic_index,
-            amount_rao=payment_amount,
-            agent_id=agent.agent_id,
-            miner_hotkey=miner_hotkey,
-            miner_coldkey=coldkey
-        )
+#         await record_evaluation_payment(
+#             payment_block_hash=payment_block_hash,
+#             payment_extrinsic_index=payment_extrinsic_index,
+#             amount_rao=payment_amount,
+#             agent_id=agent.agent_id,
+#             miner_hotkey=miner_hotkey,
+#             miner_coldkey=coldkey
+#         )
 
-        logger.info(f"Successfully uploaded agent {agent.agent_id} for miner {miner_hotkey} via burn.")
+#         logger.info(f"Successfully uploaded agent {agent.agent_id} for miner {miner_hotkey} via burn.")
 
-        # Record successful upload
-        await record_upload_attempt(
-            upload_type="agent",
-            success=True,
-            agent_id=agent.agent_id,
-            http_status_code=201,
-            **upload_data
-        )
+#         # Record successful upload
+#         await record_upload_attempt(
+#             upload_type="agent",
+#             success=True,
+#             agent_id=agent.agent_id,
+#             http_status_code=201,
+#             **upload_data
+#         )
 
-        return AgentUploadResponse(
-            status="success",
-            message=f"Successfully uploaded agent {agent.agent_id} for miner {miner_hotkey}."
-        )
+#         return AgentUploadResponse(
+#             status="success",
+#             message=f"Successfully uploaded agent {agent.agent_id} for miner {miner_hotkey}."
+#         )
     
-    except HTTPException as e:
-        # Determine error type and get ban reason if applicable
-        error_type = 'banned' if e.status_code == 403 and 'banned' in e.detail.lower() else \
-                    'rate_limit' if e.status_code == 429 else 'validation_error'
-        banned_hotkey = await get_banned_hotkey(miner_hotkey) if error_type == 'banned' and miner_hotkey else None
+#     except HTTPException as e:
+#         # Determine error type and get ban reason if applicable
+#         error_type = 'banned' if e.status_code == 403 and 'banned' in e.detail.lower() else \
+#                     'rate_limit' if e.status_code == 429 else 'validation_error'
+#         banned_hotkey = await get_banned_hotkey(miner_hotkey) if error_type == 'banned' and miner_hotkey else None
         
-        # Record failed upload attempt
-        await record_upload_attempt(
-            upload_type="agent",
-            success=False,
-            error_type=error_type,
-            error_message=e.detail,
-            ban_reason=banned_hotkey.banned_reason if banned_hotkey else None,
-            http_status_code=e.status_code,
-            **upload_data
-        )
-        raise
+#         # Record failed upload attempt
+#         await record_upload_attempt(
+#             upload_type="agent",
+#             success=False,
+#             error_type=error_type,
+#             error_message=e.detail,
+#             ban_reason=banned_hotkey.banned_reason if banned_hotkey else None,
+#             http_status_code=e.status_code,
+#             **upload_data
+#         )
+#         raise
     
-    except Exception as e:
-        # Record internal error
-        await record_upload_attempt(
-            upload_type="agent",
-            success=False,
-            error_type='internal_error',
-            error_message=str(e),
-            http_status_code=500,
-            **upload_data
-        )
-        raise
+#     except Exception as e:
+#         # Record internal error
+#         await record_upload_attempt(
+#             upload_type="agent",
+#             success=False,
+#             error_type='internal_error',
+#             error_message=str(e),
+#             http_status_code=500,
+#             **upload_data
+#         )
+#         raise
 
 
-class UploadPriceResponse(BaseModel):
-    """Response model for successful agent upload"""
-    amount_rao: int = Field(..., description="Amount to send for evaluation (in RAO)")
-    send_address: str = Field(..., description="TAO address to send evaluation payment to")
+# # class UploadPriceResponse(BaseModel):
+# #     """Response model for successful agent upload"""
+# #     amount_rao: int = Field(..., description="Amount to send for evaluation (in RAO)")
+# #     send_address: str = Field(..., description="TAO address to send evaluation payment to")
 
-@router.get(
-    "/eval-pricing",
-    tags=["eval-pricing"],
-    response_model=UploadPriceResponse
-)
-@hourly_cache()
-async def get_upload_price() -> UploadPriceResponse:
-    TAO_PRICE = await get_tao_price() 
-    eval_cost_usd = 60
+# # @router.get(
+# #     "/eval-pricing",
+# #     tags=["eval-pricing"],
+# #     response_model=UploadPriceResponse
+# # )
+# # @hourly_cache()
+# # async def get_upload_price() -> UploadPriceResponse:
+# #     TAO_PRICE = await get_tao_price() 
+# #     eval_cost_usd = 60
 
-    # Get the amount of tao required per eval
-    eval_cost_tao = eval_cost_usd / TAO_PRICE
+# #     # Get the amount of tao required per eval
+# #     eval_cost_tao = eval_cost_usd / TAO_PRICE
 
-    # Add a buffer against price fluctuations and eval cost variance. If this is over, we burn the difference. Determined EoD by net eval charges - net amount received
-    # This also makes production evals more expensive than local by a good margin to discourage testing in production and variance farming
-    amount_rao = int(eval_cost_tao * 1e9 * 1.4)
+# #     # Add a buffer against price fluctuations and eval cost variance. If this is over, we burn the difference. Determined EoD by net eval charges - net amount received
+# #     # This also makes production evals more expensive than local by a good margin to discourage testing in production and variance farming
+# #     amount_rao = int(eval_cost_tao * 1e9 * 1.4)
 
-    return UploadPriceResponse(
-        amount_rao=amount_rao,
-        send_address=config.UPLOAD_SEND_ADDRESS
-    )
+# #     return UploadPriceResponse(
+# #         amount_rao=amount_rao,
+# #         send_address=config.UPLOAD_SEND_ADDRESS
+# #     )
 
-# def check_if_extrinsic_failed(block_hash: str, extrinsic_index: int) -> bool:
-#     events = subtensor.substrate.get_events(block_hash=block_hash)
+# # def check_if_extrinsic_failed(block_hash: str, extrinsic_index: int) -> bool:
+# #     events = subtensor.substrate.get_events(block_hash=block_hash)
 
-#     for event in events:
-#         if event.get("extrinsic_idx") != extrinsic_index:
-#             continue
+# #     for event in events:
+# #         if event.get("extrinsic_idx") != extrinsic_index:
+# #             continue
 
-#         module = event["event"]["module_id"]
-#         event_id = event["event"]["event_id"]
+# #         module = event["event"]["module_id"]
+# #         event_id = event["event"]["event_id"]
 
-#         if module == "System" and event_id == "ExtrinsicFailed":
-#             return True
+# #         if module == "System" and event_id == "ExtrinsicFailed":
+# #             return True
 
-#     return False
+# #     return False

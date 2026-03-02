@@ -11,8 +11,8 @@ if not API_BEARER_KEY:
 EXCLUDED_PATHS = [
     "/",              # Root endpoint
     "/health",        # Health check
-    "/submit",     # Dashboard (from your code)    
-    # Add more as needed, e.g., "/retrieval/*"
+    "/submit",        # Bitrecs CLI submission endpoint
+    "/check"          # Bitrecs CLI check endpoint    
 ]
 
 async def bearer_auth_middleware(request: Request, call_next):

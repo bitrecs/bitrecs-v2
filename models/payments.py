@@ -2,6 +2,16 @@ from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, Field
 
+class AgentUploadResponse(BaseModel):
+    """Response model for successful agent upload"""
+    status: str = Field(..., description="Status of the upload operation")
+    message: str = Field(..., description="Detailed message about the upload result")
+
+class ErrorResponse(BaseModel):
+    """Error response model"""
+    detail: str = Field(..., description="Error message describing what went wrong")
+    
+
 class Payment(BaseModel):
     payment_block_hash: str
     payment_extrinsic_index: str

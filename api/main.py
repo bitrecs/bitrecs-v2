@@ -59,8 +59,8 @@ from utils.commitment import is_commitment_valid
 from queries.hotkey_gist import log_hotkey_gist
 from queries.payments import record_evaluation_payment, retrieve_payment_by_hash
 from api.utils.request_cache import hourly_cache
-from models.payments import UploadPriceResponse
-from api.endpoints.upload import AgentUploadResponse, ErrorResponse
+from models.payments import UploadPriceResponse, AgentUploadResponse, ErrorResponse
+
 
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
 BT_NETUID = int(os.environ.get("BT_NETUID", 296))
@@ -160,9 +160,6 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-#app.include_router(upload_router, prefix="/upload")
-#app.include_router(metagraph_router, prefix="/metagraph")
-
 app.include_router(retrieval_router, prefix="/retrieval")
 app.include_router(scoring_router, prefix="/scoring")
 app.include_router(validator_router, prefix="/validator")
@@ -174,7 +171,6 @@ app.include_router(evaluations_router, prefix="/evaluation")
 app.include_router(statistics_router, prefix="/statistics")
 app.include_router(dashboard_router, prefix="/dashboard")
 app.include_router(backup_router, prefix="/backup")
-
 
 
 @app.get("/")
@@ -373,13 +369,15 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             payment_extrinsic_index=payment_extrinsic_index,
             nonce=x_nonce
         )
-        if not transport_signature_valid and 1==2:
+        if not transport_signature_valid:
             logger.warning(f"Invalid transport signature for submission from hotkey {submission.hotkey}")
             raise HTTPException(status_code=400, detail="Invalid transport signature")
 
         if not verify_submission_signature(submission):
             logger.warning(f"Invalid signature for submission from hotkey {submission.hotkey}")
             raise HTTPException(status_code=400, detail="Invalid submission signature")
+        
+        await check_if_hotkey_is_validator(submission.hotkey)
         
         existing_payment = await retrieve_payment_by_hash(
             payment_block_hash=payment_block_hash,
