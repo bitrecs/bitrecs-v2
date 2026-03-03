@@ -355,6 +355,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         payment_block_hash = request.headers.get("X-Payment-Block-Hash")
         payment_extrinsic_hash = request.headers.get("X-Payment-Extrinsic-Hash")        
         payment_extrinsic_index = request.headers.get("X-Payment-Extrinsic-Index")
+        payment_amount_rao = int(request.headers.get("X-Payment-Amount-Rao"))
         if not verify_timestamp(x_timestamp):
             logger.warning(f"Invalid or expired timestamp: {x_timestamp}")
             raise HTTPException(status_code=400, detail="Invalid or expired timestamp")
@@ -365,6 +366,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             payment_block_hash=payment_block_hash,
             payment_extrinsic_hash=payment_extrinsic_hash,
             payment_extrinsic_index=payment_extrinsic_index,
+            amt_rao=payment_amount_rao,
             nonce=x_nonce
         )
         if not transport_signature_valid:
@@ -388,12 +390,11 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             miner_hotkey=submission.hotkey,
             payment_block_hash=payment_block_hash,
             payment_extrinsic_index=payment_extrinsic_index,
-            amount_rao=existing_payment.amount_rao
+            amount_rao=payment_amount_rao
         )
         if not onchain_payment_valid:
             logger.warning("On-chain payment verification failed")
-            raise HTTPException(status_code=402, detail="On-chain payment verification failed")       
-       
+            raise HTTPException(status_code=402, detail="On-chain payment verification failed")              
 
         gist_created_at = get_gist_created_at(submission.gist_id)
         gist_raw_data = get_gist(submission.github_account, submission.gist_id)        
@@ -542,7 +543,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
 
 
 
-async def check_onchain_payment(miner_hotkey, payment_block_hash, payment_extrinsic_index, amount_rao) -> bool:    
+async def check_onchain_payment(miner_hotkey: str, payment_block_hash: str, payment_extrinsic_index: int, amount_rao: int) -> bool:    
     subtensor = await get_subtensor()
     try:
         payment_block = await subtensor.substrate.get_block(block_hash=payment_block_hash)
@@ -579,7 +580,7 @@ async def check_onchain_payment(miner_hotkey, payment_block_hash, payment_extrin
     """
     onchain_payment_value_rao = None
     for arg in payment_extrinsic.value['call']['call_args']:
-        if arg['name'] == 'value':
+        if arg['name'] == 'amount' and arg['type'] == "AlphaCurrency":
             onchain_payment_value_rao = arg['value']
             break
     
@@ -589,7 +590,7 @@ async def check_onchain_payment(miner_hotkey, payment_block_hash, payment_extrin
             detail="Payment value not found"
         )
 
-    if onchain_payment_value_rao != amount_rao:
+    if int(onchain_payment_value_rao) != amount_rao:
         raise HTTPException(
             status_code=402,
             detail="Payment amount does not match"

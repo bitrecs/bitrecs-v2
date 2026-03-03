@@ -1,9 +1,7 @@
 """
 Bitrecs CLI - Upload miner artifacts to the Bitrecs platform.
 
-
 """
-
 import os
 import secrets
 import time
@@ -13,6 +11,8 @@ import asyncio
 import subprocess
 import functools
 from dotenv import load_dotenv
+
+from utils.verify import create_transport_signature
 load_dotenv()
 import utils.logger as logger
 from bittensor_wallet.wallet import Wallet
@@ -33,8 +33,8 @@ from async_substrate_interface import ExtrinsicReceipt
 from utils.subtensor import close_subtensor
 
 console = Console()
-DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
-#DEFAULT_API_BASE_URL = "http://localhost:8000"
+#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
+DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 
 def run_cmd(cmd: str, capture: bool = True) -> tuple[int, str, str]:
@@ -167,6 +167,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 console.print("[bold red]Burn cancelled by user. Upload aborted.[/bold red]")
                 return
 
+            payment_amount_rao = payment_method_details['amount_rao']
             # Unlock wallets and pre-connect to subtensor before starting progress
             console.print("[dim]Decrypting wallets...[/dim]")
             coldkey_keypair = wallet.coldkey
@@ -224,7 +225,8 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             payment_extrinsic_index = receipt.extrinsic_idx            
             console.print(f"payment_block_hash : {payment_block_hash}")
             console.print(f"payment_extrinsic_hash : {payment_extrinsic_hash}")            
-            console.print(f"payment_extrinsic_index : {payment_extrinsic_index}")            
+            console.print(f"payment_extrinsic_index : {payment_extrinsic_index}")     
+            console.print(f"payment amount rao : {payment_amount_rao}")       
             
             # Wait for reveal
             console.print(f"Waiting for reveal ...")
@@ -232,19 +234,19 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
                 progress.add_task("Submitting artifact...", total=None)
-                nonce = secrets.token_hex(16)
-                submission_preamble = f"{submission.created_at}:{submission.github_account}:{submission.gist_id}:{submission.hotkey}:{payment_block_hash}:{payment_extrinsic_hash}:{payment_extrinsic_index}:{nonce}"
-                transport_signature = wallet.hotkey.sign(submission_preamble).hex()
+                nonce = secrets.token_hex(16)              
+                t_sig = create_transport_signature(wallet, submission, payment_block_hash, payment_extrinsic_hash, payment_extrinsic_index, payment_amount_rao, nonce)                
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                     'Accept': 'application/json',
                     'Referer': f'{bitrecs.api_url}/',
-                    'X-Signature': transport_signature,
+                    'X-Signature': t_sig,
                     'X-Timestamp': str(int(time.time())),
                     'X-Nonce': nonce,
                     'X-Payment-Block-Hash': payment_block_hash,
                     'X-Payment-Extrinsic-Hash': payment_extrinsic_hash,
-                    'X-Payment-Extrinsic-Index': str(payment_extrinsic_index)
+                    'X-Payment-Extrinsic-Index': str(payment_extrinsic_index),
+                    'X-Payment-Amount-Rao': str(payment_amount_rao)
                 }
                 submit_url =f"{bitrecs.api_url}/submit"
                 response = client.post(submit_url, json=submission.to_dict(), timeout=120, headers=headers)
