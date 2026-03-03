@@ -5,8 +5,8 @@ services:
       context: ..
       dockerfile: validator/Dockerfile
     volumes:
-      - ../:/app
       - /app/.venv  # Exclude .venv from the mount
+      - ../:/app
       - /var/run/docker.sock:/var/run/docker.sock    
       - ~/.bittensor/wallets:/root/.bittensor/wallets:ro
       - /var/log/bitrecs/validator:/var/log/bitrecs/validator      
@@ -26,4 +26,4 @@ networks:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 30 bitrecs-validator
+    command: --interval 60 bitrecs-validator

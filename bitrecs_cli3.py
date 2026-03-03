@@ -176,15 +176,14 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             # Pre-connect to subtensor
             chain_endpoint = os.getenv('SUBTENSOR_ADDRESS')
             network = os.getenv('SUBTENSOR_NETWORK', 'test')
-            subtensor = Subtensor(network=chain_endpoint or network)
-            #subtensor = await get_subtensor()
+            subtensor = Subtensor(network=chain_endpoint or network)            
             
             async def burn_alpha() -> ExtrinsicReceipt:
                 payment_payload = subtensor.substrate.compose_call(
                     call_module="SubtensorModule",
                     call_function="burn_alpha",
                     call_params={
-                        'hotkey': hotkey_address,  # Use cached address
+                        'hotkey': hotkey_address,
                         'amount': payment_method_details['amount_rao'],
                         'netuid': netuid                    
                     }
@@ -202,7 +201,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 commited, current_block = await commit_to_chain_with_wallet(submission.github_account, submission.gist_id, wallet)
                 if not commited:
                     raise Exception("Commitment to chain failed")
-                console.print(f"\n[bold green]Commitment to chain successful![/bold green]")
+                console.print(f"\n[bold green]Commitment to chain successful on block {current_block}![/bold green]")
                 return submission
             
             # Start progress 
@@ -228,7 +227,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             console.print(f"payment_extrinsic_index : {payment_extrinsic_index}")            
             
             # Wait for reveal
-            console.print(f"Waiting for reveal to be included on chain before uploading...")
+            console.print(f"Waiting for reveal ...")
             await asyncio.sleep(12)
             
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
