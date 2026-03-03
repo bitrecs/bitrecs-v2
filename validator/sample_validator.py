@@ -536,6 +536,7 @@ async def main():
     # Start the send heartbeat loop
     asyncio.create_task(send_heartbeat_loop())
     
+    node_name = config.VALIDATOR_HOTKEY.ss58_address[:8] if config.MODE == "validator" else config.SCREENER_NAME
     if config.MODE == "validator":
         asyncio.create_task(calculate_scores_loop())
         asyncio.create_task(r2_sync_loop())
@@ -543,7 +544,7 @@ async def main():
     # Loop forever, just keep requesting evaluations and running them
     while True:
         try:
-            logger.info("Requesting an evaluation...")
+            logger.info(f"{node_name}: Requesting an evaluation...")
             request_evaluation_response_data = await post_bitrecs_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
             # If no evaluation is available, wait and try again
             if request_evaluation_response_data is None:
