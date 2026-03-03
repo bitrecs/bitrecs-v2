@@ -138,7 +138,8 @@ async def calculate_scores(netuid: int, validator_hotkey: str, set_weights: bool
                 wait_for_inclusion=True,
                 wait_for_finalization=True
             )    
-            logger.info(f"\nSet weight of UID {weight_receiving_uid} to 1 on chain: {'Success' if success else 'Failure'} - {message}")    
+            logger.info(f"Set weight of UID {weight_receiving_uid} to {miner_weight} : {'Success' if success else 'Failure'} - {message}")
+            logger.info(f"Set burn weight of UID 0 to {burn_weight}")
             logger.info("\033[32mScores / Weights Update Complete\033[0m")
             await close_subtensor()        
             return success
