@@ -234,8 +234,8 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
                 progress.add_task("Submitting artifact...", total=None)
-                nonce = secrets.token_hex(16)              
-                t_sig = create_transport_signature(wallet, submission, payment_block_hash, payment_extrinsic_hash, payment_extrinsic_index, payment_amount_rao, nonce)                
+                nonce = secrets.token_hex(16)
+                t_sig = create_transport_signature(wallet, submission, payment_block_hash, payment_extrinsic_hash, payment_extrinsic_index, payment_amount_rao, nonce)
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
                     'Accept': 'application/json',

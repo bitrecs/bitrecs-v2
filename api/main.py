@@ -434,13 +434,13 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         sub = await get_subtensor()
         miner_uid = await sub.get_uid_for_hotkey_on_subnet(hotkey_ss58=submission.hotkey, netuid=config.NETUID)
         coldkey = await sub.get_hotkey_owner(hotkey_ss58=submission.hotkey, block=int(commit_block))
-        upload_price = await get_upload_price()
-        amount_rao = upload_price.amount_rao
+        #upload_price = await get_upload_price()
+        #amount_rao = upload_price.amount_rao
         artifact_instance.miner_uid = str(miner_uid)
         logger.info(f"Miner UID {miner_uid} for {submission.hotkey} ")
 
         # Assign UUID before similarity check (needed for embedding)
-        artifact_instance.agent_id = uuid.uuid4()        
+        artifact_instance.agent_id = uuid.uuid4()
         artifact_instance.ip_address = request_id #obfuscate IP with request ID for privacy
 
         similar_agents = []
@@ -486,11 +486,11 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         await record_evaluation_payment(
             payment_block_hash=payment_block_hash,
             payment_extrinsic_index=payment_extrinsic_index,
-            amount_rao=amount_rao,
+            amount_rao=payment_amount_rao,
             agent_id=artifact_instance.agent_id,
             miner_hotkey=artifact_instance.miner_hotkey,
             miner_coldkey=coldkey
-        )       
+        )
 
         upload_data = {
             'hotkey': artifact_instance.miner_hotkey,
