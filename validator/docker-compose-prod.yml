@@ -19,7 +19,7 @@ services:
     command: ["uv", "run", "/app/validator/sample_validator.py"]
 
   watchtower:
-    image: containrrr/watchtower  # Official image
+    image: nickfedor/watchtower
     container_name: bitrecs-watchtower
     restart: unless-stopped
     volumes:
