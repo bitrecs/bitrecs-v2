@@ -6,7 +6,7 @@ set -euo pipefail
 #  CONFIGURATION
 # ────────────────────────────────────────────────
 
-COMPOSE_FILE="./validator/docker-compose-prod.yml"
+COMPOSE_FILE="./validator/docker-compose.yml"
 SERVICE="validator"
 
 # How long to wait before trying to fetch logs (give container time to start)
