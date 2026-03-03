@@ -1,28 +1,33 @@
 services:
   validator:
+    image: ghcr.io/bitrecs/bitrecs-v2:main
     container_name: bitrecs-validator
-    build:
-      context: ..
-      dockerfile: validator/Dockerfile
+    restart: unless-stopped
+    privileged: true  # Allow DinD access
+    user: root  # Run as root for socket access
     volumes:
-      - /app/.venv  # Exclude .venv from the mount
-      - ../:/app
-      - /var/run/docker.sock:/var/run/docker.sock    
+      - /var/run/docker.sock:/var/run/docker.sock  # Keep this
       - ~/.bittensor/wallets:/root/.bittensor/wallets:ro
-      - /var/log/bitrecs/validator:/var/log/bitrecs/validator      
+      - /var/log/bitrecs/validator:/var/log/bitrecs/validator
+    env_file:
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
+      - DOCKER_HOST=unix:///var/run/docker.sock  # Explicitly set Docker host
     networks:
       - bitrecs-network
-    restart: unless-stopped
+    command: ["uv", "run", "/app/validator/sample_validator.py"]
 
   watchtower:
-    image: nickfedor/watchtower
+    image: containrrr/watchtower  # Official image
     container_name: bitrecs-watchtower
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 60 bitrecs-validator
+    environment:
+      - DOCKER_USERNAME=${DOCKER_USERNAME}  # Set these in .env or host env
+      - DOCKER_PASSWORD=${DOCKER_PASSWORD}
+    command: --interval 120 --debug ghcr.io/bitrecs/bitrecs-v2/validator  # Target the image name
 
 networks:
   bitrecs-network:

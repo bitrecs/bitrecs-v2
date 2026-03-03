@@ -123,8 +123,8 @@ async def calculate_scores(netuid: int, validator_hotkey: str, set_weights: bool
                 logger.error("Validator hotkey or netuid not provided, cannot set weights on chain")
                 return False
             wallet = Wallet(name=os.getenv("VALIDATOR_WALLET_NAME"), hotkey=os.getenv("VALIDATOR_HOTKEY_NAME"))
-            if wallet.hotkey != validator_hotkey:
-                logger.error(f"Validator hotkey mismatch: expected {validator_hotkey}, got {wallet.hotkey}")
+            if wallet.hotkey.ss58_address != validator_hotkey:
+                logger.error(f"Validator hotkey mismatch: expected {validator_hotkey}, got {wallet.hotkey.ss58_address}")
                 return False
             #update weights on chain         
             miner_weight = 1 * MINER_BURN
