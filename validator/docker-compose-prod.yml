@@ -16,14 +16,14 @@ services:
       - bitrecs-network
     restart: unless-stopped
 
+  watchtower:
+    image: nickfedor/watchtower
+    container_name: bitrecs-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 60 bitrecs-validator
+
 networks:
   bitrecs-network:
     external: false
-
-watchtower:
-  image: nickfedor/watchtower
-  container_name: bitrecs-watchtower
-  restart: unless-stopped
-  volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
-  command: --interval 60 bitrecs-validator
