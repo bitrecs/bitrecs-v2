@@ -2,7 +2,7 @@ import os
 import httpx
 import utils.logger as logger
 from pathlib import Path
-from bittensor_wallet import Wallet
+from bittensor_wallet import Keypair, Wallet
 from utils.subtensor import close_subtensor, get_subtensor
 from scoring.persist import ScorePersister
 from scoring.threshold import compute_miner_thresholds
@@ -86,7 +86,7 @@ def df_to_miner_blocks(df) -> MinerFirstBlocks:
     return miner_first_blocks
 
 
-async def calculate_scores(netuid: int, validator_hotkey: str, set_weights: bool = True) -> bool:
+async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: bool = True) -> bool:
     try:
         logger.info("Calculating scores...")
         current_set_id = await get_current_eval_set_id()
@@ -123,8 +123,8 @@ async def calculate_scores(netuid: int, validator_hotkey: str, set_weights: bool
                 logger.error("Validator hotkey or netuid not provided, cannot set weights on chain")
                 return False
             wallet = Wallet(name=os.getenv("VALIDATOR_WALLET_NAME"), hotkey=os.getenv("VALIDATOR_HOTKEY_NAME"))
-            if wallet.hotkey.ss58_address != validator_hotkey:
-                logger.error(f"Validator hotkey mismatch: expected {validator_hotkey}, got {wallet.hotkey.ss58_address}")
+            if wallet.hotkey.ss58_address != validator_hotkey.ss58_address:
+                logger.error(f"Validator hotkey mismatch: expected {wallet.hotkey.ss58_address}, got {validator_hotkey.ss58_address}")
                 return False
             #update weights on chain         
             miner_weight = 1 * MINER_BURN
