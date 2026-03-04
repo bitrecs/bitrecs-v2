@@ -1,7 +1,11 @@
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import asyncio
 import pandas as pd
 import utils.logger as logger
 import validator.config as config
+from datetime import datetime
 from bittensor.core.async_subtensor import AsyncSubtensor
 from dotenv import load_dotenv
 load_dotenv(dotenv_path="validator/.env")
@@ -14,11 +18,12 @@ async def get_subnet_info():
     )
     
     try:        
-        metagraph = await subtensor.metagraph(netuid=config.NETUID)
+        metagraph = await subtensor.metagraph(netuid=config.NETUID, lite=False)
         await metagraph.sync()
         total_nodes = len(metagraph.neurons)
         total_stake = sum(float(n.stake) for n in metagraph.neurons)
-        
+        tempo = await subtensor.tempo(netuid=config.NETUID)
+
         nodes = []
         for neuron in metagraph.neurons:
             nodes.append({
@@ -26,14 +31,21 @@ async def get_subnet_info():
                 "hotkey": neuron.hotkey,
                 "coldkey": neuron.coldkey,
                 "stake": float(neuron.stake),
-                "last_update": neuron.last_update
+                "last_update": neuron.last_update,
+                "emission": neuron.emission,
+                "incentive": neuron.incentive,
+                "consensus": neuron.consensus,
+                "validator_trust": neuron.validator_trust,
+                "v_permit": neuron.validator_permit,
             })
         
         return {
             "total_nodes": total_nodes,
             "total_stake": total_stake,
             "nodes": nodes,
-            "netuid": config.NETUID
+            "netuid": config.NETUID,
+            "tempo": tempo,
+            "weights": metagraph.weights.tolist() if metagraph.weights is not None else None,
         }
     finally:
         # Clean up
@@ -122,6 +134,18 @@ def display_subnet_info(info: dict):
     
     print("\n" + "="*80)
 
+
+def write_subnet_info(info: dict, filename: str = "subnet_info.json"):
+    """Write subnet information to a JSON file."""
+    import json
+    with open(filename, 'w') as f:
+        json.dump(info, f, indent=4)
+    logger.info(f"Subnet information written to {filename}")
+
+
 if __name__ == "__main__":
     info = asyncio.run(get_subnet_info())
     display_subnet_info(info)
+    info_name = f"subnet_{info['netuid']}_info_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    write_subnet_info(info, info_name)
+    print(f"Subnet information retrieval completed. Data saved to {info_name}")

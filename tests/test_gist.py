@@ -3,7 +3,6 @@ import pytest
 import httpx
 from dotenv import load_dotenv
 
-from tests.test_api import SERVICE_URL
 load_dotenv()
 from models.agent import Agent
 from bittensor_wallet import Wallet
@@ -13,7 +12,6 @@ from rules.agent_validator import validate_artifact_template
 from utils.commitment import commit_to_chain, commit_to_chain_with_wallet, get_miner_commitments, is_commitment_valid
 from utils.gist import get_gist, get_gist_created_at, get_gist_file_names, get_gist_sha_commits
 from models.miner_submission import MinerSubmission
-from api.endpoints.agent import agent_get_gist
 from uuid import UUID
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
