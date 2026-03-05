@@ -24,10 +24,10 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ~/.docker/config.json:/config.json:ro  # Use Docker's auth config
     environment:
-      - DOCKER_USERNAME=${DOCKER_USERNAME}  # Set these in .env or host env
-      - DOCKER_PASSWORD=${DOCKER_PASSWORD}
-    command: --interval 120 --debug ghcr.io/bitrecs/bitrecs-v2/validator  # Target the image name
+      - WATCHTOWER_CLEANUP=true
+    command: --interval 120 --debug bitrecs-validator  # Target by container name
 
 networks:
   bitrecs-network:
