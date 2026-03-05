@@ -33,7 +33,7 @@ from scoring.engine import calculate_scores, get_current_eval_set_id
 from scoring.persist import ScorePersister
 from utils.docker import is_running_in_container
 from validator.r2_sync import r2_sync
-
+from get_version import get_git_info
 
 EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
@@ -71,7 +71,8 @@ async def send_heartbeat_loop():
     try:
         logger.info("Starting send heartbeat loop...")
         while True:
-            logger.info("Sending heartbeat...")
+            branch, sha = get_git_info()
+            logger.info(f"Sending heartbeat... Branch: {branch}, SHA: {sha}")
             system_metrics = await get_system_metrics()
             await post_bitrecs_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
             await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
