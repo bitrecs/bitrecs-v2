@@ -310,6 +310,15 @@ WITH
           AND evaluations_hydrated.evaluation_set_group = 'validator'::EvaluationSetGroup
         GROUP BY agent_id
     ),
+    -- NEW: Count ALL evaluations (including failures) to enforce hard cap
+    validator_total_eval_counts AS (
+        SELECT
+            agent_id,
+            COUNT(*) AS num_total_evals
+        FROM evaluations
+        WHERE evaluations.evaluation_set_group = 'validator'::EvaluationSetGroup
+        GROUP BY agent_id
+    ),
     screener_2_scores AS (
         SELECT agent_id, MAX(score) AS score FROM evaluations_hydrated
         WHERE evaluations_hydrated.evaluation_set_group = 'screener_2'::EvaluationSetGroup
@@ -324,10 +333,13 @@ SELECT
 FROM agents
      INNER JOIN screener_2_scores USING (agent_id)
      LEFT JOIN validator_eval_counts USING (agent_id)
+     LEFT JOIN validator_total_eval_counts USING (agent_id)
 WHERE
     agents.status = 'evaluating'
---   TODO: Make into a constant, same as config.NUM_EVALS_PER_AGENT
+--   Cap on successful + running evaluations (existing logic)
     AND COALESCE(num_running_evals, 0) + COALESCE(num_finished_evals, 0) < 3
+--   Hard cap on TOTAL evaluations to prevent runaway loops
+    AND COALESCE(num_total_evals, 0) < 9
     AND agents.agent_id NOT IN (SELECT agent_id FROM benchmark_agent_ids)
     AND agents.miner_hotkey NOT IN (SELECT miner_hotkey FROM banned_hotkeys)
     AND agents.agent_id NOT IN (SELECT agent_id FROM unapproved_agent_ids)

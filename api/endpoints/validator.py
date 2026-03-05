@@ -24,6 +24,7 @@ from queries.evaluation import (
     update_evaluation_finished_at, 
     create_new_evaluation_and_evaluation_runs, 
     get_num_successful_validator_evaluations_for_agent_id,
+    get_num_total_validator_evaluations_for_agent_id,
     update_unfinished_evaluation_runs_in_evaluation_id_to_errored
 )
 from queries.evaluation_run import (
@@ -713,8 +714,18 @@ async def handle_evaluation_if_finished(evaluation_id: UUID) -> None:
     
     # ✅ FIX: Check evaluating agents FIRST, regardless of current eval status
     if agent.status == AgentStatus.evaluating:
-        num = await get_num_successful_validator_evaluations_for_agent_id(agent.agent_id)
-        if num >= config.NUM_EVALS_PER_AGENT:
+        num_successful = await get_num_successful_validator_evaluations_for_agent_id(agent.agent_id)
+        num_total = await get_num_total_validator_evaluations_for_agent_id(agent.agent_id)
+        
+        if num_successful >= config.NUM_EVALS_PER_AGENT:
+            await update_agent_status(agent.agent_id, AgentStatus.finished)
+        elif num_total >= config.MAX_TOTAL_EVALS_PER_AGENT:
+            logger.warning(
+                f"Agent {agent.agent_id} hit max total evaluations cap "
+                f"({num_total}/{config.MAX_TOTAL_EVALS_PER_AGENT}) with only "
+                f"{num_successful}/{config.NUM_EVALS_PER_AGENT} successes. "
+                f"Marking as finished to prevent runaway loop."
+            )
             await update_agent_status(agent.agent_id, AgentStatus.finished)
         return
     
