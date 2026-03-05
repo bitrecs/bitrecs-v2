@@ -235,22 +235,37 @@ async def health(request: Request):
 
 
 
+async def calculate_upload_price() -> UploadPriceResponse:
+    """Calculate the upload price for evaluations."""
+    PRICE_BUFFER = 1.1
+    BITRECS_PRICE = await get_bitrecs_price()
+    eval_cost_usd = config.COST_PER_MINER_SUBMISSION_USD
+    eval_cost_alpha = eval_cost_usd / BITRECS_PRICE
+    amount_rao = int(eval_cost_alpha * 1e9 * PRICE_BUFFER)
+    return UploadPriceResponse(
+        amount_rao=amount_rao,
+        bitrecs_price_usd=BITRECS_PRICE
+    )
+
+
+
 @app.get(
     "/eval-pricing",    
     response_model=UploadPriceResponse
 )
+@limiter.limit("60/minute")
 @hourly_cache()
-async def get_upload_price() -> UploadPriceResponse:        
-    PRICE_BUFFER = 1.1
-    BITRECS_PRICE = await get_bitrecs_price() # 1.20 USD
-    eval_cost_usd = config.COST_PER_MINER_SUBMISSION_USD    
-    eval_cost_alpha = eval_cost_usd / BITRECS_PRICE    
-    # Add a buffer against price fluctuations and eval cost variance
-    amount_rao = int(eval_cost_alpha * 1e9 * PRICE_BUFFER)
-    return UploadPriceResponse(
-        amount_rao=amount_rao,
-        send_address=config.UPLOAD_SEND_ADDRESS
-    )
+async def get_upload_price(request: Request) -> UploadPriceResponse:
+    client_ip = get_client_ip(request)
+    logger.info(f"Upload price requested from IP {client_ip}")
+    try:
+        price_response = await calculate_upload_price()
+        logger.info(f"Calculated upload price: {price_response.amount_rao} rao ")
+        return price_response
+    except Exception as e:
+        logger.error(f"Error calculating upload price: {e}")
+        raise HTTPException(status_code=500, detail="Error calculating upload price")
+    
 
 @app.post(
     "/check",
@@ -293,6 +308,20 @@ async def check_agent_post(
         await check_if_gist_used(submission.gist_id)
         #await check_hotkey_registered(miner_hotkey)
         await check_agent_banned(miner_hotkey) 
+
+    subtensor = await get_subtensor()
+    coldkey = await subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey)
+    stake_info = await subtensor.get_stake(
+        coldkey_ss58=coldkey,
+        hotkey_ss58=miner_hotkey,
+        netuid=296,
+    )
+    alpha_stake = stake_info.rao / 1e9
+    upload_price = await calculate_upload_price()
+    alpha_upload_requirement = upload_price.amount_rao / 1e9
+    if alpha_stake < alpha_upload_requirement:
+        logger.warning(f"Miner hotkey {miner_hotkey} has insufficient stake {alpha_stake} alpha to cover upload price of {alpha_upload_requirement} alpha")
+        return JSONResponse(content={"error": "Insufficient stake to cover upload price"}, status_code=402)
 
     gist_created_at = get_gist_created_at(submission.gist_id)
     gist_raw_data = get_gist(submission.github_account, submission.gist_id)

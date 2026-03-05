@@ -43,7 +43,7 @@ OWNER_HOTKEY = os.getenv("OWNER_HOTKEY")
 if not OWNER_HOTKEY:
     logger.fatal("OWNER_HOTKEY is not set in .env")
 
-UPLOAD_SEND_ADDRESS = "5CDRBe2SXSdAf2jMRydfmvCBsN3uLktapcAknkC1iT2qhz2o"
+#UPLOAD_SEND_ADDRESS = ""
 # os.getenv("UPLOAD_SEND_ADDRESS")
 # if not UPLOAD_SEND_ADDRESS:
 #     logger.fatal("UPLOAD_SEND_ADDRESS is not set in .env")
@@ -172,7 +172,7 @@ if not NUM_EVALS_PER_AGENT:
 NUM_EVALS_PER_AGENT = int(NUM_EVALS_PER_AGENT)
 
 
-COST_PER_MINER_SUBMISSION_USD = int(os.getenv("COST_PER_MINER_SUBMISSION_USD", 20))
+COST_PER_MINER_SUBMISSION_USD = int(os.getenv("COST_PER_MINER_SUBMISSION_USD", 30))
 
 
 logger.info("=== API Configuration ===")

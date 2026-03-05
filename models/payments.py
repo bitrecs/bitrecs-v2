@@ -25,4 +25,5 @@ class Payment(BaseModel):
 class UploadPriceResponse(BaseModel):
     """Response model for successful agent upload"""
     amount_rao: int = Field(..., description="Amount to send for evaluation (in RAO)")
-    send_address: str = Field(..., description="TAO address to send evaluation payment to")
+    bitrecs_price_usd: float = Field(..., description="Current price of Bitrecs in USD")
+    #send_address: str = Field(..., description="TAO address to send evaluation payment to")

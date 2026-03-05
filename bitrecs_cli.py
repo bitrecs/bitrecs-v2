@@ -11,8 +11,6 @@ import asyncio
 import subprocess
 import functools
 from dotenv import load_dotenv
-
-from utils.verify import create_transport_signature
 load_dotenv()
 import utils.logger as logger
 from bittensor_wallet.wallet import Wallet
@@ -31,10 +29,11 @@ from version import __version__ as this_version
 from utils.commitment import commit_to_chain_with_wallet
 from async_substrate_interface import ExtrinsicReceipt
 from utils.subtensor import close_subtensor
+from utils.verify import create_transport_signature
 
 console = Console()
-DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
-#DEFAULT_API_BASE_URL = "http://localhost:8000"
+#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
+DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 
 def run_cmd(cmd: str, capture: bool = True) -> tuple[int, str, str]:
@@ -147,7 +146,8 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 return
             else:
                 console.print(f"No existing agent found with hotkey {wallet.hotkey.ss58_address}. Proceeding with upload.", style="bold green")
-           
+
+            console.print("Checking agent eligibility with the Bitrecs API...", style="dim")           
             check_response = client.post(f"{bitrecs.api_url}/check", json=submission.to_dict(), timeout=120)
             if check_response.status_code != 200:
                 console.print(f"Error checking agent: {check_response.text}", style="bold red")
@@ -172,9 +172,8 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             console.print("[dim]Decrypting wallets...[/dim]")
             coldkey_keypair = wallet.coldkey
             hotkey_keypair = wallet.hotkey
-            hotkey_address = wallet.hotkey.ss58_address
+            hotkey_address = wallet.hotkey.ss58_address            
             
-            # Pre-connect to subtensor
             chain_endpoint = os.getenv('SUBTENSOR_ADDRESS')
             network = os.getenv('SUBTENSOR_NETWORK', 'test')
             subtensor = Subtensor(network=chain_endpoint or network)            
@@ -203,9 +202,8 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 if not commited:
                     raise Exception("Commitment to chain failed")
                 console.print(f"\n[bold green]Commitment to chain successful on block {current_block}![/bold green]")
-                return submission
+                return submission            
             
-            # Start progress 
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
                 burn_task_id = progress.add_task("Submitting burn transaction...", total=None)
                 commit_task_id = progress.add_task("Committing to chain...", total=None)
