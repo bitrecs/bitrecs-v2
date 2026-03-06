@@ -8,13 +8,13 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ~/.bittensor/wallets:/root/.bittensor/wallets:ro
-      - /root/bitrecs/data:/app/data
+      - ~/bitrecs/data:/app/data
       - /var/log/bitrecs/validator:/var/log/bitrecs/validator
     env_file:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
-      - DOCKER_HOST=unix:///var/run/docker.sock  # Explicitly set Docker host
+      - DOCKER_HOST=unix:///var/run/docker.sock
     networks:
       - bitrecs-network
     command: ["uv", "run", "/app/validator/sample_validator.py"]
