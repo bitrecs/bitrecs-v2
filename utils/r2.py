@@ -144,8 +144,7 @@ def put_r2_upload(request: ValidatorUploadRequest, keypair: Keypair) -> bool:
     if not request or not keypair:
         return False    
     from pathlib import Path
-    root_path = Path(__file__).parent.parent.absolute()       
-    db_path = root_path / "scores.db" 
+    db_path = Path("data/weights/scores.db")
     if not db_path.exists():
         logger.error("Scores DB not found. Run scoring engine at least once to generate scores.db for upload.")
         return False
