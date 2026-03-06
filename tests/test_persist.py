@@ -16,7 +16,7 @@ def temp_db():
 @pytest.fixture
 def persister(temp_db):
     """Fixture for ScorePersister with a temp DB."""
-    p = ScorePersister(base_path=str(temp_db.parent), filename=temp_db.name)
+    p = ScorePersister(base_path=str(temp_db.parent), filename=temp_db.name.split('/')[-1])
     return p
 
 

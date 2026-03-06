@@ -39,8 +39,7 @@ EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
-session_id: str | None = None
-state_backup = ScorePersister(base_path=PARENT_DIR, filename="scores.db")
+state_backup = ScorePersister(base_path="data/weights", filename="scores.db")
 
 
 async def calculate_scores_loop():

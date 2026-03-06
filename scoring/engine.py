@@ -91,8 +91,7 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
         logger.info("Calculating scores...")
         current_set_id = await get_current_eval_set_id()
         logger.info(f"Current evaluation set ID: {current_set_id}")        
-        root_path = Path(__file__).parent.parent.absolute()        
-        persister = ScorePersister(base_path=root_path, filename="scores.db")
+        persister = ScorePersister(base_path="data/weights", filename="scores.db")
         data = persister.load_scores(evaluation_set_id=current_set_id)
         logger.info(f"Loaded {len(data)} score records")
         if data.empty:

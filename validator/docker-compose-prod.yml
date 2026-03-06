@@ -8,7 +8,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ~/.bittensor/wallets:/root/.bittensor/wallets:ro
-      - /bitrecs/data:/app/data
+      - /root/bitrecs/data:/app/data
       - /var/log/bitrecs/validator:/var/log/bitrecs/validator
     env_file:
       - .env
