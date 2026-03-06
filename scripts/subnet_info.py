@@ -37,6 +37,8 @@ async def get_subnet_info():
                 "consensus": neuron.consensus,
                 "validator_trust": neuron.validator_trust,
                 "v_permit": neuron.validator_permit,
+                "ip": neuron.axon_info.ip if neuron.axon_info else None,
+                "port": neuron.axon_info.port if neuron.axon_info else None,
             })
         
         return {

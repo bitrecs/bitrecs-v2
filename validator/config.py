@@ -113,10 +113,10 @@ if not SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS:
     logger.fatal("SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS is not set in .env")
 SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS = int(SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
 
-INCLUDE_SOLUTIONS = os.getenv("INCLUDE_SOLUTIONS")
-if not INCLUDE_SOLUTIONS:
-    logger.fatal("INCLUDE_SOLUTIONS is not set in .env")
-INCLUDE_SOLUTIONS = INCLUDE_SOLUTIONS.lower() == "true"
+# INCLUDE_SOLUTIONS = os.getenv("INCLUDE_SOLUTIONS")
+# if not INCLUDE_SOLUTIONS:
+#     logger.fatal("INCLUDE_SOLUTIONS is not set in .env")
+# INCLUDE_SOLUTIONS = INCLUDE_SOLUTIONS.lower() == "true"
 
 
 
@@ -159,11 +159,11 @@ logger.info("-------------------------------")
 
 if SIMULATE_EVALUATION_RUNS:
     logger.warning("Simulating Evaluation Runs!")
-else:
-    if INCLUDE_SOLUTIONS:
-        logger.warning("Including Solutions!")
-    else:
-        logger.info("Not Including Solutions")
+# else:
+#     if INCLUDE_SOLUTIONS:
+#         logger.warning("Including Solutions!")
+#     else:
+#         logger.info("Not Including Solutions")
 logger.info("-------------------------------")
 
 if UPDATE_AUTOMATICALLY:

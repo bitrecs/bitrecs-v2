@@ -6,8 +6,9 @@ services:
     privileged: true  # Allow DinD access
     user: root  # Run as root for socket access
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # Keep this
+      - /var/run/docker.sock:/var/run/docker.sock
       - ~/.bittensor/wallets:/root/.bittensor/wallets:ro
+      - /bitrecs/data:/app/data
       - /var/log/bitrecs/validator:/var/log/bitrecs/validator
     env_file:
       - .env
@@ -24,10 +25,10 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ~/.docker/config.json:/config.json:ro  # Use Docker's auth config
+      - ~/.docker/config.json:/config.json:ro
     environment:
       - WATCHTOWER_CLEANUP=true
-    command: --interval 120 --debug bitrecs-validator  # Target by container name
+    command: --interval 120 --debug bitrecs-validator
 
 networks:
   bitrecs-network:

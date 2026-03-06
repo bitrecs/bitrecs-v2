@@ -21,6 +21,7 @@ sudo apt install docker-ce
 
 sudo systemctl status docker
 ```
+verify by typing: docker
 
 # Install UV
 
@@ -31,21 +32,13 @@ reactivate shell:
 
 source $HOME/.local/bin/env
 ```
+verify by typing: uv
 
-# Setup wallets
+# Clone Repo
 ```
-mkdir bitrecs & cd bitrecs
-    
-```
-
-# Pull Images
-```
-docker pull ghcr.io/bitrecs/bitrecs-v2:main
-docker pull ghcr.io/bitrecs/bitrecs-evals:main
-
-if testing:
-
-docker login ghcr.io -u YOUR_GITHUB_USERNAME -p YOUR_ACCESS_TOKEN
+git clone git@github.com:bitrecs/bitrecs-v2.git
+cd ~/bitrecs-v2
+uv sync
 ```
 
 # Setup Env
@@ -54,22 +47,37 @@ touch .env
 Update as instructed
 ```
 
- # Docker Compose
- 
- - clone yaml file:
+ # PM2
  ```
- https://github.com/bitrecs/bitrecs-v2/blob/main/validator/docker-compose-prod.yml
+ sudo apt install -y nodejs npm
+ sudo npm install -g pm2
+ 
+ pm2 init ecosystem
+ 
+ edit the ecosystem.config.js
+ 
+ module.exports = {
+  apps: [{
+    name:        "validator-9",
+    script:      "sample_validator.py",
+    cwd:         "/root/bitrecs-v2/validator",
+    interpreter: "/root/.local/bin/uv",
+    interpreter_args: "run",
+    args:        "",
+    exec_mode:   "fork",
+    instances:   1,
+    autorestart: true,
+    watch:       false,
+    max_memory_restart: "600M",
+    env: {
+      PYTHONUNBUFFERED: "1"
+    }
+  }]
+};
+ 
+pm2 start ecosystem
+pm2 startup
 
-```
-
-- start containers:
-```
-docker compose -f docker-compose-prod.yml up -d
-```
-
-# Logs
-```
-docker ps to get ID of container
-docker logs id_of_container -f --tail 10
+pm2 logs 0
 ```
  

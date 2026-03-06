@@ -1,7 +1,8 @@
 # V2 Validator Setup
 
-- Start with a fresh Ubuntu VPS
+### We recommend Ubuntu 24+ LTS
 
+# Update & Reboot
 ```
 sudo apt-get update
 sudo apt-get upgrade
@@ -21,7 +22,6 @@ sudo apt install docker-ce
 
 sudo systemctl status docker
 ```
-verify by typing: docker
 
 # Install UV
 
@@ -32,52 +32,72 @@ reactivate shell:
 
 source $HOME/.local/bin/env
 ```
-verify by typing: uv
 
-# Clone Repo
+# Setup wallets
 ```
-git clone git@github.com:bitrecs/bitrecs-v2.git
-cd ~/bitrecs-v2
-uv sync
+uv run btcli w regen-coldkeypub --ss58 COLDKEY_ADDR
+uv run btcli w regen-hotkey
+```
+
+# Pull Images
+```
+docker pull ghcr.io/bitrecs/bitrecs-v2:main
+docker pull ghcr.io/bitrecs/bitrecs-evals:main
+
+if testing:
+
+docker login ghcr.io -u YOUR_GITHUB_USERNAME -p YOUR_ACCESS_TOKEN
 ```
 
 # Setup Env
 ```
+mkdir bitrecs & cd bitrecs
 touch .env
-Update as instructed
+
+DEBUG=False
+
+RIDGES_PLATFORM_URL=https://v2.api.bitrecs.ai
+NETUID=296
+SUBTENSOR_NETWORK=test
+MODE="validator"
+SCREENER_NAME=
+SCREENER_PASSWORD=
+SEND_HEARTBEAT_INTERVAL_SECONDS=20
+SET_WEIGHTS_INTERVAL_SECONDS=3600
+SET_WEIGHTS_TIMEOUT_SECONDS=90
+
+VALIDATOR_WALLET_NAME=default
+VALIDATOR_HOTKEY_NAME=default
+
+CHECK_RUNNING_AGENTS_INTERVAL_SECONDS=60
+CHECK_PENDING_EVALUATIONS_INTERVAL_SECONDS=30
+CHECK_AGENT_UPLOAD_RATE_LIMIT_INTERVAL_SECONDS=600
+R2_SYNC_INTERVAL_SECONDS=3600
+REQUEST_EVALUATION_INTERVAL_SECONDS=45
+SIMULATE_EVALUATION_RUNS=False
+SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS=3
+
+UPDATE_AUTOMATICALLY=True
+
+OPENROUTER_API_KEY=
+CHUTES_API_KEY=
+
+
 ```
 
- # PM2
+ # Docker Compose 
+ 
  ```
- sudo apt install -y nodejs npm
- sudo npm install -g pm2
+ copy .yml file into /bitrecs:
  
- pm2 init ecosystem
- 
- edit the ecosystem.config.js
- 
- module.exports = {
-  apps: [{
-    name:        "validator-9",
-    script:      "sample_validator.py",
-    cwd:         "/root/bitrecs-v2/validator",
-    interpreter: "/root/.local/bin/uv",
-    interpreter_args: "run",
-    args:        "",
-    exec_mode:   "fork",
-    instances:   1,
-    autorestart: true,
-    watch:       false,
-    max_memory_restart: "600M",
-    env: {
-      PYTHONUNBUFFERED: "1"
-    }
-  }]
-};
- 
-pm2 start ecosystem
-pm2 startup
+ https://github.com/bitrecs/bitrecs-v2/blob/main/validator/docker-compose-prod.yml
 
-pm2 logs 0
+docker compose -f ./docker-compose-prod.yml up -d
+```
+
+# Logs
+```
+docker ps (to get ID of container)
+docker logs id_of_container -f --tail 10
 ```
  
