@@ -21,7 +21,6 @@ sudo apt install docker-ce
 
 sudo systemctl status docker
 ```
-- verify by typing: docker
 
 # Install UV
 
@@ -32,11 +31,21 @@ reactivate shell:
 
 source $HOME/.local/bin/env
 ```
-- verify by typing: uv
 
-# Pull Image
+# Setup wallets
+```
+mkdir bitrecs & cd bitrecs
+    
+```
+
+# Pull Images
 ```
 docker pull ghcr.io/bitrecs/bitrecs-v2:main
+docker pull ghcr.io/bitrecs/bitrecs-evals:main
+
+if testing:
+
+docker login ghcr.io -u YOUR_GITHUB_USERNAME -p YOUR_ACCESS_TOKEN
 ```
 
 # Setup Env

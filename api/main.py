@@ -234,6 +234,15 @@ async def health(request: Request):
     }
 
 
+async def ensure_min_validators() -> None:
+      validator_info = get_connected_validators_info()
+      connected_validators = validator_info.get("connected_validators", 0)
+      if connected_validators < config.NUM_EVALS_PER_AGENT:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Not enough validators available for evaluation (connected: {connected_validators})"
+            )
+
 
 async def calculate_upload_price() -> UploadPriceResponse:
     """Calculate the upload price for evaluations."""
@@ -246,6 +255,7 @@ async def calculate_upload_price() -> UploadPriceResponse:
         amount_rao=amount_rao,
         bitrecs_price_usd=BITRECS_PRICE
     )
+
 
 
 
@@ -283,6 +293,8 @@ async def check_agent_post(
             status_code=503,
             detail=config.DISALLOW_UPLOADS_REASON
         )
+    
+    await ensure_min_validators()
     
     if not verify_submission_signature(submission):
         logger.warning(f"Invalid signature for submission from hotkey {submission.hotkey}")
@@ -375,7 +387,10 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         raise HTTPException(
             status_code=503,
             detail=config.DISALLOW_UPLOADS_REASON
-        )        
+        )
+
+    await ensure_min_validators()
+
     try:
        
         x_signature = request.headers.get("X-Signature")

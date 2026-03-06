@@ -27,6 +27,7 @@ async def dashboard(request: Request):
     
     validators = get_connected_validators_info()
     screener = await screener_info(request)
+    total_validators = validators["connected_validators"]
 
     # Clean up data before HTML rendering
     s1_wait = f"{screener.screener_1_average_wait_time:.1f}s" if screener.screener_1_average_wait_time is not None else "N/A"
@@ -259,7 +260,7 @@ async def dashboard(request: Request):
         </div>
         <div class="card validators">
             <h2>Validators</h2>
-            <div class="value">{len(validators)}</div>
+            <div class="value">{total_validators}</div>
             <div class="label">Connected</div>
         </div>
         <div class="card queue">

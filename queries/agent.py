@@ -10,7 +10,7 @@ from utils.database import db_operation, DatabaseConnection
 from models.agent import Agent, AgentStatus, AgentScored, BenchmarkAgentScored, PossiblyBenchmarkAgent
 
 
-NUM_EVALS_PER_AGENT = config.NUM_EVALS_PER_AGENT
+#NUM_EVALS_PER_AGENT = config.NUM_EVALS_PER_AGENT
 
 
 @db_operation
