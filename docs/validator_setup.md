@@ -1,6 +1,7 @@
 # V2 Validator Setup
 
-### We recommend Ubuntu 24+ LTS
+- We recommend Ubuntu 24+ LTS
+- V2 validators do not require public IPs or open ports
 
 # Update & Reboot
 ```
@@ -25,6 +26,8 @@ sudo systemctl status docker
 
 # Install UV
 
+- uv only needed to regen wallets. If you import them manaully, you don't need uv.
+
 ```
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
@@ -37,6 +40,13 @@ source $HOME/.local/bin/env
 ```
 uv run btcli w regen-coldkeypub --ss58 COLDKEY_ADDR
 uv run btcli w regen-hotkey
+```
+# Setup Working Directory
+```
+mkdir bitrecs
+cd bitrecs
+
+Please ensure the folder is named bitrecs as docker compose expects ~/bitrecs
 ```
 
 # Pull Images
@@ -51,7 +61,6 @@ docker login ghcr.io -u YOUR_GITHUB_USERNAME -p YOUR_ACCESS_TOKEN
 
 # Setup Env
 ```
-mkdir bitrecs & cd bitrecs
 touch .env
 
 DEBUG=False
@@ -97,7 +106,6 @@ docker compose -f ./docker-compose-prod.yml up -d
 
 # Logs
 ```
-docker ps (to get ID of container)
-docker logs id_of_container -f --tail 10
+ docker compose -f docker-compose-prod.yml logs --tail 10 --follow
 ```
  
