@@ -34,6 +34,9 @@ from scoring.persist import ScorePersister
 from utils.docker import is_running_in_container
 from validator.r2_sync import r2_sync
 from get_version import get_git_info
+from utils.epoch import get_current_epoch_info
+from utils.subtensor import get_subtensor
+
 
 EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
@@ -53,8 +56,15 @@ async def calculate_scores_loop():
         logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
     
     while True:
-        await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
+        await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)        
         try:
+            st = await get_subtensor()
+            current_block = await st.get_current_block()
+            current_epoch, blocks_until_next_epoch, epoch_start_block = get_current_epoch_info(current_block, config.NETUID)
+            minutes_to_next_epoch = blocks_until_next_epoch * 12 / 60
+            logger.info("\033[32mSTART Calculate Scores\033[0m")
+            logger.info(f"Current block: {current_block}, Current epoch: {current_epoch}, Blocks until next epoch: {blocks_until_next_epoch} (~{minutes_to_next_epoch:.1f} minutes)")
+
             result = await asyncio.wait_for(calculate_scores(netuid=config.NETUID, 
                                                              validator_hotkey=config.VALIDATOR_HOTKEY,
                                                              set_weights=True), timeout=120)
@@ -62,6 +72,8 @@ async def calculate_scores_loop():
                 logger.info("Scores and weights updated successfully")
             else:
                 logger.warning("Error updating scores / weights")
+
+            logger.info("\033[32mEND Calculate Scores\033[0m")
         except asyncio.TimeoutError as e:
             logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
 
@@ -143,12 +155,6 @@ async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
     response = await get_bitrecs_platform(f"/agent/get-by-evaluation-run-id?evaluation_run_id={evaluation_run_id}", quiet=2)
     agent = Agent(**response)
     return agent
-
-
-# async def get_evaluation_set_id() -> int:
-#     response = await get_ridges_platform("/scoring/latest-set-info", quiet=2)
-#     set = ScoringLatestSetInfo(**response)
-#     return set.latest_set_id
 
 
 async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
@@ -246,8 +252,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
             af_mode = "docker"
             af_hostname = "localhost" if not is_docker else "bitrecs-evals-main"  # Container name for network access
-            af_container_port = 8000
-            #host_network = True if not is_docker else False
+            af_container_port = 8000            
             
             af_run_token = secrets.token_hex(16)
             af_env_vars = {                
@@ -349,8 +354,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 this_log += f"\n\nEval Log Error: Failed to retrieve eval log"
             else:
                 this_log += "\n\nEval Log:\n" + (eval_log if eval_log else "No eval log available")
-
-            # Cleanup
+            
             await env.cleanup()
 
             eval_status = ProblemTestResultStatus.PASS if success else ProblemTestResultStatus.FAIL
@@ -404,9 +408,6 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
         os._exit(1)
     
 
-
-
-# Run an evaluation - serially
 async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluationResponse):
     logger.info("Received evaluation:")
     logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
@@ -428,13 +429,11 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     for evaluation_run in request_evaluation_response.evaluation_runs:
         evaluation_run_id = evaluation_run.evaluation_run_id
         problem_name = evaluation_run.problem_name
-        logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")
-      
+        logger.info(f"Starting evaluation run {evaluation_run_id} for problem {problem_name}...")      
         if SIMULATE_EVALUATION_RUNS:
             await _simulate_run_evaluation_run(evaluation_run_id, problem_name)            
         else:
             await _run_evaluation_run(evaluation_run_id, problem_name, request_evaluation_response.agent_code)
-
        
     try:
         await post_bitrecs_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
@@ -531,9 +530,8 @@ async def main():
     global running_eval_timeout_seconds
     global max_evaluation_run_log_size_bytes
     
-    await register_validator()
+    await register_validator()    
     
-    # Start the send heartbeat loop
     asyncio.create_task(send_heartbeat_loop())
     
     node_name = config.VALIDATOR_HOTKEY.ss58_address[:8] if config.MODE == "validator" else config.SCREENER_NAME
@@ -545,8 +543,7 @@ async def main():
     while True:
         try:
             logger.info(f"{node_name}: Requesting an evaluation...")
-            request_evaluation_response_data = await post_bitrecs_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)
-            # If no evaluation is available, wait and try again
+            request_evaluation_response_data = await post_bitrecs_platform("/validator/request-evaluation", ValidatorRequestEvaluationRequest(), bearer_token=session_id, quiet=1)            
             if request_evaluation_response_data is None:
                 logger.info(f"No evaluations available. Waiting for {config.REQUEST_EVALUATION_INTERVAL_SECONDS} seconds...")
                 await asyncio.sleep(config.REQUEST_EVALUATION_INTERVAL_SECONDS)

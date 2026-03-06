@@ -95,7 +95,7 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
         data = persister.load_scores(evaluation_set_id=current_set_id)
         logger.info(f"Loaded {len(data)} score records")
         if data.empty:
-            logger.warning("\033[33mNo score data available to process\033[0m")
+            logger.warning(f"\033[33mNo score data available to process for evaluation set {current_set_id}\033[0m")
             return False
         
         logger.info("Calculating miner scores and weights...")
