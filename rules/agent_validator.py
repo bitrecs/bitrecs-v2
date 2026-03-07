@@ -5,9 +5,8 @@ from llm.llm_provider import LLM
 from utils.token import get_token_count
 from jinja2 import Template, TemplateSyntaxError, Environment, nodes
 
-
-MAX_PROMPT_TOKENS = 50_000
-MAX_SYSTEM_PROMPT_TOKENS = 10_000
+MAX_PROMPT_TOKENS = 10_000
+MAX_SYSTEM_PROMPT_TOKENS = 5_000
 
 VALID_TEMPLATE_VARIABLES = {
     'current_date',
@@ -50,6 +49,11 @@ def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
     
     if LLM.is_valid(agent.provider) == False:
         return False, f"provider '{agent.provider}' is not a supported LLM provider"
+    
+    provider = LLM.try_parse(agent.provider)
+    ALLOWED_PROVIDERS = [LLM.CHUTES, LLM.OPEN_ROUTER]
+    if provider not in ALLOWED_PROVIDERS:
+        return False, f"provider '{agent.provider}' is currently not supported. Supported providers are: {', '.join(ALLOWED_PROVIDERS)}"
     
     try:
         Template(agent.system_prompt_template)

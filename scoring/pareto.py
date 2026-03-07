@@ -2,6 +2,7 @@
 import numpy as np
 from dataclasses import dataclass, field
 from scoring.types import EnvironmentId, MinerScores, MinerUID
+from scoring.constants import MIN_EPSILON, MAX_EPSILON
 
 
 @dataclass
@@ -27,8 +28,8 @@ class ParetoResult:
 def compute_epsilon(
     values: np.ndarray,
     n_samples: int,
-    min_epsilon: float = 0.005,   # tighter: 200+ miners = finer resolution needed
-    max_epsilon: float = 0.05,    # was 0.2 — too loose for dense miner fields
+    min_epsilon: float = MIN_EPSILON,
+    max_epsilon: float = MAX_EPSILON,
 ) -> float:
     """
     Compute epsilon tolerance based on standard error.
@@ -48,10 +49,16 @@ def compute_epsilon(
     if n_samples <= 1:
         return max_epsilon
 
-    # Worst-case standard error for a binomial proportion
-    se = 0.5 / np.sqrt(n_samples)
+    # Standard deviation of the scores
+    std = np.std(values)
+
+    # Standard error of the mean
+    se = std / np.sqrt(n_samples)
+
+    # Use 2 standard errors for 95% confidence
     epsilon = 2 * se
 
+    # Clamp to reasonable range
     return float(np.clip(epsilon, min_epsilon, max_epsilon))
 
 

@@ -8,27 +8,13 @@ def test_derive_set_returns_set_with_fixed_elements():
     builder = EvaluationSetBuilder()
     result = builder.build_evaluation_set()
     assert isinstance(result, set)
-    assert all(isinstance(item, BitrecsEvaluationType) for item in result)
-    
-    # Define fixed sets as per the function
-    # screener_1 = {BitrecsEvaluationType.BITRECS_BASIC_DAILY}
-    # screener_2 = {
-    #     BitrecsEvaluationType.BITRECS_SAFE_DAILY,
-    #     BitrecsEvaluationType.BITRECS_HAYSTACK_DAILY,
-    #     BitrecsEvaluationType.BITRECS_QOS_DAILY,
-    # }
-    # validator_a = {
-    #     BitrecsEvaluationType.BITRECS_PREDICT_DAILY,
-    #     BitrecsEvaluationType.BITRECS_PROMPT_DAILY,
-    #     BitrecsEvaluationType.BITRECS_REASON_DAILY,
-    #     BitrecsEvaluationType.BITRECS_SKU_DAILY,
-    # }
+    assert all(isinstance(item, BitrecsEvaluationType) for item in result)   
+   
      
     screener_1 = builder.screener_1
     screener_2 = builder.screener_2
     validator_a = builder.validator_a
-    fixed_union = screener_1 | screener_2 | validator_a
-    fixed_union = screener_1 | screener_2 | validator_a
+    fixed_union = screener_1 | screener_2 | validator_a   
     
     # Assert all fixed elements are included
     assert fixed_union.issubset(result)
