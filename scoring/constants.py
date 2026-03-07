@@ -11,4 +11,4 @@ MIN_EPSILON: float = 0.005
 MAX_EPSILON: float = 0.05
 
 # Other scoring constants
-MINER_BURN: float = 0.5
+MINER_BURN: float = 0.25
