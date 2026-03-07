@@ -416,16 +416,7 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
 
     SIMULATE_EVALUATION_RUNS = False
-    #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNSF
-
-    # if len(request_evaluation_response.evaluation_runs) == 0:        
-    #     logger.warning("No evaluation runs to process, finishing evaluation immediately.")
-    #     logger.error("No evaluation runs to process.")
-    #     await post_ridges_platform("/validator/finish-evaluation", ValidatorFinishEvaluationRequest(), bearer_token=session_id, quiet=1)
-    #     return
-
-    # for evaluation_run in request_evaluation_response.evaluation_runs:
-    #     logger.info(f"    {evaluation_run.problem_name}")
+    #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNSF    
 
     logger.info("Starting evaluation...")
 
