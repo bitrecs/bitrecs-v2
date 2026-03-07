@@ -26,21 +26,15 @@ sudo systemctl status docker
 
 # Install UV
 
-- uv only needed to regen wallets. If you import them manaully, you don't need uv.
-
 ```
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 reactivate shell:
 
 source $HOME/.local/bin/env
+
 ```
 
-# Setup wallets
-```
-uv run btcli w regen-coldkeypub --ss58 COLDKEY_ADDR
-uv run btcli w regen-hotkey
-```
 # Setup Working Directory
 ```
 mkdir bitrecs
@@ -48,6 +42,16 @@ cd bitrecs
 
 Please ensure the folder is named bitrecs as docker compose expects ~/bitrecs
 ```
+
+# Setup wallets
+```
+uv init
+uv pip install bittensor-cli
+uv add typing-extensions (if missing)
+uv run btcli w regen-coldkeypub --ss58 COLDKEY_ADDR
+uv run btcli w regen-hotkey
+```
+
 
 # Pull Images
 ```

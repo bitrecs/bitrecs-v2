@@ -9,11 +9,10 @@ from scoring.threshold import compute_miner_thresholds
 from scoring.types import MinerFirstBlocks, MinerScores
 from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
 from queries.evaluation_set import get_latest_set_id
+from scoring.constants import DEFAULT_Z_SCORE, MIN_THRESHOLD_GAP, MAX_THRESHOLD_GAP, MINER_BURN
 
-MINER_BURN = 0.5
 
-async def get_current_eval_set_id() -> int:    
-    """Get current evaluation set ID directly from DB, not via HTTP self-call."""
+async def get_current_eval_set_id() -> int:
     try:
         return await get_latest_set_id()
     except Exception as e:
@@ -27,29 +26,25 @@ async def get_current_eval_set_id() -> int:
 
 def df_to_miner_scores(df) -> MinerScores:
     """
-    Aggregate scores across multiple validators per uid+task.
-    Uses mean to be robust against outlier validators.
+    Aggregate scores across multiple validators per uid+task.    
     """
-    miner_scores: MinerScores = {}
-    
+    miner_scores: MinerScores = {}    
     # Group by uid + task_name, take mean score across all validators
-    grouped = df.groupby(['uid', 'task_name'])['score'].mean().reset_index()
-    
+    grouped = df.groupby(['uid', 'task_name'])['score'].mean().reset_index()    
     for _, row in grouped.iterrows():
         uid = row['uid']
         env_id = row['task_name']
         score = row['score']
         if uid not in miner_scores:
             miner_scores[uid] = {}
-        miner_scores[uid][env_id] = score
-    
+        miner_scores[uid][env_id] = score    
     logger.info(f"Aggregated scores: {len(grouped)} uid+task combinations (mean across validators)")
     return miner_scores
 
 
 def df_to_samples(df) -> dict[str, int]:
     """
-    Get sample size per task - take max across validators.
+    Get sample size per task
     """
     samples = {}
     # Take max sample_size per task across validators
@@ -71,8 +66,7 @@ def miners_first_blocks() -> MinerFirstBlocks:
     
 
 def df_to_miner_blocks(df) -> MinerFirstBlocks:
-    miner_blocks = miners_first_blocks()
-    # miner blocks uses hotkey as key, but we want to map to uid, so we need to convert
+    miner_blocks = miners_first_blocks()    
     hotkey_to_uid = {}
     for _, row in df.iterrows():
         hotkey = row['hotkey']
@@ -103,16 +97,19 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
         samples = df_to_samples(data)
         envs = list(samples.keys())
         miner_blocks = df_to_miner_blocks(data)
-        miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
+        miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples,
+                                                    z_score=DEFAULT_Z_SCORE,
+                                                    min_gap=MIN_THRESHOLD_GAP,
+                                                    max_gap=MAX_THRESHOLD_GAP)
         subset_scores = compute_subset_scores_with_priority(
             miner_scores, miner_thresholds, miner_blocks, envs
         )
         weights = scores_to_weights(subset_scores)
-        logger.info("\nSubset scores:")
+        logger.info("Subset scores:")
         for uid, score in sorted(subset_scores.items(), key=lambda x: x[1], reverse=True):
             logger.info(f"  UID {uid}: {score:.1f} points")
 
-        logger.info("\nFinal weights:")
+        logger.info("Final weights:")
         for uid, weight in sorted(weights.items(), key=lambda x: x[1], reverse=True):
             logger.info(f"  UID {uid}: {weight:.4f}")
         
@@ -125,7 +122,7 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
             if wallet.hotkey.ss58_address != validator_hotkey.ss58_address:
                 logger.error(f"Validator hotkey mismatch: expected {wallet.hotkey.ss58_address}, got {validator_hotkey.ss58_address}")
                 return False
-            #update weights on chain         
+                        
             miner_weight = 1 * MINER_BURN
             burn_weight = 1 - miner_weight
             subtensor = await get_subtensor()
@@ -135,8 +132,8 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
                 uids=[0, weight_receiving_uid],
                 weights=[burn_weight, miner_weight],
                 wait_for_inclusion=True,
-                wait_for_finalization=True
-            )    
+                wait_for_finalization=False
+            )
             logger.info(f"Set weight of UID {weight_receiving_uid} to {miner_weight} : {'Success' if success else 'Failure'} - {message}")
             logger.info(f"Set burn weight of UID 0 to {burn_weight}")
             logger.info("\033[32mScores / Weights Update Complete\033[0m")

@@ -1,13 +1,14 @@
 """Threshold calculation for first-commit advantage scoring."""
 import math
 from scoring.types import EnvironmentId, MinerScores, MinerThresholds
+from scoring.constants import DEFAULT_Z_SCORE, MIN_THRESHOLD_GAP, MAX_THRESHOLD_GAP
 
 def calculate_threshold(
     prior_score: float,
     sample_count: int,
-    z_score: float = 1.5,
-    min_gap: float = 0.02,
-    max_gap: float = 0.08,
+    z_score: float = DEFAULT_Z_SCORE,
+    min_gap: float = MIN_THRESHOLD_GAP,
+    max_gap: float = MAX_THRESHOLD_GAP,
 ) -> float:
     """
     Calculate the score threshold a later miner must beat.
@@ -38,9 +39,9 @@ def calculate_threshold(
 def compute_miner_thresholds(
     miner_scores: MinerScores,
     episodes_per_env: int | dict[EnvironmentId, int],
-    z_score: float = 1.5,
-    min_gap: float = 0.02,
-    max_gap: float = 0.08,
+    z_score: float = DEFAULT_Z_SCORE,
+    min_gap: float = MIN_THRESHOLD_GAP,
+    max_gap: float = MAX_THRESHOLD_GAP,
 ) -> MinerThresholds:
     """
     Compute thresholds for all miners across all environments.

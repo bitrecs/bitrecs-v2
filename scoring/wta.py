@@ -105,7 +105,7 @@ def find_subset_winner_with_priority(
         dominates_all = True
         candidate_block = miner_first_blocks.get(candidate, float("inf"))
 
-        for other in sorted_uids:
+        for other in eligible_uids:
             if candidate == other:
                 continue
 
@@ -146,7 +146,7 @@ def find_subset_winner_with_priority(
 
         if dominates_all:
             return candidate
-
+    
     return None  # No clear winner
 
 

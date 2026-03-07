@@ -14,7 +14,8 @@ from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
 root_path = Path(__file__).parent.parent.absolute()
 
 DATA_FILE_PATH = os.path.join(root_path, "data", "weights")
-DATA_FILE = "scores.db"
+#DATA_FILE = "scores.db"
+DATA_FILE = "combined_20260306_231658.sqlite"
 
 
 @pytest.mark.asyncio
@@ -63,6 +64,8 @@ async def test_pareto_frontier_from_db():
         raise FileNotFoundError(f"Database file not found at {persister.file_path}")
     
     data = persister.load_scores(evaluation_set_id=current_set_id)   
+    if data.empty or len(data) == 0:
+        raise ValueError(f"No score data found for evaluation_set_id {current_set_id}")
 
     miner_scores = df_to_miner_scores(data)
     samples = df_to_samples(data)    
