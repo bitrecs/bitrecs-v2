@@ -40,7 +40,7 @@ async def get_bitrecs_platform(endpoint: str, *, quiet: int = 0) -> Any:
         The response from the Bitrecs platform. If the request returns a non-2xx status code, the function will print the error and exit the program.
     """
 
-    url = f"{config.RIDGES_PLATFORM_URL.rstrip('/')}/{endpoint.lstrip('/')}"
+    url = f"{config.BITRECS_PLATFORM_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     if quiet <= 1:
         logger.debug(f"Sending request for GET {url}")
 
@@ -81,7 +81,7 @@ async def post_bitrecs_platform(endpoint: str, body: BaseModel, *, bearer_token:
         The response from the Bitrecs platform. If the request returns a non-2xx status code, the function will print the error and exit the program.
     """
 
-    url = f"{config.RIDGES_PLATFORM_URL.rstrip('/')}/{endpoint.lstrip('/')}"
+    url = f"{config.BITRECS_PLATFORM_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     body_dict = body.model_dump(mode="json")
     if quiet <= 1:
         logger.debug(f"Sending request for POST {url}")

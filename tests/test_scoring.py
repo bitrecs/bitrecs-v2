@@ -91,7 +91,7 @@ async def test_pareto_frontier_from_db():
 
 @pytest.mark.asyncio
 async def test_pareto_frontier_api():
-    SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")
+    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")
     #SERVICE_URL = "http://localhost:8000"
     async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
         response = await client.get("/scoring/pareto")
@@ -107,7 +107,7 @@ async def test_pareto_frontier_api():
 
 @pytest.mark.asyncio
 async def test_wta_api():
-    SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")
+    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")
     #SERVICE_URL = "http://localhost:8000"
     async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
         response = await client.get("/scoring/wta")
@@ -174,7 +174,7 @@ def df_to_samples(df) -> dict[str, int]:
 
 
 def miners_first_blocks() -> MinerFirstBlocks:
-    SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")
+    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")
     #SERVICE_URL = "http://localhost:8000"
     client = httpx.Client(base_url=SERVICE_URL)
     response = client.get("/retrieval/miner-blocks")

@@ -181,8 +181,8 @@ def test_submit_artifact_valid_vars_pub():
     assert True == validated, f"Artifact validation failed: {reason}"
 
     #new_url = "http://localhost:8000"
-    new_url = os.environ.get("RIDGES_PLATFORM_URL", "")
-    print(f"Using RIDGES_PLATFORM_URL: {new_url}")
+    new_url = os.environ.get("BITRECS_PLATFORM_URL", "")
+    print(f"Using BITRECS_PLATFORM_URL: {new_url}")
 
     client = httpx.Client(base_url=new_url)
     response = client.post("/artifact", json=sample_artifact)

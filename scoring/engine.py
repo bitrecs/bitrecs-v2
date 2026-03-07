@@ -1,7 +1,6 @@
 import os
 import httpx
 import utils.logger as logger
-from pathlib import Path
 from bittensor_wallet import Keypair, Wallet
 from utils.subtensor import close_subtensor, get_subtensor
 from scoring.persist import ScorePersister
@@ -16,13 +15,14 @@ async def get_current_eval_set_id() -> int:
     try:
         return await get_latest_set_id()
     except Exception as e:
-        SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")    
+        SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")    
         if not SERVICE_URL:
             SERVICE_URL = "http://localhost:8000"
         client = httpx.Client(base_url=SERVICE_URL)
         response = client.get("/scoring/latest-set-info")        
         data = response.json()
         return data["latest_set_id"]
+    
 
 def df_to_miner_scores(df) -> MinerScores:
     """
@@ -55,7 +55,7 @@ def df_to_samples(df) -> dict[str, int]:
 
 
 def miners_first_blocks() -> MinerFirstBlocks:
-    SERVICE_URL = os.environ.get("RIDGES_PLATFORM_URL", "")    
+    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")    
     if not SERVICE_URL:
         SERVICE_URL = "http://localhost:8000"    
     client = httpx.Client(base_url=SERVICE_URL)
@@ -80,7 +80,7 @@ def df_to_miner_blocks(df) -> MinerFirstBlocks:
     return miner_first_blocks
 
 
-async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: bool = True) -> bool:
+async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: bool = False) -> bool:
     try:
         logger.info("Calculating scores...")
         current_set_id = await get_current_eval_set_id()
@@ -137,13 +137,12 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
             logger.info(f"Set weight of UID {weight_receiving_uid} to {miner_weight} : {'Success' if success else 'Failure'} - {message}")
             logger.info(f"Set burn weight of UID 0 to {burn_weight}")
             logger.info("\033[32mScores / Weights Update Complete\033[0m")
-            await close_subtensor()        
-            return success
-        
+            await close_subtensor()
+            return success        
         else:
             logger.info(f"\033[33mWeight candidate with highest score: {weight_receiving_uid}\033[0m")
             logger.info("\033[33mWeights not set on chain (set_weights=False)\033[0m")
-            return False    
+            return False
     except Exception as e:
         import traceback
         traceback_str = traceback.format_exc()        

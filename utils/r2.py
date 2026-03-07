@@ -102,7 +102,7 @@ def create_upload_request_message(timestamp: int, report: ValidatorUploadRequest
 
 
 def get_r2_upload_url(report: ValidatorUploadRequest, keypair: Keypair) -> str:    
-    platform_url = os.environ.get("RIDGES_PLATFORM_URL", "")
+    platform_url = os.environ.get("BITRECS_PLATFORM_URL", "")
     #platform_url = "http://localhost:8000"
 
     request_url = f"{platform_url}/backup/upload-request"

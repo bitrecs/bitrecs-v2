@@ -42,8 +42,6 @@ if MODE == "validator":
     except Exception as e:
         logger.fatal(f"Error loading hotkey: {e}")
 
-
-
 elif MODE == "screener":
     SCREENER_NAME = os.getenv("SCREENER_NAME")
     if not SCREENER_NAME:
@@ -62,24 +60,9 @@ elif MODE == "screener":
 
 
 
-RIDGES_PLATFORM_URL = os.getenv("RIDGES_PLATFORM_URL")
-if not RIDGES_PLATFORM_URL:
-    logger.fatal("RIDGES_PLATFORM_URL is not set in .env")
-
-#RIDGES_PLATFORM_URL = RIDGES_PLATFORM_URL.rstrip("/")
-#RIDGES_PLATFORM_URL="http://localhost:8000"
-
-RIDGES_INFERENCE_GATEWAY_URL = os.getenv("RIDGES_INFERENCE_GATEWAY_URL")
-if not RIDGES_INFERENCE_GATEWAY_URL:
-    logger.fatal("RIDGES_INFERENCE_GATEWAY_URL is not set in .env")
-
-#RIDGES_INFERENCE_GATEWAY_URL = RIDGES_INFERENCE_GATEWAY_URL.rstrip("/")
-RIDGES_INFERENCE_GATEWAY_URL = "http://localhost:8000"
-
-# if "localhost" in RIDGES_INFERENCE_GATEWAY_URL or "127.0.0.1" in RIDGES_INFERENCE_GATEWAY_URL:
-#     logger.fatal("RIDGES_INFERENCE_GATEWAY_URL must be set to a local IP address, not localhost/127.0.0.1.")
-
-
+BITRECS_PLATFORM_URL = os.getenv("BITRECS_PLATFORM_URL")
+if not BITRECS_PLATFORM_URL:
+    logger.fatal("BITRECS_PLATFORM_URL is not set in .env")
 
 SEND_HEARTBEAT_INTERVAL_SECONDS = os.getenv("SEND_HEARTBEAT_INTERVAL_SECONDS")
 if not SEND_HEARTBEAT_INTERVAL_SECONDS:
@@ -99,9 +82,7 @@ SET_WEIGHTS_TIMEOUT_SECONDS = int(SET_WEIGHTS_TIMEOUT_SECONDS)
 REQUEST_EVALUATION_INTERVAL_SECONDS = os.getenv("REQUEST_EVALUATION_INTERVAL_SECONDS")
 if not REQUEST_EVALUATION_INTERVAL_SECONDS:
     logger.fatal("REQUEST_EVALUATION_INTERVAL_SECONDS is not set in .env")
-REQUEST_EVALUATION_INTERVAL_SECONDS = int(REQUEST_EVALUATION_INTERVAL_SECONDS) 
-
-
+REQUEST_EVALUATION_INTERVAL_SECONDS = int(REQUEST_EVALUATION_INTERVAL_SECONDS)
 
 SIMULATE_EVALUATION_RUNS = os.getenv("SIMULATE_EVALUATION_RUNS")
 if not SIMULATE_EVALUATION_RUNS:
@@ -146,8 +127,7 @@ elif MODE == "screener":
     logger.info(f"Screener Name: {SCREENER_NAME}")
 logger.info("-------------------------------")
 
-logger.info(f"Ridges Platform URL: {RIDGES_PLATFORM_URL}")
-logger.info(f"Ridges Inference Gateway URL: {RIDGES_INFERENCE_GATEWAY_URL}")
+logger.info(f"Bitrecs Platform URL: {BITRECS_PLATFORM_URL}")
 logger.info("-------------------------------")
 
 logger.info(f"Send Heartbeat Interval: {SEND_HEARTBEAT_INTERVAL_SECONDS} second(s)")

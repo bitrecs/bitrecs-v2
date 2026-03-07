@@ -69,7 +69,7 @@ touch .env
 
 DEBUG=False
 
-RIDGES_PLATFORM_URL=https://v2.api.bitrecs.ai
+BITRECS_PLATFORM_URL=https://v2.api.bitrecs.ai
 NETUID=296
 SUBTENSOR_NETWORK=test
 MODE="validator"

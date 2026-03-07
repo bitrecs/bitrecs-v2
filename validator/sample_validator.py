@@ -63,7 +63,10 @@ async def calculate_scores_loop():
             current_epoch, blocks_until_next_epoch, epoch_start_block = get_current_epoch_info(current_block, config.NETUID)
             minutes_to_next_epoch = blocks_until_next_epoch * 12 / 60
             logger.info("\033[32mSTART Calculate Scores\033[0m")
-            logger.info(f"Current block: {current_block}, Current epoch: {current_epoch}, Blocks until next epoch: {blocks_until_next_epoch} (~{minutes_to_next_epoch:.1f} minutes)")
+            logger.info(f"Network: {config.NETUID}")
+            logger.info(f"Current block: {current_block}")
+            logger.info(f"Current epoch: {current_epoch}")
+            logger.info(f"Blocks until next epoch: {blocks_until_next_epoch} (~{minutes_to_next_epoch:.1f} minutes)")
 
             result = await asyncio.wait_for(calculate_scores(netuid=config.NETUID, 
                                                              validator_hotkey=config.VALIDATOR_HOTKEY,

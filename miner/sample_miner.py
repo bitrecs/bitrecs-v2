@@ -23,9 +23,9 @@ ROOT_DIR = Path(__file__).parent.parent
 MINER_YAML_PATH = os.path.join(ROOT_DIR, "miner", "miner_artifact.yaml")
 
 #SERVICE_URL = "http://localhost:8000"
-SERVICE_URL =  os.getenv("RIDGES_PLATFORM_URL", "")
+SERVICE_URL =  os.getenv("BITRECS_PLATFORM_URL", "")
 if not SERVICE_URL:
-    raise ValueError("RIDGES_PLATFORM_URL environment variable is not set. Please set it to the API endpoint URL.")
+    raise ValueError("BITRECS_PLATFORM_URL environment variable is not set. Please set it to the API endpoint URL.")
 
 CHAIN_ENDPOINT = os.getenv("SUBTENSOR_ADDRESS")
 NETWORK = os.getenv("SUBTENSOR_NETWORK", "test")
