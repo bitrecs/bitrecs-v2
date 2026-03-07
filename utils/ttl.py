@@ -1,19 +1,15 @@
 import asyncio
 import utils.logger as logger
-
 from functools import wraps
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timezone,timedelta
 from typing import Any, Dict, Tuple, Callable, TypeAlias
 
 
-
 TTLCacheKey: TypeAlias = Tuple[Any, ...]
 
 def _args_and_kwargs_to_ttl_cache_key(args: Tuple, kwargs: Dict) -> TTLCacheKey:
     return (args, tuple(sorted(kwargs.items())))
-
-
 
 class TTLCacheEntry(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
