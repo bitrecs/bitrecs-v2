@@ -112,6 +112,7 @@ def get_r2_upload_url(report: ValidatorUploadRequest, keypair: Keypair) -> str:
     report_dict = report.to_dict()
     headers = {
         'Content-Type': 'application/json',      
+        'X-API-Key': os.environ.get("BITRECS_PLATFORM_API_KEY"),
         'X-Signature': sig,
         'X-Timestamp': str(timestamp),
         'X-Nonce': nonce
