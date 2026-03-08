@@ -33,6 +33,13 @@ Sync and Setup Environment
 ```
 uv sync
 ```
+Create environment file
+```
+touch .env
+SUBTENSOR_ADDRESS=wss://test.finney.opentensor.ai:443
+SUBTENSOR_NETWORK=test
+```
+
 Submit artifact
 ```
 uv run bitrecs_cli3.py upload-burn --github-account mygithubaccount --gist-id 41bc02cec215b0149c5efdae4087f2cc --coldkey-name default --hotkey-name default
