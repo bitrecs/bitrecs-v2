@@ -8,5 +8,5 @@ async def load_keys(conn: DatabaseConnection) -> List[str]:
         SELECT DISTINCT auth_token FROM validators WHERE Enabled = true
         """
     )
-    return [row["auth_token"] for row in result]
+    return [row["auth_token"].strip() for row in result]
 
