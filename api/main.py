@@ -272,6 +272,7 @@ async def calculate_upload_price() -> UploadPriceResponse:
 
 @app.get(
     "/eval-pricing",    
+    tags=["cli"],
     response_model=UploadPriceResponse
 )
 @limiter.limit("60/minute")
@@ -290,7 +291,7 @@ async def get_upload_price(request: Request) -> UploadPriceResponse:
 
 @app.post(
     "/check",
-    tags=["submit"],
+    tags=["cli"],
     response_model=AgentUploadResponse
 )
 @limiter.limit("60/minute")
@@ -377,7 +378,7 @@ async def check_agent_post(
 
 
 @app.post("/submit",
-    tags=["submit"],
+    tags=["cli"],
     response_model=AgentUploadResponse,
     responses={
         400: {"model": ErrorResponse, "description": "Bad Request - Invalid input or validation failed"},

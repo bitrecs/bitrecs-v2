@@ -10,7 +10,8 @@ EXCLUDED_PATHS = [
     "/openapi.json",  # OpenAPI schema for docs
     "/health",        # Health check
     "/submit",        # Bitrecs CLI submission endpoint
-    "/check"          # Bitrecs CLI check endpoint    
+    "/check",         # Bitrecs CLI check endpoint    
+    "/eval-pricing"   # Bitrecs CLI eval-pricing endpoint
 ]
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
