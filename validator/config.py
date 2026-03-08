@@ -98,17 +98,6 @@ if not SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS:
     logger.fatal("SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS is not set in .env")
 SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS = int(SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS)
 
-# INCLUDE_SOLUTIONS = os.getenv("INCLUDE_SOLUTIONS")
-# if not INCLUDE_SOLUTIONS:
-#     logger.fatal("INCLUDE_SOLUTIONS is not set in .env")
-# INCLUDE_SOLUTIONS = INCLUDE_SOLUTIONS.lower() == "true"
-
-
-
-UPDATE_AUTOMATICALLY = os.getenv("UPDATE_AUTOMATICALLY")
-if not UPDATE_AUTOMATICALLY:
-    logger.fatal("UPDATE_AUTOMATICALLY is not set in .env")
-UPDATE_AUTOMATICALLY = UPDATE_AUTOMATICALLY.lower() == "true"
 
 R2_SYNC_INTERVAL_SECONDS = os.getenv("R2_SYNC_INTERVAL_SECONDS")
 if not R2_SYNC_INTERVAL_SECONDS:
@@ -150,9 +139,5 @@ if SIMULATE_EVALUATION_RUNS:
 #         logger.info("Not Including Solutions")
 logger.info("-------------------------------")
 
-if UPDATE_AUTOMATICALLY:
-    logger.info("Updating Automatically")
-else:
-    logger.warning("Not Updating Automatically!")
 
 logger.info("===============================")

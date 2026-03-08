@@ -502,10 +502,7 @@ async def register_validator():
                     await asyncio.sleep(registration_retry_delay)
                 else:
                     logger.error("Max registration retries reached. Exiting.")
-                    raise
-            elif config.UPDATE_AUTOMATICALLY and e.response.status_code == 426:
-                logger.info("Updating...")
-                sys.exit(0)
+                    raise         
             else:
                 raise
         except Exception as e:
