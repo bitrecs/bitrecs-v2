@@ -13,7 +13,8 @@ import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
 from api import config
-from api.auth import bearer_auth_middleware
+from api.auth import APIKeyMiddleware
+from queries.auth_key import load_keys
 from api.db_sync import r2_download_and_sync
 from utils.version import load_version_info
 from utils.subtensor import get_subtensor
@@ -28,9 +29,14 @@ from queries.agent import (
     record_upload_attempt
 )
 from queries.evaluation import set_all_unfinished_evaluation_runs_to_errored
-from utils.database import deinitialize_database, initialize_database, check_database_health, DB_POOL
+from utils.database import (
+    deinitialize_database, initialize_database, 
+    check_database_health, DB_POOL
+)
 from api.utils.upload_agent_helpers import (
-    check_agent_banned, check_if_gist_used, check_if_hotkey_is_validator, check_if_hotkey_used, get_bitrecs_price
+    check_agent_banned, check_if_gist_used, 
+    check_if_hotkey_is_validator, check_if_hotkey_used, 
+    get_bitrecs_price
 )
 from utils.network import get_client_ip
 from utils.bittensor import is_hotkey_valid_format
@@ -53,7 +59,10 @@ from version import __version__ as this_version
 from api.utils.limiter import limiter
 from models.miner_submission import MinerSubmission
 from utils.gist import get_gist, get_gist_created_at
-from utils.verify import verify_submission_signature, verify_timestamp, verify_transport_signature
+from utils.verify import (
+    verify_submission_signature, verify_timestamp, 
+    verify_transport_signature
+)
 from utils.commitment import is_commitment_valid
 from queries.hotkey_gist import log_hotkey_gist
 from queries.payments import record_evaluation_payment, retrieve_payment_by_hash
@@ -94,7 +103,11 @@ async def lifespan(app: FastAPI):
     
     app.state.heartbeat_task = asyncio.create_task(validator_heartbeat_timeout_loop())
     app.state.r2_sync_task = asyncio.create_task(r2_download_and_sync())
-
+    app.state.api_keys = await load_keys()
+    logger.info(f"Loaded {len(app.state.api_keys)} API keys from database")
+    if len(app.state.api_keys) == 0:
+        raise Exception("Fatal error: No API keys loaded from database. Shutting down.")
+  
     try:
         logger.info(f"V2 API STARTED version: {this_version}")
         await set_all_unfinished_evaluation_runs_to_errored(error_message="Platform crashed while running this evaluation")
@@ -133,8 +146,8 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
-if config.ENV == "prod" and 1==2:
-    app.add_middleware(bearer_auth_middleware)
+app.add_middleware(APIKeyMiddleware)
+
 
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -235,17 +248,17 @@ async def health(request: Request):
 
 
 async def ensure_min_validators() -> None:
-      validator_info = get_connected_validators_info()
-      connected_validators = validator_info.get("connected_validators", 0)
-      if connected_validators < config.NUM_EVALS_PER_AGENT:
-            raise HTTPException(
-                status_code=503,
-                detail=f"Not enough validators available for evaluation (connected: {connected_validators})"
-            )
+    validator_info = get_connected_validators_info()
+    connected_validators = validator_info.get("connected_validators", 0)
+    if connected_validators < config.NUM_EVALS_PER_AGENT:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Not enough validators available for evaluation (connected: {connected_validators})"
+        )
 
 
 async def calculate_upload_price() -> UploadPriceResponse:
-    """Calculate the upload price for evaluations."""
+    """Price of participation"""
     PRICE_BUFFER = 1.1
     BITRECS_PRICE = await get_bitrecs_price()
     eval_cost_usd = config.COST_PER_MINER_SUBMISSION_USD
@@ -255,8 +268,6 @@ async def calculate_upload_price() -> UploadPriceResponse:
         amount_rao=amount_rao,
         bitrecs_price_usd=BITRECS_PRICE
     )
-
-
 
 
 @app.get(

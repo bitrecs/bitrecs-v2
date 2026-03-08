@@ -253,3 +253,28 @@ async def test_health_rate_limit():
         assert success_count == 30, f"Expected 30 successful requests, got {success_count}"
         assert rate_limited_count == 1, f"Expected 1 rate limited request, got {rate_limited_count}"
         print("\n✅ Test passed! Rate limiting is working correctly.")
+
+
+
+def test_api_auth():
+    """Test that API key authentication works for protected endpoints"""
+    base_url = SERVICE_URL
+    key = os.environ.get("BITRECS_PLATFORM_API_KEY")
+    headers = {"X-API-Key": key}  
+
+    # Test a protected endpoint (e.g., /dashboard/)
+    response = client.get(f"{base_url}/dashboard/", headers=headers)
+    assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+
+    # Test with an invalid API key
+    invalid_headers = {"X-API-Key": "invalid_key"}
+    response_invalid = client.get(f"{base_url}/dashboard/", headers=invalid_headers)
+    assert response_invalid.status_code == 401, f"Expected 401 Unauthorized, got {response_invalid.status_code}"
+
+    # Test without an API key
+    response_no_key = client.get(f"{base_url}/dashboard/")
+    assert response_no_key.status_code == 401, f"Expected 401 Unauthorized, got {response_no_key.status_code}"
+
+    # Test excluded paths that should not require authentication
+    response_root = client.get(f"{base_url}/")
+    assert response_root.status_code == 200, f"Expected 200 OK for root endpoint, got {response_root.status_code}"

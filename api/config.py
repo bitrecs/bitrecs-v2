@@ -3,7 +3,6 @@ import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
 
-# Load the environment configuration
 ENV = os.getenv("ENV")
 if not ENV:
     logger.fatal("ENV is not set in .env")
@@ -11,8 +10,6 @@ if not ENV:
 if ENV != "prod" and ENV != "dev":
     logger.fatal("ENV must be either 'prod' or 'dev'")
 
-
-# Load host and port
 HOST = os.getenv("HOST")
 if not HOST:
     logger.fatal("HOST is not set in .env")
@@ -22,8 +19,6 @@ if not PORT:
     logger.fatal("PORT is not set in .env")
 PORT = int(PORT)
 
-
-# Load Bittensor configuration
 NETUID = os.getenv("NETUID")
 if not NETUID:
     logger.fatal("NETUID is not set in .env")
@@ -36,17 +31,6 @@ if not SUBTENSOR_ADDRESS:
 SUBTENSOR_NETWORK = os.getenv("SUBTENSOR_NETWORK")
 if not SUBTENSOR_NETWORK:
     logger.fatal("SUBTENSOR_NETWORK is not set in .env")
-
-
-
-OWNER_HOTKEY = os.getenv("OWNER_HOTKEY")
-if not OWNER_HOTKEY:
-    logger.fatal("OWNER_HOTKEY is not set in .env")
-
-#UPLOAD_SEND_ADDRESS = ""
-# os.getenv("UPLOAD_SEND_ADDRESS")
-# if not UPLOAD_SEND_ADDRESS:
-#     logger.fatal("UPLOAD_SEND_ADDRESS is not set in .env")
 
 BURN = os.getenv("BURN")
 if not BURN:
@@ -73,7 +57,6 @@ if not R2_SECRET_ACCESS_KEY:
     logger.fatal("R2_SECRET_ACCESS_KEY is not set in .env")
 
 
-
 R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME")
 if not R2_BUCKET_NAME:
     logger.fatal("R2_BUCKET_NAME is not set in .env")
@@ -82,8 +65,6 @@ R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL")
 if not R2_ENDPOINT_URL:
     logger.fatal("R2_ENDPOINT_URL is not set in .env")
 
-
-# Load database configuration
 DATABASE_USERNAME = os.getenv("DATABASE_USERNAME")
 if not DATABASE_USERNAME:
     logger.fatal("DATABASE_USERNAME is not set in .env")
@@ -105,9 +86,6 @@ DATABASE_NAME = os.getenv("DATABASE_NAME")
 if not DATABASE_NAME:
     logger.fatal("DATABASE_NAME is not set in .env")
 
-
-
-# Load screener configuration
 SCREENER_PASSWORD = os.getenv("SCREENER_PASSWORD")
 if not SCREENER_PASSWORD:
     logger.fatal("SCREENER_PASSWORD is not set in .env")
@@ -128,8 +106,6 @@ if not PRUNE_THRESHOLD:
 PRUNE_THRESHOLD = float(PRUNE_THRESHOLD)
 
 
-
-# Load validator configuration
 VALIDATOR_HEARTBEAT_TIMEOUT_SECONDS = os.getenv("VALIDATOR_HEARTBEAT_TIMEOUT_SECONDS")
 if not VALIDATOR_HEARTBEAT_TIMEOUT_SECONDS:
     logger.fatal("VALIDATOR_HEARTBEAT_TIMEOUT_SECONDS is not set in .env")
@@ -143,7 +119,6 @@ VALIDATOR_HEARTBEAT_TIMEOUT_INTERVAL_SECONDS = int(VALIDATOR_HEARTBEAT_TIMEOUT_I
 VALIDATOR_SET_BUILDER_LOOP_INTERVAL_SECONDS = 30
 
 
-# Load validator configuration (sent to validator upon registration)
 VALIDATOR_RUNNING_AGENT_TIMEOUT_SECONDS = os.getenv("VALIDATOR_RUNNING_AGENT_TIMEOUT_SECONDS")
 if not VALIDATOR_RUNNING_AGENT_TIMEOUT_SECONDS:
     logger.fatal("VALIDATOR_RUNNING_AGENT_TIMEOUT_SECONDS is not set in .env")
@@ -173,8 +148,7 @@ NUM_EVALS_PER_AGENT = int(NUM_EVALS_PER_AGENT)
 
 MAX_TOTAL_EVALS_PER_AGENT = int(os.getenv("MAX_TOTAL_EVALS_PER_AGENT", str(NUM_EVALS_PER_AGENT * 3)))
 
-
-COST_PER_MINER_SUBMISSION_USD = int(os.getenv("COST_PER_MINER_SUBMISSION_USD", 30))
+COST_PER_MINER_SUBMISSION_USD = int(os.getenv("COST_PER_MINER_SUBMISSION_USD", 20))
 
 
 logger.info("=== API Configuration ===")
@@ -186,7 +160,6 @@ logger.info("-------------------------")
 logger.info(f"Network ID: {NETUID}")
 logger.info(f"Subtensor Address: {SUBTENSOR_ADDRESS}")
 logger.info(f"Subtensor Network: {SUBTENSOR_NETWORK}")
-logger.info(f"Owner Hotkey: {OWNER_HOTKEY}")
 logger.info("-------------------------")
 
 if BURN:
@@ -200,15 +173,9 @@ if DISALLOW_UPLOADS:
 logger.info(f"Environment: {'Production' if ENV == 'prod' else 'Development'}")
 logger.info("-------------------------")
 
-#logger.info(f"R2 Region: {R2_REGION}")
-#logger.info("-------------------------")
-
 logger.info(f"R2 Bucket Name: {R2_BUCKET_NAME}")
 logger.info("-------------------------")
 
-#logger.info(f"Database Username: {DATABASE_USERNAME}")
-#logger.info(f"Database Host: {DATABASE_HOST}")
-#logger.info(f"Database Port: {DATABASE_PORT}")
 logger.info(f"Database Name: {DATABASE_NAME}")
 logger.info("-------------------------")
 
