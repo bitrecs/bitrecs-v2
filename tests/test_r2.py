@@ -44,9 +44,8 @@ async def test_r2_upload_download_integration():
     """Integration test: Upload and download a real file to/from R2."""
     if not all([TEST_BUCKET, TEST_ACCESS_KEY, TEST_SECRET_KEY, TEST_ENDPOINT]):
         pytest.skip("R2 credentials not set in environment. Set R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT_URL.")    
-    # Upload the file
-    await upload_text_file_to_r2(TEST_BUCKET, TEST_ACCESS_KEY, TEST_SECRET_KEY, TEST_ENDPOINT, TEST_PATH, TEST_TEXT)    
-    # Download and verify
+    
+    await upload_text_file_to_r2(TEST_BUCKET, TEST_ACCESS_KEY, TEST_SECRET_KEY, TEST_ENDPOINT, TEST_PATH, TEST_TEXT)
     downloaded_text = await download_text_file_from_r2(TEST_BUCKET, TEST_ACCESS_KEY, TEST_SECRET_KEY, TEST_ENDPOINT, TEST_PATH)    
     assert downloaded_text == TEST_TEXT
 
@@ -73,8 +72,7 @@ async def test_r2_scores_backup():
 
 
 def test_validator_backup_r2_signed_request():
-    SERVICE_URL = "http://localhost:8000"
-    
+    SERVICE_URL = "http://localhost:8000"    
     MINER_WALLET_NAME = os.getenv("MINER_WALLET_NAME")
     MINER_WALLET_HOTKEY_NAME = os.getenv("MINER_WALLET_HOTKEY_NAME")
     wallet = Wallet(name=MINER_WALLET_NAME, hotkey=MINER_WALLET_HOTKEY_NAME)    
@@ -118,7 +116,7 @@ def test_validator_backup_r2_via_url():
 
 
 @pytest.mark.asyncio
-async def test_r2_download_and_sync_to_postgres(db_setup):  # Use the existing fixture
+async def test_r2_download_and_sync_to_postgres(db_setup):
     """Unit test: Download scores.db from R2 for a random validator and sync to PostgreSQL."""
     if not all([os.getenv("R2_BUCKET_NAME"), os.getenv("R2_ACCESS_KEY_ID"), os.getenv("R2_SECRET_ACCESS_KEY"), os.getenv("R2_ENDPOINT_URL")]):
         pytest.skip("R2 credentials not set in environment.")

@@ -1,15 +1,13 @@
-import json
 import os
+import json
 import httpx
 import pytest
 import typer
-import utils.logger as logger
 from pathlib import Path
-from scoring.engine import get_current_eval_set_id
+from scoring.engine import df_to_miner_blocks, df_to_miner_scores, df_to_samples, get_current_eval_set_id, miners_first_blocks
 from scoring.pareto import compute_pareto_frontier
 from scoring.persist import ScorePersister
 from scoring.threshold import compute_miner_thresholds
-from scoring.types import MinerFirstBlocks, MinerScores
 from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
 root_path = Path(__file__).parent.parent.absolute()
 
@@ -71,18 +69,16 @@ async def test_pareto_frontier_from_db():
     samples = df_to_samples(data)    
     envs = list(samples.keys())    
     
-    pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)
+    pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)    
     
-    # Display properties
     print("Pareto Frontier Properties:")
     print(f"  Frontier UIDs: {pareto_result.frontier_uids}")
     print(f"  UID Mapping: {pareto_result.uid_mapping}")
     print(f"  Dominance Matrix Shape: {pareto_result.dominance_matrix.shape}")
     print(f"  Score Matrix Shape: {pareto_result.score_matrix.shape}")
     print(f"  Dominance Matrix:\n{pareto_result.dominance_matrix}")
-    print(f"  Score Matrix:\n{pareto_result.score_matrix}")
+    print(f"  Score Matrix:\n{pareto_result.score_matrix}")    
     
-    # Optional: Convert to DataFrame for easier viewing
     import pandas as pd
     score_df = pd.DataFrame(pareto_result.score_matrix, columns=envs, index=pareto_result.uid_mapping)
     print(f"  Score DataFrame:\n{score_df}")
@@ -128,10 +124,7 @@ async def test_scoring_wta():
     miner_scores = df_to_miner_scores(data)
     samples = df_to_samples(data)
     envs = list(samples.keys())
-    #pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)
-    
-    miner_blocks = df_to_miner_blocks(data)
-   # Compute thresholds and scores with priority
+    miner_blocks = df_to_miner_blocks(data)   
     miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
     subset_scores = compute_subset_scores_with_priority(
         miner_scores, miner_thresholds, miner_blocks, envs
@@ -150,50 +143,6 @@ async def test_scoring_wta():
 
 
 
-def df_to_miner_scores(df) -> MinerScores:
-    miner_scores: MinerScores = {}
-    for _, row in df.iterrows():
-        uid = row['uid']
-        env_id = row['task_name']
-        score = row['score']        
-        if uid not in miner_scores:
-            miner_scores[uid] = {}
-        miner_scores[uid][env_id] = score
-    return miner_scores
 
 
-def df_to_samples(df) -> dict[str, int]:
-    samples = {}
-    for _, row in df.iterrows():
-        env_id = row['task_name']
-        sample_size = row['sample_size']
-        if env_id not in samples:
-            samples[env_id] = 0
-        samples[env_id] = sample_size
-    return samples
 
-
-def miners_first_blocks() -> MinerFirstBlocks:
-    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")
-    #SERVICE_URL = "http://localhost:8000"
-    client = httpx.Client(base_url=SERVICE_URL)
-    response = client.get("/retrieval/miner-blocks")
-    assert response.status_code == 200
-    data = response.json()
-    return data    
-    
-
-def df_to_miner_blocks(df) -> MinerFirstBlocks:
-    miner_blocks = miners_first_blocks()
-    # miner blocks uses hotkey as key, but we want to map to uid, so we need to convert
-    hotkey_to_uid = {}
-    for _, row in df.iterrows():
-        hotkey = row['hotkey']
-        uid = row['uid']
-        hotkey_to_uid[hotkey] = uid
-    miner_first_blocks: MinerFirstBlocks = {}
-    for hotkey, block in miner_blocks.items():
-        uid = hotkey_to_uid.get(hotkey)
-        if uid is not None:
-            miner_first_blocks[uid] = block
-    return miner_first_blocks

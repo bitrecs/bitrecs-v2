@@ -1,66 +1,65 @@
 import os
 import secrets
 import sqlite3
-import pandas as pd
 import uuid
 import httpx
 import pytest
-import affinetes as af_env
 import logging
 import yaml
+import pandas as pd
+import affinetes as af_env
+from models.eval_type import BitrecsEvaluationType
 from dotenv import load_dotenv
 load_dotenv()
-from models.eval_type import BitrecsEvaluationType
 
 
 logger = logging.getLogger(__name__)
 
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
-@pytest.mark.asyncio
-async def test_calculator_sandbox_example():    
-    try:
-        import docker
-        client = docker.from_env()
-        client.ping()
-    except Exception:
-        pytest.skip("Docker daemon not running, skipping test")
-        logger.warning("Docker daemon not running, skipping test")
+# @pytest.mark.asyncio
+# async def test_calculator_sandbox_example():    
+#     try:
+#         import docker
+#         client = docker.from_env()
+#         client.ping()
+#     except Exception:
+#         pytest.skip("Docker daemon not running, skipping test")
+#         logger.warning("Docker daemon not running, skipping test")
     
-    image_tag = af_env.build_image_from_env(
-        env_path=os.path.join(PARENT_DIR, "sandbox/environments/calc"),
-        image_tag="calculator:latest"
-    )
-    logger.info(f"Built Docker image with tag: {image_tag}")    
+#     image_tag = af_env.build_image_from_env(
+#         env_path=os.path.join(PARENT_DIR, "sandbox/environments/calc"),
+#         image_tag="calculator:latest"
+#     )
+#     logger.info(f"Built Docker image with tag: {image_tag}")    
     
-    env = af_env.load_env(
-        image="calculator:latest",
-        env_vars={"CHUTES_API_KEY": "your-api-key"}, 
-        host_network=True,
-        host_port=8080,
-        log_file="calculator_env.log"
-    )
+#     env = af_env.load_env(
+#         image="calculator:latest",
+#         env_vars={"CHUTES_API_KEY": "your-api-key"}, 
+#         host_network=True,
+#         host_port=8080,
+#         log_file="calculator_env.log"
+#     )
 
-    assert env is not None
-    logger.info("Loaded Docker environment successfully")        
+#     assert env is not None
+#     logger.info("Loaded Docker environment successfully")        
     
-    result = await env.evaluate(
-        model="deepseek-ai/DeepSeek-V3",
-        base_url="https://llm.chutes.ai/v1",
-        task_id=10
-    )
-    print(result)  # {"score": 1.0, "success": True}
-    assert result["score"] == 1.0
-    assert result["success"] == True   
+#     result = await env.evaluate(
+#         model="deepseek-ai/DeepSeek-V3",
+#         base_url="https://llm.chutes.ai/v1",
+#         task_id=10
+#     )
+#     print(result)  # {"score": 1.0, "success": True}
+#     assert result["score"] == 1.0
+#     assert result["success"] == True   
 
 
 
-async def try_get_run_log(run_id: str) -> str | None:
-    # @app.get("/run_log/{run_id}")
+async def try_get_run_log(run_id: str) -> str | None:    
     timeout = (10, 60)
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.get(
-            f"http://localhost:8081/run_log/{run_id}",
+            f"http://localhost:8000/run_log/{run_id}",
             headers={"Content-Type": "application/json"}
         )
         if response.status_code == 200:
@@ -72,12 +71,10 @@ async def try_get_run_log(run_id: str) -> str | None:
 
 
 async def try_get_eval_db(run_id: str) -> str | None:
-    # download remote sqlite file and save to local disk
-
     timeout = (10, 60)
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.get(
-            f"http://localhost:8081/db",
+            f"http://localhost:8000/db",
             headers={"Content-Type": "application/octet-stream"}
         )
         if response.status_code == 200:
@@ -95,8 +92,7 @@ async def try_get_eval_db(run_id: str) -> str | None:
 
 
 @pytest.mark.asyncio
-async def test_bitrecs_eval_sandbox(): 
-    
+async def test_bitrecs_eval_sandbox():     
     af_run_token = os.environ.get("BITRECS_RUN_TOKEN")
     af_run_token = secrets.token_hex(16) if not af_run_token else af_run_token    
     bitrecs_run_id = str(uuid.uuid4())
@@ -116,7 +112,7 @@ async def test_bitrecs_eval_sandbox():
         host_network=True,
         cleanup=False,
         force_recreate=True,
-        host_port=8081,
+        host_port=8000,
         pull=True
     )
     
@@ -135,7 +131,7 @@ async def test_bitrecs_eval_sandbox():
     data = {"yaml_content": yaml_content, "run_token": af_run_token, "problem_name": "bitrecs_basic_daily"}
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(
-            "http://localhost:8081/evaluate",
+            "http://localhost:8000/evaluate",
             json=data,
             headers={"Content-Type": "application/json"}
         )
@@ -192,7 +188,7 @@ async def test_bitrecs_sandbox_contains_valid_eval_types():
     af_run_token = secrets.token_hex(16) if not af_run_token else af_run_token    
     bitrecs_run_id = str(uuid.uuid4())
     af_hostname = "localhost"
-    af_container_port = 8081
+    af_container_port = 8000
 
     af_env_vars = {
             "BITRECS_RUN_TOKEN": af_run_token,

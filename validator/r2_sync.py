@@ -14,15 +14,11 @@ async def r2_sync():
     Periodically sync evals to R2
     """        
     logger.info(f"\033[35mR2 sync ran at {int(time.time())}\033[0m")
-    # r2_enabled = self.config.r2.sync_on
-    # if not r2_enabled:
-    #     logger.debug(f"R2 Sync OFF at {int(time.time())}")        
-    #     logger.warning("R2 Sync is OFF set --r2.sync_on to enable")
-    #     return
+
     NETUID = int(os.getenv("NETUID", 296))
     VALIDATOR_WALLET_NAME = os.environ.get("VALIDATOR_WALLET_NAME", "")
     VALIDATOR_HOTKEY_NAME = os.environ.get("VALIDATOR_HOTKEY_NAME", "")
-    wallet = Wallet(VALIDATOR_WALLET_NAME, VALIDATOR_HOTKEY_NAME)    
+    wallet = Wallet(VALIDATOR_WALLET_NAME, VALIDATOR_HOTKEY_NAME)
     
     sub = await get_subtensor()
     uid = await sub.get_uid_for_hotkey_on_subnet(hotkey_ss58=wallet.hotkey.ss58_address, netuid=NETUID)
