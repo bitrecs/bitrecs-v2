@@ -17,9 +17,11 @@ async def get_current_eval_set_id() -> int:
     except Exception as e:
         SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")    
         if not SERVICE_URL:
-            SERVICE_URL = "http://localhost:8000"
-        client = httpx.Client(base_url=SERVICE_URL)
-        response = client.get("/scoring/latest-set-info")        
+            SERVICE_URL = "http://localhost:8000"        
+        headers = {"Content-Type": "application/json", 
+                   "X-API-Key": os.environ.get("BITRECS_PLATFORM_API_KEY")}
+        client = httpx.Client(base_url=SERVICE_URL, headers=headers)
+        response = client.get("/scoring/latest-set-info")
         data = response.json()
         return data["latest_set_id"]
     
@@ -57,8 +59,10 @@ def df_to_samples(df) -> dict[str, int]:
 def miners_first_blocks() -> MinerFirstBlocks:
     SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")    
     if not SERVICE_URL:
-        SERVICE_URL = "http://localhost:8000"    
-    client = httpx.Client(base_url=SERVICE_URL)
+        SERVICE_URL = "http://localhost:8000"  
+    headers = {"Content-Type": "application/json", 
+            "X-API-Key": os.environ.get("BITRECS_PLATFORM_API_KEY")}
+    client = httpx.Client(base_url=SERVICE_URL, headers=headers)
     response = client.get("/retrieval/miner-blocks")
     assert response.status_code == 200
     data = response.json()
