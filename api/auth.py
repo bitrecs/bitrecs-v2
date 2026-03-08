@@ -6,6 +6,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 EXCLUDED_PATHS = [
     "/",              # Root endpoint
     "/docs",          # API documentation
+    "/favicon.ico",   # Favicon for docs
+    "/openapi.json",  # OpenAPI schema for docs
     "/health",        # Health check
     "/submit",        # Bitrecs CLI submission endpoint
     "/check"          # Bitrecs CLI check endpoint    
