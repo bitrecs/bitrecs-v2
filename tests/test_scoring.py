@@ -90,7 +90,11 @@ async def test_pareto_frontier_api():
     SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")
     #SERVICE_URL = "http://localhost:8000"
     async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
-        response = await client.get("/scoring/pareto")
+        headers = {
+            'Accept': 'application/json',
+            'X-API-Key': os.getenv("BITRECS_PLATFORM_API_KEY")
+        }
+        response = await client.get("/scoring/pareto", headers=headers)
         assert response.status_code == 200
         data = response.json()
         pretty = json.dumps(data, indent=2) 
@@ -106,7 +110,11 @@ async def test_wta_api():
     SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")
     #SERVICE_URL = "http://localhost:8000"
     async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
-        response = await client.get("/scoring/wta")
+        headers = {
+            'Accept': 'application/json',
+            'X-API-Key': os.getenv("BITRECS_PLATFORM_API_KEY")
+        }
+        response = await client.get("/scoring/wta", headers=headers)
         assert response.status_code == 200
         data = response.json()
         pretty = json.dumps(data, indent=2) 

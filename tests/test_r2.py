@@ -90,7 +90,8 @@ def test_validator_backup_r2_signed_request():
         'Accept': 'application/json',
         'X-Signature': signature,
         'X-Timestamp': str(timestamp),
-        'X-Nonce': nonce
+        'X-Nonce': nonce,
+        'X-API-Key': os.getenv("BITRECS_PLATFORM_API_KEY")
     }
 
     with httpx.Client() as client:
