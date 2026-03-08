@@ -5,6 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 EXCLUDED_PATHS = [
     "/",              # Root endpoint
+    "/docs",          # API documentation
     "/health",        # Health check
     "/submit",        # Bitrecs CLI submission endpoint
     "/check"          # Bitrecs CLI check endpoint    
