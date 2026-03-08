@@ -1,7 +1,9 @@
 import fnmatch
 import utils.logger as logger
+from utils.network import get_client_ip
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+
 
 EXCLUDED_PATHS = [
     "/",              # Root endpoint
@@ -20,7 +22,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         api_key = request.headers.get("X-API-Key")
         if not api_key or api_key not in request.app.state.api_keys:
-            logger.warning(f"Unauthorized access attempt to {request.url.path} ")
+            client_ip = get_client_ip(request)
+            logger.warning(f"Unauthorized access attempt to {request.url.path} from IP: {client_ip}")
             return JSONResponse(status_code=401, content={"error": "Invalid or missing API Key"})
         response = await call_next(request)
         return response

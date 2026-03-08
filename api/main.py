@@ -1,12 +1,12 @@
 import os
 import sys
-import traceback
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import gc
 import time
 import uuid
 import secrets
 import asyncio
+import traceback
 import threading
 import tracemalloc
 import utils.logger as logger
@@ -35,8 +35,7 @@ from utils.database import (
 )
 from api.utils.upload_agent_helpers import (
     check_agent_banned, check_if_gist_used, 
-    check_if_hotkey_is_validator, check_if_hotkey_used, 
-    get_bitrecs_price
+    check_if_hotkey_is_validator, check_if_hotkey_used    
 )
 from utils.network import get_client_ip
 from utils.bittensor import is_hotkey_valid_format
@@ -68,7 +67,7 @@ from queries.hotkey_gist import log_hotkey_gist
 from queries.payments import record_evaluation_payment, retrieve_payment_by_hash
 from api.utils.request_cache import hourly_cache
 from models.payments import UploadPriceResponse, AgentUploadResponse, ErrorResponse
-
+from utils.coingecko import get_bitrecs_price
 
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
 BT_NETUID = int(os.environ.get("BT_NETUID", 296))
@@ -193,7 +192,7 @@ async def read_root(request: Request):
     logger.info(f"Root endpoint accessed from IP {request_ip} at {ts}")
     return JSONResponse(
         status_code=200,
-        content={"message": "Bitrecs V2 Testnet",
+        content={"message": "Bitrecs V2 Testnet ⛏️",
                  "ts": str(ts), 
                  "network": BT_NETWORK,
                  "uid": BT_NETUID,

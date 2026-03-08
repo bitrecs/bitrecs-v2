@@ -54,8 +54,7 @@ def download_db_from_r2(bucket_name: str, key: str, download_dir: str, endpoint_
         logger.error(f"Directory not found: {download_dir}")
         return None
     
-    try:
-        # Use the same client config as the working function
+    try:        
         s3 = boto3.client(
             "s3",
             aws_access_key_id=os.getenv("R2_ACCESS_KEY_ID"),
@@ -74,25 +73,12 @@ def download_db_from_r2(bucket_name: str, key: str, download_dir: str, endpoint_
         return None
 
 @db_operation
-async def upsert_to_postgres(conn, sqlite_path: str) -> None:
-    """
-    Reads rows from SQLite DB and upserts into PostgreSQL miner_scores table.
-    
-    Assumes unique constraint on (run_id, uid, task_name) for upsert.
-    
-    Args:
-        conn: DatabaseConnection from @db_operation.
-        sqlite_path: Path to SQLite DB file.
-    """
-    try:
-        # Connect to SQLite (sync)
+async def upsert_to_postgres(conn, sqlite_path: str) -> None:   
+    try:        
         sqlite_conn = sqlite3.connect(sqlite_path)
         cursor = sqlite_conn.cursor()
-        
-        # Query all rows from miner_scores
         cursor.execute("SELECT run_id, uid, hotkey, task_name, score, success, duration, created_at, evaluation_set_id, sample_size FROM miner_scores")
-        rows = cursor.fetchall()
-        
+        rows = cursor.fetchall()        
         if not rows:
             logger.info("No rows to upsert")
             return
@@ -112,9 +98,8 @@ async def upsert_to_postgres(conn, sqlite_path: str) -> None:
                 row[9]   # sample_size
             )
             for row in rows
-        ]
+        ]        
         
-        # Upsert query - run_id is a UUID and unique per row
         upsert_query = """
         INSERT INTO miner_scores (run_id, uid, hotkey, task_name, score, success, duration, created_at, evaluation_set_id, sample_size)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)

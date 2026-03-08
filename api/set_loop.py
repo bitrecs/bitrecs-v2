@@ -1,11 +1,9 @@
 import asyncio
-import random
 import traceback
 from api import config
 from utils import logger
 from rules.set_builder import EvaluationSetBuilder
 from utils.subtensor import get_subtensor
-
 
 async def validator_evaluation_set_builder_loop():
     logger.info("Starting validator evaluation set builder loop...")
