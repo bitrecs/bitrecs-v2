@@ -10,9 +10,6 @@ from utils.database import db_operation, DatabaseConnection
 from models.agent import Agent, AgentStatus, AgentScored, BenchmarkAgentScored, PossiblyBenchmarkAgent
 
 
-#NUM_EVALS_PER_AGENT = config.NUM_EVALS_PER_AGENT
-
-
 @db_operation
 async def get_agent_count(conn: DatabaseConnection) -> int:
     result = await conn.fetchval(
@@ -148,23 +145,6 @@ async def get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(conn: Da
     
     return result
 
-
-
-# @db_operation
-# async def create_agent(conn: DatabaseConnection, agent: Agent, agent_text: str) -> None:
-#     await upload_text_file_to_r2(f"{agent.agent_id}/agent.py", agent_text)
-
-#     await conn.execute(
-#         f"""
-#         INSERT INTO agents (agent_id, miner_hotkey, name, version_num, created_at, status, ip_address)
-#         VALUES ($1, $2, $3, $4, NOW(), '{AgentStatus.screening_1.value}', $5)
-#         """,
-#         agent.agent_id,
-#         agent.miner_hotkey,
-#         agent.name,
-#         agent.version_num,
-#         agent.ip_address,
-#     )
 
 
 @db_operation

@@ -7,5 +7,4 @@ async def get_tao_price() -> float:
         r = await client.get(url, params=params)
         r.raise_for_status()
         data = r.json()
-
     return data["bittensor"]["usd"]

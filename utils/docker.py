@@ -34,13 +34,7 @@ async def build_docker_image(dockerfile_dir: str, tag: str) -> None:
     logger.info(f"Building Docker image: {tag}")
     await asyncio.to_thread(subprocess.run, ["docker", "build", "-t", tag, dockerfile_dir], text=True, check=True)
     logger.info(f"Successfully built Docker image: {tag}")
-
-
-# async def get_num_docker_containers() -> int:
-#     # This is equivalent to `docker ps -q | wc -l`
-#     result = await asyncio.to_thread(subprocess.run, ["docker", "ps", "-q"], capture_output=True, text=True, timeout=1)
-#     return len([line for line in result.stdout.strip().split('\n') if line.strip()])
-
+    
 
 async def get_num_docker_containers() -> int:
     """

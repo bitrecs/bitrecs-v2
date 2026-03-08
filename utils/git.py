@@ -1,11 +1,5 @@
-"""Git utilities for managing repository operations."""
-
-import os
-import pathlib
 import subprocess
 import utils.logger as logger
-
-
 
 def init_local_repo_with_initial_commit(local_repo_dir: str, commit_message: str = "Initial commit") -> None:
     """

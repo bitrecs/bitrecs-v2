@@ -1,13 +1,12 @@
 import re
-from bittensor_wallet.keypair import Keypair
-from utils.subtensor import get_subtensor
 import api.config as config
 import utils.logger as logger
+from bittensor_wallet.keypair import Keypair
+from utils.subtensor import get_subtensor
 
 
 async def check_if_hotkey_is_registered(hotkey: str) -> bool:
-    subtensor = await get_subtensor()
-    #subtensor = AsyncSubtensor(network=config.SUBTENSOR_NETWORK)
+    subtensor = await get_subtensor()    
     return await subtensor.is_hotkey_registered(hotkey_ss58=hotkey, netuid=config.NETUID)
 
 def validate_signed_timestamp(timestamp: int, signed_timestamp: str, hotkey: str) -> bool:
@@ -21,8 +20,7 @@ def validate_signed_timestamp(timestamp: int, signed_timestamp: str, hotkey: str
     
 def is_hotkey_valid_format(hotkey: str) -> bool:
     if not isinstance(hotkey, str) or len(hotkey) != 48:
-        return False
-    # regex s58 address
+        return False    
     pattern = r"^5[1-9A-HJ-NP-Za-km-z]{47}$"
     if re.match(pattern, hotkey):
         return True

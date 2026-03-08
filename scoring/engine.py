@@ -30,8 +30,7 @@ def df_to_miner_scores(df) -> MinerScores:
     """
     Aggregate scores across multiple validators per uid+task.    
     """
-    miner_scores: MinerScores = {}    
-    # Group by uid + task_name, take mean score across all validators
+    miner_scores: MinerScores = {}
     grouped = df.groupby(['uid', 'task_name'])['score'].mean().reset_index()    
     for _, row in grouped.iterrows():
         uid = row['uid']
@@ -48,8 +47,7 @@ def df_to_samples(df) -> dict[str, int]:
     """
     Get sample size per task
     """
-    samples = {}
-    # Take max sample_size per task across validators
+    samples = {}    
     grouped = df.groupby('task_name')['sample_size'].max().reset_index()
     for _, row in grouped.iterrows():
         samples[row['task_name']] = row['sample_size']
