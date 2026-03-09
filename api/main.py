@@ -65,9 +65,11 @@ from utils.verify import (
 from utils.commitment import is_commitment_valid
 from queries.hotkey_gist import log_hotkey_gist
 from queries.payments import record_evaluation_payment, retrieve_payment_by_hash
-from api.utils.request_cache import hourly_cache
 from models.payments import UploadPriceResponse, AgentUploadResponse, ErrorResponse
 from utils.coingecko import get_bitrecs_price
+from cachetools import TTLCache, cached
+from utils.taostats import get_value_from_alpha
+
 
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
 BT_NETUID = int(os.environ.get("BT_NETUID", 296))
@@ -275,7 +277,7 @@ async def calculate_upload_price() -> UploadPriceResponse:
     response_model=UploadPriceResponse
 )
 @limiter.limit("60/minute")
-@hourly_cache()
+@cached(cache=TTLCache(maxsize=1, ttl=1800), lock=asyncio.Lock())
 async def get_upload_price(request: Request) -> UploadPriceResponse:
     client_ip = get_client_ip(request)
     logger.info(f"Upload price requested from IP {client_ip}")
@@ -337,7 +339,7 @@ async def check_agent_post(
     stake_info = await subtensor.get_stake(
         coldkey_ss58=coldkey,
         hotkey_ss58=miner_hotkey,
-        netuid=296,
+        netuid=config.NETUID,
     )
     alpha_stake = stake_info.rao / 1e9
     upload_price = await calculate_upload_price()
@@ -644,6 +646,10 @@ async def check_onchain_payment(miner_hotkey: str, payment_block_hash: str, paym
             status_code=402,
             detail="Coldkey does not match"
         )
+    
+    if 1==2:
+        alpha_value = get_value_from_alpha(onchain_payment_value_rao)
+        logger.info(f"On-chain payment verified for hotkey {miner_hotkey} with value {alpha_value} alpha (required: {amount_rao / 1e9} alpha)")
 
     return True
 
