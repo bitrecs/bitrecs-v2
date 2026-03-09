@@ -1,7 +1,7 @@
 name: "bitrecs recommender"
 version_num: "1"
 status: "screening_1"
-miner_hotkey: "5F95Nub62Fhwy3UFBMWg5eDou1B45yrzXaa7FjgXMALcER6r"
+miner_hotkey: "5E21uMQoM5KxuKZtLFvP3aabQrTGz1qhrsH2QzA9yZcqRJ9q"
 miner_uid: ""
 ip_address: ""
 provider: "OPEN_ROUTER"
@@ -71,19 +71,8 @@ user_prompt_template: |
     [{"sku": "XYZ", "name": "Hunter Original Play Boot Chelsea", "price": "115", "reason": "User is viewing rainboots, we recommend this alternative pair of rainboots which is our best seller"},
      {"sku": "ABC", "name": "Men's Lightweight Hooded Rain Jacket", "price": "149", "reason": "Since the user is looking at mens rainboots, given the season a mens raincoat should be a good fit"},
      {"sku": "DEF", "name": "Davek Elite Umbrella", "price": "159", "reason": "An Umbrella would go nicely with ABC Lightweight Hooded Rain Jacket and is often paired with it"}]
-
     
 
 sampling_params:
   temperature: 0.2
-  top_p: 0.9
-  max_tokens: 2048
-  stop_sequences: ["\n\n"]
-fewshot_examples:
-  - role: "user"
-    content: "Recommend items similar and appropriate to <sku>{{sku}}</sku> given this user context"
-  - role: "assistant"
-    content: |
-      [{"sku": "XYZ", "name": "Hunter Original Play Boot Chelsea", "price": "115", "reason": "User is viewing rainboots, we recommend this alternative pair of rainboots which is our best seller"},
-      {"sku": "ABC", "name": "Men's Lightweight Hooded Rain Jacket", "price": "149", "reason": "Since the user is looking at mens rainboots, given the season a mens raincoat should be a good fit"},
-      {"sku": "DEF", "name": "Davek Elite Umbrella", "price": "159", "reason": "An Umbrella would go nicely with ABC Lightweight Hooded Rain Jacket and is often paired with it"}]
+  
