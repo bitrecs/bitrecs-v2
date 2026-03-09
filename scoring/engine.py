@@ -8,7 +8,7 @@ from scoring.threshold import compute_miner_thresholds
 from scoring.types import MinerFirstBlocks, MinerScores
 from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
 from queries.evaluation_set import get_latest_set_id
-from scoring.constants import DEFAULT_Z_SCORE, MIN_THRESHOLD_GAP, MAX_THRESHOLD_GAP, MINER_BURN
+from scoring.constants import DEFAULT_Z_SCORE, MIN_THRESHOLD_GAP, MAX_THRESHOLD_GAP, MINER_EMISSION_PORTION
 
 
 async def get_current_eval_set_id() -> int:
@@ -125,8 +125,12 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
                 logger.error(f"Validator hotkey mismatch: expected {wallet.hotkey.ss58_address}, got {validator_hotkey.ss58_address}")
                 return False
                         
-            miner_weight = 1 * MINER_BURN
+            miner_weight = 1 * MINER_EMISSION_PORTION
             burn_weight = 1 - miner_weight
+            if not (0 <= miner_weight <= 1):
+                logger.error(f"Invalid weights: miner_weight={miner_weight}, burn_weight={burn_weight}. Must be >=0, <=1, and sum to 1.")
+                return False
+
             subtensor = await get_subtensor()
             success, message = await subtensor.set_weights(
                 wallet=wallet,
