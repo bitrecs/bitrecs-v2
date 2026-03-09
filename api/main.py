@@ -67,7 +67,6 @@ from queries.hotkey_gist import log_hotkey_gist
 from queries.payments import record_evaluation_payment, retrieve_payment_by_hash
 from models.payments import UploadPriceResponse, AgentUploadResponse, ErrorResponse
 from utils.coingecko import get_bitrecs_price
-from utils.taostats import get_value_from_alpha
 from aiocache import cached, Cache
 
 
@@ -248,6 +247,11 @@ async def health(request: Request):
     }
 
 
+async def is_system_enabled() -> bool:
+    from queries.system_enabled import get_system_enabled
+    enabled = await get_system_enabled()
+    return enabled
+
 async def ensure_min_validators() -> None:
     validator_info = get_connected_validators_info()
     connected_validators = validator_info.get("connected_validators", 0)
@@ -302,10 +306,9 @@ async def check_agent_post(
 ) -> AgentUploadResponse:
     
     if config.DISALLOW_UPLOADS:
-        raise HTTPException(
-            status_code=503,
-            detail=config.DISALLOW_UPLOADS_REASON
-        )
+        raise HTTPException(status_code=503, detail=config.DISALLOW_UPLOADS_REASON)
+    if not await is_system_enabled():
+        raise HTTPException(status_code=503, detail="Submissions are currently disabled. Please try again later.")
     
     await ensure_min_validators()
     
@@ -396,11 +399,11 @@ async def miner_submission(request: Request, submission: MinerSubmission):
     request_id = secrets.token_hex(16)
     logger.info(f"Request ID: {request_id}")
     upload_data = {}
+
     if config.DISALLOW_UPLOADS:
-        raise HTTPException(
-            status_code=503,
-            detail=config.DISALLOW_UPLOADS_REASON
-        )
+        raise HTTPException(status_code=503, detail=config.DISALLOW_UPLOADS_REASON)
+    if not await is_system_enabled():
+        raise HTTPException(status_code=503, detail="Submissions are currently disabled. Please try again later.")
 
     await ensure_min_validators()
 
