@@ -185,18 +185,50 @@ app.include_router(dashboard_router, prefix="/dashboard")
 app.include_router(backup_router, prefix="/backup")
 
 
+async def is_system_enabled() -> bool:
+    from queries.system_enabled import get_system_enabled
+    enabled = await get_system_enabled()
+    return enabled
+
+
+async def ensure_min_validators() -> None:
+    validator_info = get_connected_validators_info()
+    connected_validators = validator_info.get("connected_validators", 0)
+    if connected_validators < config.NUM_EVALS_PER_AGENT:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Not enough validators available for evaluation (connected: {connected_validators})"
+        )
+    
+
+@cached(ttl=900, cache=Cache.MEMORY)
+async def calculate_upload_price() -> UploadPriceResponse:
+    """Price of participation"""
+    PRICE_BUFFER = 1.1
+    BITRECS_PRICE = await get_bitrecs_price()
+    eval_cost_usd = config.COST_PER_MINER_SUBMISSION_USD
+    eval_cost_alpha = eval_cost_usd / BITRECS_PRICE
+    amount_rao = int(eval_cost_alpha * 1e9 * PRICE_BUFFER)
+    return UploadPriceResponse(
+        amount_rao=amount_rao,
+        bitrecs_price_usd=BITRECS_PRICE
+    )
+    
+
 @app.get("/")
 @limiter.limit("60/minute")
 async def read_root(request: Request):
     ts = str(int(time.time()))
     request_ip = get_client_ip(request)
     logger.info(f"Root endpoint accessed from IP {request_ip} at {ts}")
+    submissions_enabled = await is_system_enabled()
     return JSONResponse(
         status_code=200,
         content={"message": "Bitrecs V2 Testnet ⛏️",
                  "ts": str(ts), 
                  "network": BT_NETWORK,
                  "uid": BT_NETUID,
+                 "submissions_enabled": submissions_enabled,
                  "total_requests": app.state.total_requests,
                  "exceptions": app.state.exceptions })
 
@@ -245,35 +277,6 @@ async def health(request: Request):
         "message": message,
         "version": version_file.strip() if version_file else "N/A"        
     }
-
-
-async def is_system_enabled() -> bool:
-    from queries.system_enabled import get_system_enabled
-    enabled = await get_system_enabled()
-    return enabled
-
-async def ensure_min_validators() -> None:
-    validator_info = get_connected_validators_info()
-    connected_validators = validator_info.get("connected_validators", 0)
-    if connected_validators < config.NUM_EVALS_PER_AGENT:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Not enough validators available for evaluation (connected: {connected_validators})"
-        )
-
-
-@cached(ttl=900, cache=Cache.MEMORY)
-async def calculate_upload_price() -> UploadPriceResponse:
-    """Price of participation"""
-    PRICE_BUFFER = 1.1
-    BITRECS_PRICE = await get_bitrecs_price()
-    eval_cost_usd = config.COST_PER_MINER_SUBMISSION_USD
-    eval_cost_alpha = eval_cost_usd / BITRECS_PRICE
-    amount_rao = int(eval_cost_alpha * 1e9 * PRICE_BUFFER)
-    return UploadPriceResponse(
-        amount_rao=amount_rao,
-        bitrecs_price_usd=BITRECS_PRICE
-    )
 
 
 @app.get(
