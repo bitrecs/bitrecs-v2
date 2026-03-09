@@ -67,8 +67,8 @@ from queries.hotkey_gist import log_hotkey_gist
 from queries.payments import record_evaluation_payment, retrieve_payment_by_hash
 from models.payments import UploadPriceResponse, AgentUploadResponse, ErrorResponse
 from utils.coingecko import get_bitrecs_price
-from cachetools import TTLCache, cached
 from utils.taostats import get_value_from_alpha
+from aiocache import cached, Cache
 
 
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
@@ -258,6 +258,7 @@ async def ensure_min_validators() -> None:
         )
 
 
+@cached(ttl=900, cache=Cache.MEMORY)
 async def calculate_upload_price() -> UploadPriceResponse:
     """Price of participation"""
     PRICE_BUFFER = 1.1
@@ -277,7 +278,6 @@ async def calculate_upload_price() -> UploadPriceResponse:
     response_model=UploadPriceResponse
 )
 @limiter.limit("60/minute")
-@cached(cache=TTLCache(maxsize=1, ttl=1800), lock=asyncio.Lock())
 async def get_upload_price(request: Request) -> UploadPriceResponse:
     client_ip = get_client_ip(request)
     logger.info(f"Upload price requested from IP {client_ip}")
@@ -648,8 +648,9 @@ async def check_onchain_payment(miner_hotkey: str, payment_block_hash: str, paym
         )
     
     if 1==2:
-        alpha_value = get_value_from_alpha(onchain_payment_value_rao)
-        logger.info(f"On-chain payment verified for hotkey {miner_hotkey} with value {alpha_value} alpha (required: {amount_rao / 1e9} alpha)")
+        upload_price = await calculate_upload_price()        
+        #alpha_value = get_value_from_alpha(onchain_payment_value_rao)
+        #logger.info(f"On-chain payment verified for hotkey {miner_hotkey} with value {alpha_value} alpha (required: {amount_rao / 1e9} alpha)")
 
     return True
 

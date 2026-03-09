@@ -6,7 +6,7 @@ load_dotenv()
 from cachetools import cached, TTLCache
 
 
-@cached(cache=TTLCache(maxsize=1, ttl=600))  # Cache the price for 10 minutes
+@cached(cache=TTLCache(maxsize=1, ttl=900))
 def get_tao_price_from_taostats() -> float:
     api_key = os.getenv("TAOSTATS_API_KEY")
     url = f"https://api.taostats.io/api/price/latest/v1?asset=tao"
@@ -20,7 +20,7 @@ def get_tao_price_from_taostats() -> float:
     return float_price
 
 
-@cached(cache=TTLCache(maxsize=1, ttl=600))  # Cache the price for 10 minutes
+@cached(cache=TTLCache(maxsize=1, ttl=900))
 def get_alpha_price_from_taostats() -> float:
     netuid = 122
     api_key = os.getenv("TAOSTATS_API_KEY")
@@ -28,7 +28,7 @@ def get_alpha_price_from_taostats() -> float:
     url = f"https://api.taostats.io/api/dtao/pool/latest/v1?netuid={netuid}&page=1"
     response = requests.get(url, headers=headers)
     resJson = json.loads(response.text)   
-    alpha_price =float(resJson['data'][0]['price'])
+    alpha_price = float(resJson['data'][0]['price'])
     return alpha_price
 
 
