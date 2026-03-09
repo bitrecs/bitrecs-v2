@@ -9,7 +9,6 @@ from functools import wraps
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
 from datetime import datetime, timedelta, timezone
-from utils.git import COMMIT_HASH
 from utils.debug_lock import DebugLock
 from fastapi import Depends, APIRouter, HTTPException, Request
 from fastapi.security import HTTPBearer
@@ -162,15 +161,7 @@ async def validator_register_as_validator(
 ) -> ValidatorRegistrationResponse:
 
     logger.debug(f"Received validator registration request: {registration_request}")
-
-    # Ensure that the commit hash matches
-    # if registration_request.commit_hash != COMMIT_HASH:
-    #     raise HTTPException(
-    #         status_code=426,
-    #         detail=f"The provided validator commit hash ({registration_request.commit_hash}) does not match the platform commit hash ({COMMIT_HASH}). Run `git pull` to update your validator, and try again.",
-    #         headers={"X-Commit-Hash": COMMIT_HASH}
-    #     )
-
+ 
     # # Ensure that the hotkey is in the list of acceptable validator hotkeys
     if not is_validator_hotkey_whitelisted(registration_request.hotkey):
         raise HTTPException(
@@ -200,8 +191,7 @@ async def validator_register_as_validator(
         )
 
     # Register the validator with a new session ID
-    session_id = uuid4()
-    #ip_address = request.client.host if request.client else None
+    session_id = uuid4()    
     ip_address = get_client_ip(request)
     SESSION_ID_TO_VALIDATOR[session_id] = Validator(
         session_id=session_id,
@@ -230,15 +220,7 @@ async def validator_register_as_validator(
 async def validator_register_as_screener(
     request: Request,
     registration_request: ScreenerRegistrationRequest
-) -> ScreenerRegistrationResponse:
-
-    # Ensure that the commit hash matches
-    # if registration_request.commit_hash != COMMIT_HASH:
-    #     raise HTTPException(
-    #         status_code=426,
-    #         detail=f"The provided screener commit hash ({registration_request.commit_hash}) does not match the platform commit hash ({COMMIT_HASH}). Run `git pull` to update your screener, and try again.",
-    #         headers={"X-Commit-Hash": COMMIT_HASH}
-    #     )
+) -> ScreenerRegistrationResponse:  
 
     # Ensure that the name is in the format screener-CLASS-NUM
     if not re.match(r"screener-\d-\d+", registration_request.name):
@@ -270,8 +252,7 @@ async def validator_register_as_screener(
         )
 
     # Register the screener with a new session ID
-    session_id = uuid4()
-    #ip_address = request.client.host if request.client else None
+    session_id = uuid4()    
     ip_address = get_client_ip(request)
     SESSION_ID_TO_VALIDATOR[session_id] = Validator(
         session_id=session_id,
@@ -337,15 +318,12 @@ async def validator_request_evaluation(
         try:
             async with DebugLock(lock, f"{validator.name} ({validator.hotkey}) for {lock_name}", timeout=30):
                 logger.debug(f"Validator {validator.name} acquired lock {lock_name}")
-                
-                # Find the next agent awaiting an evaluation from this validator
                 agent_id = await get_next_agent_id_awaiting_evaluation_for_validator_hotkey(validator.hotkey)
                 if agent_id is None:
                     logger.debug(f"No agent awaiting evaluation for validator {validator.name}")
                     return None
 
                 logger.info(f"Validator {validator.name} found agent {agent_id} for evaluation")
-
                 # Create a new evaluation and evaluation runs for this agent & validator
                 evaluation, evaluation_runs = await create_new_evaluation_and_evaluation_runs(agent_id, validator.hotkey)
                 logger.debug(f"Created evaluation {evaluation.evaluation_id} with {len(evaluation_runs)} runs")
@@ -361,15 +339,11 @@ async def validator_request_evaluation(
         logger.info(f"Validator '{validator.name}' requested an evaluation")
         logger.info(f"  Agent ID: {agent_id}")
         logger.info(f"  Evaluation ID: {evaluation.evaluation_id}")
-        logger.info(f"  # of Evaluation Runs: {len(evaluation_runs)}")
-
-        #agent_code = await download_text_file_from_s3(f"{agent_id}/agent.py")
-        agent_code = "test code"
+        logger.info(f"  # of Evaluation Runs: {len(evaluation_runs)}")        
+        agent_code = "ignored"
         try:
-
-            a = Agent.from_db(agent_id)
-            logger.info(f"Fetched agent from database for agent_id {agent_id}: {a}")
-            
+            a = await Agent.from_db(agent_id)
+            logger.info(f"Fetched agent from database for agent_id {agent_id}: {a}")            
         except Exception as e:
             logger.error(f"Error fetching agent from database for agent_id {agent_id}: {e}")
             raise HTTPException(
@@ -377,16 +351,12 @@ async def validator_request_evaluation(
                 detail=f"Error fetching agent from database for evaluation."
             )
         evaluation_runs = [ValidatorRequestEvaluationResponseEvaluationRun(evaluation_run_id=evaluation_run.evaluation_run_id, problem_name=evaluation_run.problem_name) for evaluation_run in evaluation_runs]
-
         logger.debug(f"Downloaded agent code for {agent_id}, returning response")
-
         return ValidatorRequestEvaluationResponse(agent_code=agent_code, evaluation_runs=evaluation_runs)
-
     except Exception as e:
         traceback.print_exc()
         logger.error(f"Error in validator_request_evaluation for validator {validator.name}: {e}")
-        raise
-    
+        raise    
 
 
 
@@ -396,13 +366,8 @@ async def validator_heartbeat(
     request: ValidatorHeartbeatRequest,
     validator: Validator = Depends(get_request_validator) # No lock required
 ) -> ValidatorHeartbeatResponse:
-
-    # logger.info(f"Validator '{validator.name}' sent a heartbeat")
-    # logger.info(f"  System metrics: {request.system_metrics}")
-
     validator.time_last_heartbeat = datetime.now(timezone.utc)
-    validator.system_metrics = request.system_metrics
-    
+    validator.system_metrics = request.system_metrics    
     return ValidatorHeartbeatResponse()
 
 
@@ -651,55 +616,6 @@ async def validator_connected_validators_info(request: Request) -> List[Connecte
     return connected_validators
 
 
-# async def handle_evaluation_if_finished(evaluation_id: UUID) -> None:
-#     """
-#     Adds the finished_at field to an evaluation. If the evaluation is marked as successful
-#     (all evaluation runs completed successfully), transitions the corresponding agent into the next state.
-#     """
-#     await update_evaluation_finished_at(evaluation_id)
-
-#     hydrated_evaluation = await get_hydrated_evaluation_by_id(evaluation_id)
-#     if hydrated_evaluation is None:
-#         logger.warning(f"Evaluation {evaluation_id} not found, skipping status transition.")
-#         return
-
-#     # Transition agent state if this evaluation was successful
-#     if hydrated_evaluation.status == EvaluationStatus.success:
-#         agent = await get_agent_by_id(hydrated_evaluation.agent_id)
-#         new_agent_status = None
-
-#         match agent.status:
-#             case AgentStatus.screening_1:
-#                 if hydrated_evaluation.score >= config.SCREENER_1_THRESHOLD:
-#                     new_agent_status = AgentStatus.screening_2
-#                 else:
-#                     new_agent_status = AgentStatus.failed_screening_1
-
-#             case AgentStatus.screening_2:
-#                 top_agents = await get_top_agents(number_of_agents=1)
-#                 top_score = top_agents[0].final_score if top_agents else 0
-#                 pruning_threshold_score = top_score * config.PRUNE_THRESHOLD
-
-#                 if hydrated_evaluation.score >= max(config.SCREENER_2_THRESHOLD, pruning_threshold_score):
-#                     new_agent_status = AgentStatus.evaluating
-#                 else:
-#                     new_agent_status = AgentStatus.failed_screening_2
-
-#             case AgentStatus.evaluating:
-#                 num_validator_evaluations = await get_num_successful_validator_evaluations_for_agent_id(agent.agent_id)
-#                 if num_validator_evaluations >= config.NUM_EVALS_PER_AGENT:
-#                     new_agent_status = AgentStatus.finished
-#                 else:
-#                     new_agent_status = AgentStatus.evaluating
-
-#             case _:
-#                 # TODO ADAM: this could actually happen if someone manually messed with the database. we need to handle this better
-#                 # raise ValueError(f"Invalid agent status: {agent.status}, this should never happen")
-#                 return
-
-#         await update_agent_status(hydrated_evaluation.agent_id, new_agent_status)
-
-
 
 async def handle_evaluation_if_finished(evaluation_id: UUID) -> None:
     await update_evaluation_finished_at(evaluation_id)
@@ -710,9 +626,8 @@ async def handle_evaluation_if_finished(evaluation_id: UUID) -> None:
     agent = await get_agent_by_id(hydrated_evaluation.agent_id)
     if agent is None:
         logger.error(f"Agent {hydrated_evaluation.agent_id} not found, skipping status transition.")
-        return
+        return    
     
-    # ✅ FIX: Check evaluating agents FIRST, regardless of current eval status
     if agent.status == AgentStatus.evaluating:
         num_successful = await get_num_successful_validator_evaluations_for_agent_id(agent.agent_id)
         num_total = await get_num_total_validator_evaluations_for_agent_id(agent.agent_id)

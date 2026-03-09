@@ -9,7 +9,7 @@ from bittensor_wallet import Wallet
 from datetime import datetime, timezone
 from utils.subtensor import get_subtensor
 from rules.agent_validator import validate_artifact_template
-from utils.commitment import commit_to_chain, commit_to_chain_with_wallet, get_miner_commitments, is_commitment_valid
+from utils.commitment import commit_to_chain, commit_to_chain_with_reveal, get_miner_commitments, is_commitment_valid
 from utils.gist import get_gist, get_gist_created_at, get_gist_file_names, get_gist_sha_commits
 from models.miner_submission import MinerSubmission
 from uuid import UUID
@@ -134,7 +134,7 @@ async def test_is_commitment_valid():
     )
     
     #commited = await commit_to_chain(GITHUB_ACCOUNT, GIST_ID, MINER_WALLET_NAME, MINER_WALLET_HOTKEY_NAME)
-    commited, current_block = await commit_to_chain_with_wallet(miner_submission.github_account, miner_submission.gist_id, MINER_WALLET)
+    commited, current_block = await commit_to_chain_with_reveal(miner_submission.github_account, miner_submission.gist_id, MINER_WALLET)
     print(f"Commitment to chain result: {commited}")
     assert commited, "Commitment to chain should succeed for the test submission"
     assert current_block is not None, "Current block number should be returned after commitment"

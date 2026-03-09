@@ -113,8 +113,7 @@ async def pareto_frontier(request: Request) -> Dict[str, Any]:
 
 async def df_to_miner_blocks2(df) -> MinerFirstBlocks:    
     from queries.hotkey_gist import get_miner_first_blocks
-    miner_blocks = await get_miner_first_blocks()
-    # miner blocks uses hotkey as key, but we want to map to uid, so we need to convert
+    miner_blocks = await get_miner_first_blocks()    
     hotkey_to_uid = {}
     for _, row in df.iterrows():
         hotkey = row['hotkey']

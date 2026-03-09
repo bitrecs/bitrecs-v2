@@ -43,7 +43,7 @@ cd bitrecs
 Please ensure the folder is named bitrecs as docker compose expects ~/bitrecs
 ```
 
-# Setup wallets
+# Setup Wallet
 ```
 uv init
 uv pip install bittensor-cli
@@ -93,22 +93,23 @@ SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS=3
 
 OPENROUTER_API_KEY=
 CHUTES_API_KEY=
-
-
 ```
 
- # Docker Compose 
+# Docker Compose 
  
- ```
- copy .yml file into /bitrecs:
+```
+copy .yml file into ~/bitrecs:
  
- https://github.com/bitrecs/bitrecs-v2/blob/main/validator/docker-compose-prod.yml
+https://github.com/bitrecs/bitrecs-v2/blob/main/validator/docker-compose-prod.yml
 
-docker compose -f ./docker-compose-prod.yml up -d
+docker compose -f validator/docker-compose-prod.yml up -d
 ```
 
 # Logs
 ```
- docker compose -f docker-compose-prod.yml logs --tail 10 --follow
+docker compose -f docker-compose-prod.yml logs --tail 10 --follow
 ```
- 
+
+# Watchtower
+
+Watcher should automatically be setup, check docker ps to ensure both containers (bitrecs validator and watchtower) are running

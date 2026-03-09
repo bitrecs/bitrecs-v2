@@ -26,7 +26,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
 from bittensor import Subtensor
 from version import __version__ as this_version
-from utils.commitment import commit_to_chain_with_wallet
+from utils.commitment import commit_to_chain_with_reveal
 from async_substrate_interface import ExtrinsicReceipt
 from utils.subtensor import close_subtensor
 from utils.verify import create_transport_signature
@@ -198,7 +198,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 return receipt
             
             async def commit_to_chain_task() -> MinerSubmission:               
-                commited, current_block = await commit_to_chain_with_wallet(submission.github_account, submission.gist_id, wallet)
+                commited, current_block = await commit_to_chain_with_reveal(submission.github_account, submission.gist_id, wallet)
                 if not commited:
                     raise Exception("Commitment to chain failed")
                 console.print(f"\n[bold green]Commitment to chain successful on block {current_block}![/bold green]")
@@ -234,8 +234,7 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 progress.add_task("Submitting artifact...", total=None)
                 nonce = secrets.token_hex(16)
                 t_sig = create_transport_signature(wallet, submission, payment_block_hash, payment_extrinsic_hash, payment_extrinsic_index, payment_amount_rao, nonce)
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                headers = {                    
                     'Accept': 'application/json',
                     'Referer': f'{bitrecs.api_url}/',
                     'X-Signature': t_sig,

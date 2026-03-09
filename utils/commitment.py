@@ -126,7 +126,7 @@ async def commit_to_chain(
 
 
 
-async def commit_to_chain_with_wallet(   
+async def commit_to_chain_with_reveal(   
     github_account: str,
     gist_id: str,   
     wallet: bt.Wallet
