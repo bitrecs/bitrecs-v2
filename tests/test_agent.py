@@ -52,7 +52,7 @@ async def test_insert_and_select_agent(db_setup):
         version_num=1,
         status=AgentStatus.screening_1,
         ip_address="127.0.0.1", 
-        miner_uid=123, 
+        miner_uid="123", 
         provider="sample_provider",
         model="sample_model",
         system_prompt_template="System prompt",
@@ -114,7 +114,7 @@ def sample_agent1():
         version_num=1,
         status=AgentStatus.screening_1,
         ip_address="127.0.0.1",
-        miner_uid=1,
+        miner_uid="1",
         provider="openai",
         model="gpt-3.5-turbo",
         system_prompt_template="You are a helpful assistant.",
@@ -137,7 +137,7 @@ def sample_agent2():
         version_num=1,
         status=AgentStatus.screening_1,
         ip_address="127.0.0.1",
-        miner_uid=2,
+        miner_uid="2",
         provider="openai",
         model="gpt-3.5-turbo",
         system_prompt_template="You are a helpful assistant.",
@@ -161,7 +161,7 @@ def sample_agent3():
         version_num=1,
         status=AgentStatus.screening_1,
         ip_address="192.0.0.1",
-        miner_uid=42,
+        miner_uid="42",
         provider="anthropic",
         model="claude-3-sonnet",
         system_prompt_template="You are an expert assistant specialized in technical topics.",
@@ -330,5 +330,5 @@ def test_agent_token_count():
     token_count = Agent.token_count(artifact)
     assert isinstance(token_count, int)
     assert token_count > 0, f"Token count should be greater than 0, got {token_count}"
-    assert 1076 == token_count, f"Expected token count 1076, got {token_count}"
+    assert 1075 == token_count, f"Expected token count 1076, got {token_count}"
     

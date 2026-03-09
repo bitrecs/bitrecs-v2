@@ -1,6 +1,5 @@
-import httpx
-from queries.hotkey_gist import get_hotkey_from_gist
 import utils.logger as logger
+from queries.hotkey_gist import get_hotkey_from_gist
 from datetime import datetime, timedelta, timezone
 from fastapi import UploadFile, HTTPException
 from bittensor_wallet.keypair import Keypair
@@ -142,21 +141,3 @@ async def check_file_size(agent_file: UploadFile) -> str:
         return content
 
 
-# async def get_tao_price() -> float:
-#     url = "https://api.coingecko.com/api/v3/simple/price"
-#     params = {"ids": "bittensor", "vs_currencies": "usd"}
-#     async with httpx.AsyncClient() as client:
-#         r = await client.get(url, params=params)
-#         r.raise_for_status()
-#         data = r.json()
-#     return data["bittensor"]["usd"]
-
-
-# async def get_bitrecs_price() -> float:
-#     url = "https://api.coingecko.com/api/v3/simple/price"
-#     params = {"ids": "bitrecs", "vs_currencies": "usd"}
-#     async with httpx.AsyncClient() as client:
-#         r = await client.get(url, params=params)
-#         r.raise_for_status()
-#         data = r.json()
-#     return data["bitrecs"]["usd"]

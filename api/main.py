@@ -407,8 +407,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
 
     await ensure_min_validators()
 
-    try:
-       
+    try:       
         x_signature = request.headers.get("X-Signature")
         x_timestamp = request.headers.get("X-Timestamp")       
         x_nonce = request.headers.get("X-Nonce")        

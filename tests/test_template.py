@@ -4,7 +4,7 @@ from models.agent import Agent
 from rules.agent_validator import validate_artifact_template
 
 ROOT_DIR = Path(__file__).parent.parent
-MINER_YAML_PATH = os.path.join(ROOT_DIR, "miner", "miner_input.yaml")
+MINER_YAML_PATH = os.path.join(ROOT_DIR, "miner", "miner_artifact.yaml")
 BROKEN_MINER_YAML_PATH = os.path.join(ROOT_DIR, "miner", "invalid_artifact.yaml")
 
 def test_template_contains_valid_vars():

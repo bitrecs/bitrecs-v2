@@ -119,12 +119,12 @@ async def test_bitrecs_eval_sandbox():
     assert env is not None
     logger.info("Loaded Docker environment successfully")
 
-    yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_input.yaml")
+    yaml_file_path = os.path.join(PARENT_DIR, "miner", "miner_artifact.yaml")
     with open(yaml_file_path, "r") as f:
-        miner_input_data = yaml.safe_load(f)
+        miner_artifact_data = yaml.safe_load(f)
 
-    logger.info(f"Testing model: {miner_input_data.get('model', 'N/A')} with provider: {miner_input_data.get('provider', 'N/A')}")
-    yaml_content = yaml.dump(miner_input_data)
+    logger.info(f"Testing model: {miner_artifact_data.get('model', 'N/A')} with provider: {miner_artifact_data.get('provider', 'N/A')}")
+    yaml_content = yaml.dump(miner_artifact_data)
     logger.info(f"Loaded YAML content from : {yaml_file_path}")    
     
     timeout = (30, 600)
