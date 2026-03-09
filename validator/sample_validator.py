@@ -41,8 +41,7 @@ from utils.subtensor import get_subtensor
 EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-
-state_backup = ScorePersister(base_path="data/weights", filename="scores.db")
+STATE_BACKUP = ScorePersister(base_path="data/weights", filename="scores.db")
 
 
 async def calculate_scores_loop():
@@ -162,7 +161,7 @@ async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
 
 async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, updated_status: EvaluationRunStatus, extra: Dict[str, Any] = {}):
     logger.info(f"Updating evaluation run {evaluation_run_id} for problem {problem_name} to {updated_status.value}...")    
-    max_retries = 5  # Number of retries for 401 errors
+    max_retries = 5
     for attempt in range(max_retries):
         try:
             await post_bitrecs_platform("/validator/update-evaluation-run", ValidatorUpdateEvaluationRunRequest(
@@ -179,7 +178,7 @@ async def update_evaluation_run(evaluation_run_id: UUID, problem_name: str, upda
             else:
                 raise  # Re-raise if not 401 or max retries hit
 
-# Simulate a run of an evaluation run, useful for testing, set SIMULATE_EVALUATION_RUNS=True in .env
+
 async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: str):
     logger.info(f"Starting simulated evaluation run {evaluation_run_id} for problem {problem_name}...")
 
@@ -213,7 +212,6 @@ async def _simulate_run_evaluation_run(evaluation_run_id: UUID, problem_name: st
     logger.info(f"Finished simulated evaluation run {evaluation_run_id} for problem {problem_name}")
 
 
-# Run an evaluation run
 async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_code: str):
     try:
         is_docker = is_running_in_container()
@@ -370,7 +368,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 duration=duration
             )
 
-            saved = state_backup.save_result(uid=miner_agent.miner_uid, 
+            saved = STATE_BACKUP.save_result(uid=miner_agent.miner_uid, 
                                      hotkey=miner_agent.miner_hotkey, 
                                      score=eval_score, 
                                      run_id=str(evaluation_run_id), 
@@ -416,9 +414,7 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     logger.info(f"  # of evaluation runs: {len(request_evaluation_response.evaluation_runs)}")
 
     SIMULATE_EVALUATION_RUNS = False
-    #SIMULATE_EVALUATION_RUNS = config.SIMULATE_EVALUATION_RUNSF    
-
-    logger.info("Starting evaluation...")
+    logger.info(f"Starting evaluation...simulating: {SIMULATE_EVALUATION_RUNS}")
 
     for evaluation_run in request_evaluation_response.evaluation_runs:
         evaluation_run_id = evaluation_run.evaluation_run_id
@@ -442,7 +438,6 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
         await disconnect(f"Error finishing evaluation: {type(e).__name__}: {e}")
 
 
-# Disconnect from the Bitrecs platform (called when the program exits)
 async def disconnect(reason: str):
     if session_id is None:
         return    
@@ -514,7 +509,7 @@ async def register_validator():
                 logger.error("Max registration retries reached. Exiting.")
                 raise
 
-# Main loop
+
 async def main():
     global session_id
     global running_agent_timeout_seconds

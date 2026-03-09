@@ -2,7 +2,6 @@ from enum import Enum
 from pydantic import BaseModel
 from typing import Any, Optional
 
-
 class ProblemTestCategory(str, Enum):
     default = 'default'
     pass_to_pass = 'pass_to_pass'
@@ -33,8 +32,6 @@ class ProblemDifficulty(str, Enum):
 class Problem(BaseModel):
     name: str
     difficulty: Optional[ProblemDifficulty] = None
-
     problem_statement: str
     solution_diff: str
-
     userdata: Any = None

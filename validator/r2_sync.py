@@ -35,8 +35,7 @@ async def r2_sync():
             hotkey=keypair.ss58_address,
             uid=uid
         )
-        logger.debug(f"Sending response sync request: {update_request}")
-        #sync_result = put_r2_upload(update_request, keypair)
+        logger.debug(f"Sending response sync request: {update_request}")        
         loop = asyncio.get_event_loop()
         sync_result = await loop.run_in_executor(
             None,

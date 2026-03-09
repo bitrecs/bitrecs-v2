@@ -1,5 +1,5 @@
 # Bitrecs V2
-A novel recommendation company. 
+A novel recommendation subnet. 
 
 [X](https://x.com/bitrecs) | [Dashboard](https://www.dashboard.bitrecs.ai)
 
