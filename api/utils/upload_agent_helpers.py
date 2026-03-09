@@ -1,8 +1,7 @@
 import utils.logger as logger
 from queries.hotkey_gist import get_hotkey_from_gist
 from datetime import datetime, timedelta, timezone
-from fastapi import UploadFile, HTTPException
-from bittensor_wallet.keypair import Keypair
+from fastapi import HTTPException
 from api.config import MINER_AGENT_UPLOAD_RATE_LIMIT_SECONDS
 from queries.banned_hotkey import get_banned_hotkey, is_hotkey_used
 from utils.bittensor import check_if_hotkey_is_registered
@@ -39,32 +38,6 @@ async def check_if_gist_used(gist: str) -> None:
         )
 
 
-def get_miner_hotkey(file_info: str) -> str:
-    logger.debug(f"Getting miner hotkey from file info: {file_info}.")
-    miner_hotkey = file_info.split(":")[0]
-
-    if not miner_hotkey:
-        logger.error(f"A miner attempted to upload an agent without a hotkey. File info: {file_info}.")
-        raise HTTPException(
-            status_code=400,
-            detail="miner_hotkey is required"
-        )
-    
-    logger.debug(f"Miner hotkey successfully extracted: {miner_hotkey}.")
-    return miner_hotkey
-
-def check_if_yaml_file(filename: str) -> None:
-    logger.debug(f"Checking if the file is a yaml file...")
-
-    if not filename.strip().lower().endswith(".yaml"):
-        logger.error(f"A miner attempted to upload an agent with an invalid filename: {filename}.")
-        raise HTTPException(
-            status_code=400,
-            detail="File must be a yaml file"
-        )
-    
-    logger.debug(f"The file is a yaml file.")
-
 async def check_agent_banned(miner_hotkey: str) -> None:
     logger.debug(f"Checking if miner hotkey {miner_hotkey} is banned...")
 
@@ -92,52 +65,14 @@ def check_rate_limit(latest_agent_created_at_in_latest_set_id: datetime) -> None
     
     logger.debug(f"Miner is not rate limited.")
 
-def check_signature(public_key: str, file_info: str, signature: str) -> None:
-    logger.debug(f"Checking if the signature is valid...")
-    logger.debug(f"Public key: {public_key}, File info: {file_info}, Signature: {signature}.")
-
-    keypair = Keypair(public_key=public_key)
-    if not keypair.verify(file_info, bytes.fromhex(signature)):
-        logger.error(f"A miner attempted to upload an agent with an invalid signature. Public key: {public_key}, File info: {file_info}, Signature: {signature}.")
-        raise HTTPException(
-            status_code=400, 
-            detail="Invalid signature"
-        )
-    
-    logger.debug(f"The signature is valid.")
 
 async def check_hotkey_registered(miner_hotkey: str) -> None:
     logger.debug(f"Checking if miner hotkey {miner_hotkey} is registered on subnet...")
-
     if not await check_if_hotkey_is_registered(miner_hotkey):
         logger.error(f"A miner attempted to upload an agent with a hotkey that is not registered on subnet: {miner_hotkey}.")
-        raise HTTPException(status_code=400, detail=f"Hotkey not registered on subnet")
-    
+        raise HTTPException(status_code=400, detail=f"Hotkey not registered on subnet")    
     logger.debug(f"Miner hotkey {miner_hotkey} is registered on the subnet.")
-    
-async def check_file_size(agent_file: UploadFile) -> str:
-    logger.debug(f"Checking if the file size is valid...")
 
-    MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024 
-    file_size = 0
-    content = b""
-    for chunk in agent_file.file:
-        file_size += len(chunk)
-        content += chunk
-        if file_size > MAX_FILE_SIZE:
-            logger.error(f"A miner attempted to upload an agent with a file size that exceeds the maximum allowed size. File size: {file_size}.")
-            raise HTTPException(
-                status_code=400,
-                detail=f"File size must not exceed {MAX_FILE_SIZE_MB}MB"
-            )
-    
-    logger.debug(f"The file size is valid.")
-    await agent_file.seek(0)
-    
-    # Handle both bytes and string content
-    if isinstance(content, bytes):
-        return content.decode('utf-8')
-    else:
-        return content
+
 
 

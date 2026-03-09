@@ -34,7 +34,7 @@ from utils.database import (
     check_database_health, DB_POOL
 )
 from api.utils.upload_agent_helpers import (
-    check_agent_banned, check_if_gist_used, 
+    check_agent_banned, check_hotkey_registered, check_if_gist_used, 
     check_if_hotkey_is_validator, check_if_hotkey_used    
 )
 from utils.network import get_client_ip
@@ -334,11 +334,11 @@ async def check_agent_post(
     # if latest_agent_created_at_in_latest_set_id:
     #     check_rate_limit(latest_agent_created_at_in_latest_set_id)    
     
-    if config.ENV == "prod":
+    if config.ENV == "prod" or 1==1:
         await check_if_hotkey_used(miner_hotkey)
-        await check_if_gist_used(submission.gist_id)
-        #await check_hotkey_registered(miner_hotkey)
-        await check_agent_banned(miner_hotkey) 
+        await check_if_gist_used(submission.gist_id)        
+        await check_agent_banned(miner_hotkey)
+        await check_hotkey_registered(miner_hotkey)
 
     subtensor = await get_subtensor()
     coldkey = await subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey)
@@ -481,11 +481,12 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             )
             return JSONResponse(content={"error": "Miner hotkey in submission does not match miner hotkey in artifact"}, status_code=400)
         
-        if config.ENV == "prod":
-            await check_if_hotkey_used(submission.hotkey)     
-            await check_if_gist_used(submission.gist_id)     
-
-        #check chain commitment
+        if config.ENV == "prod" or 1==1:
+            await check_if_hotkey_used(submission.hotkey)
+            await check_if_gist_used(submission.gist_id)
+            await check_agent_banned(submission.hotkey)
+            await check_hotkey_registered(submission.hotkey)
+        
         commit_valid, commit_block = await is_commitment_valid(submission)
         if not commit_valid:
             logger.warning(f"MinerSubmission commitment to chain is not valid for Gist {submission.gist_id}")
