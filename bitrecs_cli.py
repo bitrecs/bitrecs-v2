@@ -140,12 +140,12 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
         logger.info(f"Starting upload with burn for Gist {gist_id} using wallet {wallet.hotkey.ss58_address} on Netuid {netuid}")
         
         with httpx.Client() as client:
-            response = client.get(f"{bitrecs.api_url}/retrieval/agent-by-hotkey?miner_hotkey={wallet.hotkey.ss58_address}")
-            if response.status_code == 200 and response.json().get('agent'):
-                console.print(f"An agent is already registered with hotkey {wallet.hotkey.ss58_address}. Please use a different hotkey or remove the existing agent before uploading.", style="bold red")
-                return
-            else:
-                console.print(f"No existing agent found with hotkey {wallet.hotkey.ss58_address}. Proceeding with upload.", style="bold green")
+            # response = client.get(f"{bitrecs.api_url}/retrieval/agent-by-hotkey?miner_hotkey={wallet.hotkey.ss58_address}")
+            # if response.status_code == 200 and response.json().get('agent'):
+            #     console.print(f"An agent is already registered with hotkey {wallet.hotkey.ss58_address}. Please use a different hotkey or remove the existing agent before uploading.", style="bold red")
+            #     return
+            # else:
+            #     console.print(f"No existing agent found with hotkey {wallet.hotkey.ss58_address}. Proceeding with upload.", style="bold green")
 
             console.print("Checking agent eligibility with the Bitrecs API...", style="dim")           
             check_response = client.post(f"{bitrecs.api_url}/check", json=submission.to_dict(), timeout=120)

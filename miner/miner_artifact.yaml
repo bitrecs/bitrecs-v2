@@ -75,14 +75,4 @@ user_prompt_template: |
 
 sampling_params:
   temperature: 0.2
-  top_p: 0.9
-  max_tokens: 2048
-  stop_sequences: ["\n\n"]
-fewshot_examples:
-  - role: "user"
-    content: "Recommend items similar and appropriate to <sku>{{sku}}</sku> given this user context"
-  - role: "assistant"
-    content: |
-      [{"sku": "XYZ", "name": "Hunter Original Play Boot Chelsea", "price": "115", "reason": "User is viewing rainboots, we recommend this alternative pair of rainboots which is our best seller"},
-      {"sku": "ABC", "name": "Men's Lightweight Hooded Rain Jacket", "price": "149", "reason": "Since the user is looking at mens rainboots, given the season a mens raincoat should be a good fit"},
-      {"sku": "DEF", "name": "Davek Elite Umbrella", "price": "159", "reason": "An Umbrella would go nicely with ABC Lightweight Hooded Rain Jacket and is often paired with it"}]
+ 
