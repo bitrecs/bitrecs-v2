@@ -1,6 +1,15 @@
 import time
+import utils.logger as logger
 from bittensor_wallet import Keypair, Wallet
 from models.miner_submission import MinerSubmission
+
+def validate_signed_timestamp(timestamp: int, signed_timestamp: str, hotkey: str) -> bool:
+    try:
+        keypair = Keypair(ss58_address=hotkey)
+        return keypair.verify(str(timestamp), bytes.fromhex(signed_timestamp))
+    except Exception as e:
+        logger.warning(f"Error in validate_signed_timestamp(timestamp={timestamp}, signed_timestamp={signed_timestamp}, hotkey={hotkey}): {e}")
+        return False
 
 def verify_submission_signature(submission: MinerSubmission) -> bool:
     preamble = f"{submission.created_at}:{submission.github_account}:{submission.gist_id}:{submission.hotkey}"

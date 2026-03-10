@@ -39,7 +39,7 @@ from utils.validator_hotkeys import is_validator_hotkey_whitelisted, validator_h
 from api.endpoints.validator_models import *
 from api.utils.limiter import limiter
 from utils.network import get_client_ip
-from utils.bittensor import validate_signed_timestamp
+from utils.verify import validate_signed_timestamp
 
 class Validator(BaseModel):
     session_id: UUID
@@ -160,37 +160,32 @@ async def validator_register_as_validator(
     registration_request: ValidatorRegistrationRequest
 ) -> ValidatorRegistrationResponse:
 
-    logger.debug(f"Received validator registration request: {registration_request}")
- 
-    # # Ensure that the hotkey is in the list of acceptable validator hotkeys
+    logger.debug(f"Received validator registration request: {registration_request}") 
+    
     if not is_validator_hotkey_whitelisted(registration_request.hotkey):
         raise HTTPException(
             status_code=403,
             detail="The provided hotkey is not in the list of whitelisted validator hotkeys."
-        )
+        )    
     
-    # Check if the signed timestamp is valid (i.e., matches the raw timestamp)
     if not validate_signed_timestamp(registration_request.timestamp, registration_request.signed_timestamp, registration_request.hotkey):
         raise HTTPException(
             status_code=401,
             detail="The provided signed timestamp does not match the provided timestamp."
         )
-
-    # Ensure that the timestamp is within 5 minutes
+    
     if abs(int(registration_request.timestamp) - int(time.time())) > 500:
         raise HTTPException(
             status_code=400,
             detail="The provided timestamp is not within 5 minutes of the current time."
         )
-
-    # Ensure that the validator is not already registered
+        
     if is_validator_registered(registration_request.hotkey):
         raise HTTPException(
             status_code=409,
             detail=f"There is already a validator connected with the given hotkey."
         )
-
-    # Register the validator with a new session ID
+    
     session_id = uuid4()    
     ip_address = get_client_ip(request)
     SESSION_ID_TO_VALIDATOR[session_id] = Validator(

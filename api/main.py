@@ -329,10 +329,7 @@ async def check_agent_post(
             detail=f"Miner hotkey {miner_hotkey} is not a valid format"
         )
     
-    await check_if_hotkey_is_validator(miner_hotkey)
-    # latest_agent_created_at_in_latest_set_id = await get_latest_agent_created_at_for_miner_hotkey_in_latest_set_id(miner_hotkey=miner_hotkey)
-    # if latest_agent_created_at_in_latest_set_id:
-    #     check_rate_limit(latest_agent_created_at_in_latest_set_id)    
+    await check_if_hotkey_is_validator(miner_hotkey)   
     
     if config.ENV == "prod" or 1==1:
         await check_if_hotkey_used(miner_hotkey)
@@ -586,13 +583,11 @@ async def miner_submission(request: Request, submission: MinerSubmission):
     except HTTPException:
         # Re-raise HTTPExceptions (they have specific status codes)
         raise
-    except Exception as e:
-        # Log full details for debugging
-        logger.error(f"Error submitting artifact (request_id: {request_id}): {e}")        
-        # Return verbose error in response (for dev/test; in prod, make it generic)
+    except Exception as e:        
+        logger.error(f"Error submitting artifact (request_id: {request_id}): {e}")                
         error_details = {
             "error": "Failed to submit artifact",
-            "details": str(e),  # Include exception message
+            "details": str(e),
             "request_id": request_id,
             #"traceback": traceback.format_exc() if config.ENV != "prod" else None  # Full traceback in non-prod
             "traceback": traceback.format_exc()
@@ -652,11 +647,6 @@ async def check_onchain_payment(miner_hotkey: str, payment_block_hash: str, paym
             status_code=402,
             detail="Coldkey does not match"
         )
-    
-    if 1==2:
-        upload_price = await calculate_upload_price()        
-        #alpha_value = get_value_from_alpha(onchain_payment_value_rao)
-        #logger.info(f"On-chain payment verified for hotkey {miner_hotkey} with value {alpha_value} alpha (required: {amount_rao / 1e9} alpha)")
 
     return True
 

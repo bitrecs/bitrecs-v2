@@ -24,5 +24,5 @@ RUN uv run python get_version.py
 RUN cp /tmp/version.txt /app/version.txt
 
 # Run the validator
-#CMD ["python", "validator/sample_validator.py"]
-CMD ["uv", "run", "/app/validator/sample_validator.py"]
+#CMD ["python", "validator/bitrecs_validator.py"]
+CMD ["uv", "run", "/app/validator/bitrecs_validator.py"]

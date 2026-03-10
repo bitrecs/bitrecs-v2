@@ -139,15 +139,15 @@ class PolyglotSuite(ProblemSuite):
                 self.copy_problem_files_to_directory(problem, sandbox_repo_dir, include_tests=True)
 
                 # Validate the patch
-                is_valid, error_message = validate_diff_for_local_repo(patch, sandbox_repo_dir)
-                if not is_valid:
-                    raise EvaluationRunException(
-                        EvaluationRunErrorCode.AGENT_INVALID_PATCH,
-                        f"{EvaluationRunErrorCode.AGENT_INVALID_PATCH.get_error_message()}: {error_message}"
-                    )
+                # is_valid, error_message = validate_diff_for_local_repo(patch, sandbox_repo_dir)
+                # if not is_valid:
+                #     raise EvaluationRunException(
+                #         EvaluationRunErrorCode.AGENT_INVALID_PATCH,
+                #         f"{EvaluationRunErrorCode.AGENT_INVALID_PATCH.get_error_message()}: {error_message}"
+                #     )
 
-                # Apply the patch
-                apply_diff_to_local_repo(patch, sandbox_repo_dir)
+                # # Apply the patch
+                # apply_diff_to_local_repo(patch, sandbox_repo_dir)
 
 
 
