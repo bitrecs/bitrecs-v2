@@ -14,7 +14,7 @@ from utils.validator_hotkeys import TEST_VALIDATOR_HOTKEYS
 R2_INTERVAL_SECONDS = 900
 
 async def r2_download_and_sync():    
-    await asyncio.sleep(60)
+    await asyncio.sleep(300)
     logger.info("Starting r2_download_and_sync loop...")
     while True:
         try:            
@@ -32,20 +32,7 @@ async def r2_download_and_sync():
 
 
 
-def download_db_from_r2(bucket_name: str, key: str, download_dir: str, endpoint_url: str = "https://<your-r2-account>.r2.cloudflarestorage.com", region: str = "wnam") -> Optional[str]:
-    """
-    Downloads a SQLite DB from R2, saves to download_dir, and returns the file path.
-    
-    Args:
-        bucket_name: R2 bucket name (must be 'v2-testnet').
-        key: Object key (e.g., 'hotkey/scores.db').
-        download_dir: Local directory to save the file.
-        endpoint_url: R2 endpoint URL.
-        region: AWS region (default 'wnam' for R2).
-    
-    Returns:
-        File path to downloaded DB, or None on failure.
-    """
+def download_db_from_r2(bucket_name: str, key: str, download_dir: str, region: str = "wnam") -> Optional[str]:  
     if bucket_name != "v2-testnet":
         logger.error("R2_BUCKET must be set to 'v2-testnet'")
         return None
@@ -54,7 +41,7 @@ def download_db_from_r2(bucket_name: str, key: str, download_dir: str, endpoint_
         logger.error(f"Directory not found: {download_dir}")
         return None
     
-    try:        
+    try:
         s3 = boto3.client(
             "s3",
             aws_access_key_id=os.getenv("R2_ACCESS_KEY_ID"),
@@ -81,9 +68,8 @@ async def upsert_to_postgres(conn, sqlite_path: str) -> None:
         rows = cursor.fetchall()        
         if not rows:
             logger.info("No rows to upsert")
-            return
+            return        
         
-        # Prepare data for bulk upsert
         data = [
             (
                 row[0],  # run_id

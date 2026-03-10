@@ -87,8 +87,7 @@ async def upload_request(request: Request, report: ValidatorUploadRequest):
             logger.warning(f"Invalid signature from {client_ip}")
             raise HTTPException(status_code=403, detail="Invalid signature")
             
-        logger.info(f"Validator upload Valid signature from {report.hotkey} at IP: {client_ip}")
-        # Generate and return signed URL
+        logger.info(f"Validator upload Valid signature from {report.hotkey} at IP: {client_ip}")        
         signed_url = generate_upload_url2(report)
         if not signed_url or not is_valid_url(signed_url):
             raise HTTPException(status_code=500, detail="Failed to generate upload URL")

@@ -17,7 +17,7 @@ services:
       - DOCKER_HOST=unix:///var/run/docker.sock
     networks:
       - bitrecs-network
-    command: ["uv", "run", "/app/validator/sample_validator.py"]
+    command: ["uv", "run", "/app/validator/bitrecs_validator.py"]
 
   watchtower:
     image: nickfedor/watchtower

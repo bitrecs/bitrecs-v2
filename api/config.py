@@ -10,15 +10,6 @@ if not ENV:
 if ENV != "prod" and ENV != "dev":
     logger.fatal("ENV must be either 'prod' or 'dev'")
 
-HOST = os.getenv("HOST")
-if not HOST:
-    logger.fatal("HOST is not set in .env")
-
-PORT = os.getenv("PORT")
-if not PORT:
-    logger.fatal("PORT is not set in .env")
-PORT = int(PORT)
-
 NETUID = os.getenv("NETUID")
 if not NETUID:
     logger.fatal("NETUID is not set in .env")
@@ -134,8 +125,6 @@ if not VALIDATOR_MAX_EVALUATION_RUN_LOG_SIZE_BYTES:
     logger.fatal("VALIDATOR_MAX_EVALUATION_RUN_LOG_SIZE_BYTES is not set in .env")
 VALIDATOR_MAX_EVALUATION_RUN_LOG_SIZE_BYTES = int(VALIDATOR_MAX_EVALUATION_RUN_LOG_SIZE_BYTES)
 
-
-
 MINER_AGENT_UPLOAD_RATE_LIMIT_SECONDS = os.getenv("MINER_AGENT_UPLOAD_RATE_LIMIT_SECONDS")
 if not MINER_AGENT_UPLOAD_RATE_LIMIT_SECONDS:
     logger.fatal("MINER_AGENT_UPLOAD_RATE_LIMIT_SECONDS is not set in .env")
@@ -152,16 +141,11 @@ COST_PER_MINER_SUBMISSION_USD = int(os.getenv("COST_PER_MINER_SUBMISSION_USD", 2
 
 
 logger.info("=== API Configuration ===")
-
-logger.info(f"Host: {HOST}")
-logger.info(f"Port: {PORT}")
 logger.info("-------------------------")
-
 logger.info(f"Network ID: {NETUID}")
 logger.info(f"Subtensor Address: {SUBTENSOR_ADDRESS}")
 logger.info(f"Subtensor Network: {SUBTENSOR_NETWORK}")
 logger.info("-------------------------")
-
 if BURN:
     logger.warning("Burning!")
     logger.info("-------------------------")
