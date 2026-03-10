@@ -1,5 +1,6 @@
 import api.config as config
 import pandas as pd
+import utils.logger as logger
 from fastapi import APIRouter, Request
 from datetime import datetime
 from pydantic import BaseModel
@@ -75,39 +76,43 @@ async def latest_set_info(request: Request) -> ScoringLatestSetInfo:
 @router.get("/pareto")
 @limiter.limit("60/minute")
 async def pareto_frontier(request: Request) -> Dict[str, Any]:
-    current_set_id = await get_current_eval_set_id()
-    print(f"Current evaluation_set_id: {current_set_id}") 
-    data = await get_miner_scores(evaluation_set_id=current_set_id)
-    miner_scores = df_to_miner_scores(data)
-    samples = df_to_samples(data)
-    envs = list(samples.keys())    
-    pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)    
-    # Aggregate dominance into stats
-    dominance_df = pd.DataFrame({
-        'uid': pareto_result.uid_mapping,
-        'on_frontier': [uid in pareto_result.frontier_uids for uid in pareto_result.uid_mapping],
-        'dominated_count': [sum(row) for row in pareto_result.dominance_matrix]
-    })
-    dominance_df['score_avg'] = [miner_scores.get(uid, {}).values() for uid in dominance_df['uid']]
-    # Simplify score_avg to mean across envs
-    dominance_df['score_avg'] = dominance_df['score_avg'].apply(lambda x: sum(x)/len(x) if x else 0)
-    stats = dominance_df.sort_values('on_frontier', ascending=False).to_dict('records')
-    
-    # Summarized logs
-    frontier_count = len(pareto_result.frontier_uids)
-    print(f"Pareto Frontier: {frontier_count}/{len(pareto_result.uid_mapping)} UIDs on frontier")
-    
-    # Reduced output
-    return {
-        "frontier_uids": pareto_result.frontier_uids,
-        "dominance_matrix": pareto_result.dominance_matrix.tolist()[:10],
-        "score_matrix": pareto_result.score_matrix.tolist()[:10],
-        "uid_mapping": pareto_result.uid_mapping,
-        "miner_scores": miner_scores,
-        "samples": samples,
-        "dominance_explanation": {uid: "On frontier" if uid in pareto_result.frontier_uids else f"Dominated by others" for uid in pareto_result.uid_mapping},
-        "stats": stats,
-    }
+    try:
+        current_set_id = await get_current_eval_set_id()
+        print(f"Current evaluation_set_id: {current_set_id}") 
+        data = await get_miner_scores(evaluation_set_id=current_set_id)
+        miner_scores = df_to_miner_scores(data)
+        samples = df_to_samples(data)
+        envs = list(samples.keys())    
+        pareto_result = compute_pareto_frontier(miner_scores=miner_scores, env_ids=envs, n_samples_per_env=samples)    
+        # Aggregate dominance into stats
+        dominance_df = pd.DataFrame({
+            'uid': pareto_result.uid_mapping,
+            'on_frontier': [uid in pareto_result.frontier_uids for uid in pareto_result.uid_mapping],
+            'dominated_count': [sum(row) for row in pareto_result.dominance_matrix]
+        })
+        dominance_df['score_avg'] = [miner_scores.get(uid, {}).values() for uid in dominance_df['uid']]
+        # Simplify score_avg to mean across envs
+        dominance_df['score_avg'] = dominance_df['score_avg'].apply(lambda x: sum(x)/len(x) if x else 0)
+        stats = dominance_df.sort_values('on_frontier', ascending=False).to_dict('records')
+        
+        # Summarized logs
+        frontier_count = len(pareto_result.frontier_uids)
+        print(f"Pareto Frontier: {frontier_count}/{len(pareto_result.uid_mapping)} UIDs on frontier")
+        
+        # Reduced output
+        return {
+            "frontier_uids": pareto_result.frontier_uids,
+            "dominance_matrix": pareto_result.dominance_matrix.tolist()[:10],
+            "score_matrix": pareto_result.score_matrix.tolist()[:10],
+            "uid_mapping": pareto_result.uid_mapping,
+            "miner_scores": miner_scores,
+            "samples": samples,
+            "dominance_explanation": {uid: "On frontier" if uid in pareto_result.frontier_uids else f"Dominated by others" for uid in pareto_result.uid_mapping},
+            "stats": stats,
+        }
+    except Exception as e:
+        logger.error(f"Error in pareto endpoint: {e}")
+        return {"error": "No miners in current evaluation set"}
 
 
 
@@ -131,41 +136,45 @@ async def df_to_miner_blocks2(df) -> MinerFirstBlocks:
 @router.get("/wta")
 @limiter.limit("60/minute")
 async def winner_take_all(request: Request) -> Dict[str, Any]:
-    current_set_id = await get_current_eval_set_id()
-    print(f"Current evaluation_set_id: {current_set_id}")  
-    data = await get_miner_scores(evaluation_set_id=current_set_id)
-    miner_scores = df_to_miner_scores(data)
-    samples = df_to_samples(data)
-    envs = list(samples.keys())
-    miner_blocks = await df_to_miner_blocks2(data)
-    miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
-    subset_scores = compute_subset_scores_with_priority(
-        miner_scores, miner_thresholds, miner_blocks, envs
-    )
-    weights = scores_to_weights(subset_scores)    
-    
-    subset_winners = {
-        str(subset): find_subset_winner_with_priority(miner_scores, miner_thresholds, miner_blocks, subset)
-        for subset_size in range(1, len(envs) + 1)
-        for subset in combinations(envs, subset_size)
-    }
-    winners_df = pd.DataFrame(list(subset_winners.items()), columns=['subset', 'winner_uid'])
-    stats_df = winners_df.groupby('winner_uid').size().reset_index(name='subsets_won')
-    stats_df['weight'] = stats_df['winner_uid'].map(weights).fillna(0.0)
-    stats_df['rank'] = stats_df['weight'].rank(ascending=False, method='dense').astype(int)
-    stats = stats_df.sort_values('weight', ascending=False).to_dict('records')  
-    
-    total_subsets = len(subset_winners)
-    print(f"\nTotal subsets: {total_subsets}")
-    for _, row in stats_df.iterrows():
-        print(f"UID {row['winner_uid']}: {row['subsets_won']}/{total_subsets} subsets, weight {row['weight']:.4f}")    
-    
-    top_subset_winners = dict(list(subset_winners.items())[:10])  # First 10 as example
-    return {
-        "weights": weights,
-        "subset_scores": subset_scores,
-        "miner_thresholds": miner_thresholds,
-        "miner_blocks": miner_blocks,
-        "subset_winners": top_subset_winners,
-        "stats": stats,
-    }
+    try:
+        current_set_id = await get_current_eval_set_id()
+        print(f"Current evaluation_set_id: {current_set_id}")  
+        data = await get_miner_scores(evaluation_set_id=current_set_id)
+        miner_scores = df_to_miner_scores(data)
+        samples = df_to_samples(data)
+        envs = list(samples.keys())
+        miner_blocks = await df_to_miner_blocks2(data)
+        miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
+        subset_scores = compute_subset_scores_with_priority(
+            miner_scores, miner_thresholds, miner_blocks, envs
+        )
+        weights = scores_to_weights(subset_scores)    
+        
+        subset_winners = {
+            str(subset): find_subset_winner_with_priority(miner_scores, miner_thresholds, miner_blocks, subset)
+            for subset_size in range(1, len(envs) + 1)
+            for subset in combinations(envs, subset_size)
+        }
+        winners_df = pd.DataFrame(list(subset_winners.items()), columns=['subset', 'winner_uid'])
+        stats_df = winners_df.groupby('winner_uid').size().reset_index(name='subsets_won')
+        stats_df['weight'] = stats_df['winner_uid'].map(weights).fillna(0.0)
+        stats_df['rank'] = stats_df['weight'].rank(ascending=False, method='dense').astype(int)
+        stats = stats_df.sort_values('weight', ascending=False).to_dict('records')  
+        
+        total_subsets = len(subset_winners)
+        print(f"\nTotal subsets: {total_subsets}")
+        for _, row in stats_df.iterrows():
+            print(f"UID {row['winner_uid']}: {row['subsets_won']}/{total_subsets} subsets, weight {row['weight']:.4f}")    
+        
+        top_subset_winners = dict(list(subset_winners.items())[:10])  # First 10 as example
+        return {
+            "weights": weights,
+            "subset_scores": subset_scores,
+            "miner_thresholds": miner_thresholds,
+            "miner_blocks": miner_blocks,
+            "subset_winners": top_subset_winners,
+            "stats": stats,
+        }
+    except Exception as e:
+        logger.error(f"Error in winner_take_all endpoint: {e}")
+        return {"error": "No miners in current evaluation set"}
