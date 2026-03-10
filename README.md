@@ -14,7 +14,7 @@
 
 **What is Bitrecs V2?** 
 
-Bitrecs V2 is a prompt evolution subnet which rewards miners who optimize an artifact.yml, an object containing a prompt, model, temperature and other parameters against a rotating set of challenging ecommerce evlautions. Miners submit artifacts via the CLI by making an onchain commitment and alpha burn to begin evaluation.
+Bitrecs V2 is a prompt evolution subnet which rewards miners who optimize an artifact.yml, an object containing a prompt, model, temperature and other parameters against a rotating set of challenging ecommerce evaluations. Miners submit artifacts via the CLI by making an onchain commitment and alpha burn to begin evaluation.
 
 **What does Bitrecs do?**
 
