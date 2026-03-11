@@ -55,6 +55,9 @@ def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
     if provider not in ALLOWED_PROVIDERS:
         return False, f"provider '{agent.provider}' is currently not supported. Supported providers are: {', '.join(ALLOWED_PROVIDERS)}"
     
+    if ":free" in agent.model.lower():
+        return False, "Free models are not supported"
+    
     try:
         Template(agent.system_prompt_template)
     except TemplateSyntaxError as e:
