@@ -7,13 +7,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 EXCLUDED_PATHS = [
     "/",              # Root endpoint
-    "/docs",          # API documentation
+    #"/docs",          # API documentation
     "/favicon.ico",   # Favicon for docs
-    "/openapi.json",  # OpenAPI schema for docs
+    #"/openapi.json",  # OpenAPI schema for docs
     "/health",        # Health check
     "/submit",        # Bitrecs CLI submission endpoint
     "/check",         # Bitrecs CLI check endpoint    
-    "/eval-pricing"   # Bitrecs CLI eval-pricing endpoint
+    #"/eval-pricing"   # Bitrecs CLI eval-pricing endpoint
 ]
 
 class APIKeyMiddleware(BaseHTTPMiddleware):

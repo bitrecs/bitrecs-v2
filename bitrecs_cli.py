@@ -24,10 +24,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
-from bittensor import Subtensor
 from version import __version__ as this_version
 from utils.commitment import commit_to_chain_with_reveal
-from async_substrate_interface import ExtrinsicReceipt
 from utils.subtensor import close_subtensor
 from utils.verify import create_transport_signature
 
@@ -95,8 +93,8 @@ def async_run(f):
 @click.option("--netuid", type=int, help="Netuid for the subnet")
 @click.pass_context
 @async_run
-async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str], coldkey_name: Optional[str], hotkey_name: Optional[str], netuid: Optional[int]):
-    """Upload a miner artifact to the Bitrecs API using alpha burn."""
+async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], coldkey_name: Optional[str], hotkey_name: Optional[str], netuid: Optional[int]):
+    """Upload a miner artifact to the Bitrecs API"""
     
     start_time = time.perf_counter()
     bitrecs = BitrecsCLI(ctx.obj.get('url'))
@@ -153,49 +151,49 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 console.print(f"Error checking agent: {check_response.text}", style="bold red")
                 return
         
-            payment_response = client.get(f"{bitrecs.api_url}/eval-pricing")
-            if payment_response.status_code != 200:
-                console.print("Error fetching evaluation cost", style="bold red")
-                return            
-            payment_method_details = payment_response.json()            
-            confirm_payment = Prompt.ask(
-                f"\n[bold yellow]Proceed with BURNING of {payment_method_details['amount_rao'] / 1e9} ALPHA on Netuid {netuid}?[/bold yellow]", 
-                choices=["y", "n"], 
-                default="n"
-            )
-            if confirm_payment.lower() != "y":
-                console.print("[bold red]Burn cancelled by user. Upload aborted.[/bold red]")
-                return
+            # payment_response = client.get(f"{bitrecs.api_url}/eval-pricing")
+            # if payment_response.status_code != 200:
+            #     console.print("Error fetching evaluation cost", style="bold red")
+            #     return            
+            # payment_method_details = payment_response.json()            
+            # confirm_payment = Prompt.ask(
+            #     f"\n[bold yellow]Proceed with BURNING of {payment_method_details['amount_rao'] / 1e9} ALPHA on Netuid {netuid}?[/bold yellow]", 
+            #     choices=["y", "n"], 
+            #     default="n"
+            # )
+            # if confirm_payment.lower() != "y":
+            #     console.print("[bold red]Burn cancelled by user. Upload aborted.[/bold red]")
+            #     return
 
-            payment_amount_rao = payment_method_details['amount_rao']
+            #payment_amount_rao = payment_method_details['amount_rao']
             # Unlock wallets and pre-connect to subtensor before starting progress
-            console.print("[dim]Decrypting wallets...[/dim]")
-            coldkey_keypair = wallet.coldkey
-            hotkey_keypair = wallet.hotkey
-            hotkey_address = wallet.hotkey.ss58_address            
+            #console.print("[dim]Decrypting wallets...[/dim]")
+            # coldkey_keypair = wallet.coldkey
+            # hotkey_keypair = wallet.hotkey
+            # hotkey_address = wallet.hotkey.ss58_address            
             
-            chain_endpoint = os.getenv('SUBTENSOR_ADDRESS')
-            network = os.getenv('SUBTENSOR_NETWORK', 'test')
-            subtensor = Subtensor(network=chain_endpoint or network)            
+            #chain_endpoint = os.getenv('SUBTENSOR_ADDRESS')
+            #network = os.getenv('SUBTENSOR_NETWORK', 'test')
+            #subtensor = Subtensor(network=chain_endpoint or network)            
             
-            async def burn_alpha() -> ExtrinsicReceipt:
-                payment_payload = subtensor.substrate.compose_call(
-                    call_module="SubtensorModule",
-                    call_function="burn_alpha",
-                    call_params={
-                        'hotkey': hotkey_address,
-                        'amount': payment_method_details['amount_rao'],
-                        'netuid': netuid                    
-                    }
-                )
-                payment_extrinsic = subtensor.substrate.create_signed_extrinsic(call=payment_payload, keypair=coldkey_keypair)
-                receipt = await asyncio.to_thread(subtensor.substrate.submit_extrinsic, payment_extrinsic, wait_for_finalization=True)
-                if not receipt.is_success:
-                    raise Exception(f"Burn failed: {receipt.error_message}")
-                console.print(f"\n[yellow]Burn extrinsic submitted...[/yellow]")
-                console.print(f"[cyan]Payment Block Hash:[/cyan] {receipt.block_hash}")
-                console.print(f"[cyan]Payment Extrinsic Index:[/cyan] {receipt.extrinsic_idx}\n")
-                return receipt
+            # async def burn_alpha() -> ExtrinsicReceipt:
+            #     payment_payload = subtensor.substrate.compose_call(
+            #         call_module="SubtensorModule",
+            #         call_function="burn_alpha",
+            #         call_params={
+            #             'hotkey': hotkey_address,
+            #             'amount': payment_method_details['amount_rao'],
+            #             'netuid': netuid                    
+            #         }
+            #     )
+            #     payment_extrinsic = subtensor.substrate.create_signed_extrinsic(call=payment_payload, keypair=coldkey_keypair)
+            #     receipt = await asyncio.to_thread(subtensor.substrate.submit_extrinsic, payment_extrinsic, wait_for_finalization=True)
+            #     if not receipt.is_success:
+            #         raise Exception(f"Burn failed: {receipt.error_message}")
+            #     console.print(f"\n[yellow]Burn extrinsic submitted...[/yellow]")
+            #     console.print(f"[cyan]Payment Block Hash:[/cyan] {receipt.block_hash}")
+            #     console.print(f"[cyan]Payment Extrinsic Index:[/cyan] {receipt.extrinsic_idx}\n")
+            #     return receipt
             
             async def commit_to_chain_task() -> MinerSubmission:               
                 commited, current_block = await commit_to_chain_with_reveal(submission.github_account, submission.gist_id, wallet)
@@ -205,26 +203,26 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
                 return submission            
             
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
-                burn_task_id = progress.add_task("Submitting burn transaction...", total=None)
+                #burn_task_id = progress.add_task("Submitting burn transaction...", total=None)
                 commit_task_id = progress.add_task("Committing to chain...", total=None)
                 
-                burn_task = asyncio.create_task(burn_alpha())
+                #burn_task = asyncio.create_task(burn_alpha())
                 commit_task = asyncio.create_task(commit_to_chain_task())
-                await asyncio.gather(burn_task, commit_task)
+                await asyncio.gather(commit_task)
                 
-                progress.update(burn_task_id, completed=True)
+                #progress.update(burn_task_id, completed=True)
                 progress.update(commit_task_id, completed=True)
             
-            receipt = burn_task.result()
+            #receipt = burn_task.result()
             submission = commit_task.result()
 
-            payment_block_hash = receipt.block_hash
-            payment_extrinsic_hash = receipt.extrinsic_hash            
-            payment_extrinsic_index = receipt.extrinsic_idx            
-            console.print(f"payment_block_hash : {payment_block_hash}")
-            console.print(f"payment_extrinsic_hash : {payment_extrinsic_hash}")            
-            console.print(f"payment_extrinsic_index : {payment_extrinsic_index}")     
-            console.print(f"payment amount rao : {payment_amount_rao}")       
+            # payment_block_hash = receipt.block_hash
+            # payment_extrinsic_hash = receipt.extrinsic_hash            
+            # payment_extrinsic_index = receipt.extrinsic_idx            
+            # console.print(f"payment_block_hash : {payment_block_hash}")
+            # console.print(f"payment_extrinsic_hash : {payment_extrinsic_hash}")            
+            # console.print(f"payment_extrinsic_index : {payment_extrinsic_index}")     
+            # console.print(f"payment amount rao : {payment_amount_rao}")       
             
             # Wait for reveal
             console.print(f"Waiting for reveal ...")
@@ -233,17 +231,18 @@ async def upload_burn(ctx, github_account: Optional[str], gist_id: Optional[str]
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
                 progress.add_task("Submitting artifact...", total=None)
                 nonce = secrets.token_hex(16)
-                t_sig = create_transport_signature(wallet, submission, payment_block_hash, payment_extrinsic_hash, payment_extrinsic_index, payment_amount_rao, nonce)
+                #t_sig = create_transport_signature(wallet, submission, payment_block_hash, payment_extrinsic_hash, payment_extrinsic_index, payment_amount_rao, nonce)
+                t_sig = create_transport_signature(wallet, submission, nonce)
                 headers = {                    
                     'Accept': 'application/json',
                     'Referer': f'{bitrecs.api_url}/',
                     'X-Signature': t_sig,
                     'X-Timestamp': str(int(time.time())),
                     'X-Nonce': nonce,
-                    'X-Payment-Block-Hash': payment_block_hash,
-                    'X-Payment-Extrinsic-Hash': payment_extrinsic_hash,
-                    'X-Payment-Extrinsic-Index': str(payment_extrinsic_index),
-                    'X-Payment-Amount-Rao': str(payment_amount_rao)
+                    # 'X-Payment-Block-Hash': payment_block_hash,
+                    # 'X-Payment-Extrinsic-Hash': payment_extrinsic_hash,
+                    # 'X-Payment-Extrinsic-Index': str(payment_extrinsic_index),
+                    #'X-Payment-Amount-Rao': str(payment_amount_rao)
                 }
                 submit_url =f"{bitrecs.api_url}/submit"
                 response = client.post(submit_url, json=submission.to_dict(), timeout=120, headers=headers)
