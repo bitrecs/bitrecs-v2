@@ -17,8 +17,8 @@ def verify_submission_signature(submission: MinerSubmission) -> bool:
     signature_bytes = bytes.fromhex(submission.signature)
     return Keypair(ss58_address=submission.hotkey).verify(preamble_bytes, signature_bytes)
 
-def create_transport_signature(wallet: Wallet, submission: MinerSubmission, payment_block_hash: str, nonce: str) -> str:
-    preamble = f"{submission.created_at}:{submission.github_account}:{submission.gist_id}:{submission.hotkey}:{payment_block_hash}:{nonce}"
+def create_transport_signature(wallet: Wallet, submission: MinerSubmission, nonce: str) -> str:
+    preamble = f"{submission.created_at}:{submission.github_account}:{submission.gist_id}:{submission.hotkey}:{nonce}"
     preamble_bytes = preamble.encode('utf-8')
     return wallet.hotkey.sign(preamble_bytes).hex()
 
