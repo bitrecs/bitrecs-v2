@@ -118,34 +118,13 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
         
         weight_receiving_uid = max(weights, key=weights.get)
         if set_weights:
-            if not validator_hotkey or not netuid:
-                logger.error("Validator hotkey or netuid not provided, cannot set weights on chain")
-                return False
-            wallet = Wallet(name=os.getenv("VALIDATOR_WALLET_NAME"), hotkey=os.getenv("VALIDATOR_HOTKEY_NAME"))
-            if wallet.hotkey.ss58_address != validator_hotkey.ss58_address:
-                logger.error(f"Validator hotkey mismatch: expected {wallet.hotkey.ss58_address}, got {validator_hotkey.ss58_address}")
-                return False
-                        
-            miner_weight = 1 * MINER_EMISSION_PORTION
-            burn_weight = 1 - miner_weight
-            if not (0 <= miner_weight <= 1):
-                logger.error(f"Invalid weights: miner_weight={miner_weight}, burn_weight={burn_weight}. Must be >=0, <=1, and sum to 1.")
-                return False
-
-            subtensor = await get_subtensor()
-            success, message = await subtensor.set_weights(
-                wallet=wallet,
-                netuid=netuid,
-                uids=[0, weight_receiving_uid],
-                weights=[burn_weight, miner_weight],
-                wait_for_inclusion=False,
-                wait_for_finalization=False
-            )
-            logger.info(f"Set weight of UID {weight_receiving_uid} to {miner_weight} : {'Success' if success else 'Failure'} - {message}")
-            logger.info(f"Set burn weight of UID 0 to {burn_weight}")
-            logger.info("\033[32mScores / Weights Update Complete\033[0m")
-            await close_subtensor()
-            return success
+            result = await set_weights_onchain(validator_hotkey, netuid, weight_receiving_uid)
+            if result:
+                logger.info(f"\033[32mWeights set successfully on chain for UID {weight_receiving_uid}\033[0m")
+                return True
+            else:
+                logger.error(f"\033[31mFailed to set weights on chain for UID {weight_receiving_uid}\033[0m")
+                return False            
         else:
             logger.info(f"\033[33mWeight candidate with highest score: {weight_receiving_uid}\033[0m")
             logger.info("\033[33mWeights not set on chain (set_weights=False)\033[0m")
@@ -161,3 +140,62 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
         traceback_str = traceback.format_exc()        
         logger.error(f"Full traceback: {traceback_str}")        
         raise
+
+
+async def set_weights_onchain(validator_hotkey: Keypair, netuid: int, weight_receiving_uid: int) -> bool:
+    wallet = Wallet(name=os.getenv("VALIDATOR_WALLET_NAME"), hotkey=os.getenv("VALIDATOR_HOTKEY_NAME"))
+    if wallet.hotkey.ss58_address != validator_hotkey.ss58_address:
+        logger.error(f"Validator hotkey mismatch: expected {wallet.hotkey.ss58_address}, got {validator_hotkey.ss58_address}")
+        return False
+    
+    miner_weight = 1 * MINER_EMISSION_PORTION
+    burn_weight = 1 - miner_weight
+    if not (0 <= miner_weight <= 1):
+        logger.error(f"Invalid weights: miner_weight={miner_weight}, burn_weight={burn_weight}. Must be >=0, <=1, and sum to 1.")
+        return False
+    
+    uids = [0, weight_receiving_uid]
+    weights = [burn_weight, miner_weight]    
+    subtensor = await get_subtensor()
+    try:
+        max_retries = 3
+        timeout = 90.0
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempt {attempt + 1}/{max_retries}")
+                current_block = await subtensor.get_current_block()
+                logger.info(f"Current block: {current_block}")
+
+                success = await asyncio.wait_for(
+                    subtensor.set_weights(
+                        wallet=wallet,
+                        netuid=netuid,
+                        uids=uids,
+                        weights=weights,
+                        wait_for_inclusion=True,
+                        wait_for_finalization=True,
+                    ),
+                    timeout=timeout
+                )                
+                if success:
+                    logger.info("✅ Weights set successfully (chain confirmed)")
+                    return True
+                else:
+                    logger.error(f"❌ Chain rejected weight setting on attempt {attempt + 1}")
+                    
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout on attempt {attempt + 1}")
+            except Exception as e:
+                logger.error(f"Error on attempt {attempt + 1}: {e}")
+            
+            if attempt < max_retries - 1:
+                logger.info("Retrying in 60 seconds...")
+                await asyncio.sleep(60)
+            else:
+                logger.error("❌ All attempts failed")
+                return False
+        
+        return False
+    
+    finally:
+        await close_subtensor()
