@@ -1,5 +1,6 @@
 import os
 import httpx
+import asyncio
 import utils.logger as logger
 from bittensor_wallet import Keypair, Wallet
 from utils.subtensor import close_subtensor, get_subtensor
@@ -137,20 +138,26 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
                 netuid=netuid,
                 uids=[0, weight_receiving_uid],
                 weights=[burn_weight, miner_weight],
-                wait_for_inclusion=True,
+                wait_for_inclusion=False,
                 wait_for_finalization=False
             )
             logger.info(f"Set weight of UID {weight_receiving_uid} to {miner_weight} : {'Success' if success else 'Failure'} - {message}")
             logger.info(f"Set burn weight of UID 0 to {burn_weight}")
             logger.info("\033[32mScores / Weights Update Complete\033[0m")
             await close_subtensor()
-            return success        
+            return success
         else:
             logger.info(f"\033[33mWeight candidate with highest score: {weight_receiving_uid}\033[0m")
             logger.info("\033[33mWeights not set on chain (set_weights=False)\033[0m")
             return False
+    except asyncio.TimeoutError as te:
+        logger.error(f"TimeoutError in calculate_scores: {te}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return False
     except Exception as e:
+        logger.error(f"Exception in calculate_scores: {e}")
         import traceback
         traceback_str = traceback.format_exc()        
-        logger.error(f"Exception in calculate_scores: {e}\n{traceback_str}")        
+        logger.error(f"Full traceback: {traceback_str}")        
         raise
