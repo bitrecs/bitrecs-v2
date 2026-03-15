@@ -50,6 +50,7 @@ from api.endpoints.statistics import router as statistics_router
 from api.endpoints.retrieval import router as retrieval_router
 from api.endpoints.dashboard import router as dashboard_router
 from api.endpoints.backup import router as backup_router
+from api.endpoints.inference import router as inference_router
 from api.heartbeat import validator_heartbeat_timeout_loop
 from llm.open_router import OpenRouter
 from rules.agent_comparer import AgentComparer
@@ -61,6 +62,7 @@ from utils.gist import get_gist, get_gist_created_at
 from models.payments import AgentUploadResponse, ErrorResponse
 from utils.commitment import is_commitment_valid
 from queries.hotkey_gist import log_hotkey_gist
+from utils.inference_coster import InferenceCoster, pre_cache_inference_cost
 from utils.verify import (
     verify_submission_signature, verify_timestamp, 
     verify_transport_signature
@@ -104,6 +106,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"Loaded {len(app.state.api_keys)} API keys from database")
     if len(app.state.api_keys) == 0:
         raise Exception("Fatal error: No API keys loaded from database. Shutting down.")
+    app.state.inference_coster = InferenceCoster
+    logger.info("Preloading InferenceCoster cache for all providers...")
+    await pre_cache_inference_cost()
   
     try:
         logger.info(f"V2 API STARTED version: {this_version}")
@@ -177,6 +182,7 @@ app.include_router(evaluations_router, prefix="/evaluation")
 app.include_router(statistics_router, prefix="/statistics")
 app.include_router(dashboard_router, prefix="/dashboard")
 app.include_router(backup_router, prefix="/backup")
+app.include_router(inference_router, prefix="/inference")
 
 
 async def is_system_enabled() -> bool:

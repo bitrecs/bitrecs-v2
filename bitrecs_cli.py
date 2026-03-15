@@ -109,10 +109,10 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
         hotkey=wallet.hotkey.ss58_address,
         signature=signature)
     
-    console.print(Panel(f"[bold cyan]Preparing to Upload Artifact with Burn[/bold cyan]\n[yellow]GitHub Account:[/yellow] {github_account}\n[yellow]Gist ID:[/yellow] {gist_id}\n[yellow]Hotkey:[/yellow] {wallet.hotkey.ss58_address}\n[yellow]Netuid:[/yellow] {netuid}", title="Upload Burn", border_style="cyan"))    
+    console.print(Panel(f"[bold cyan]Preparing to Upload Artifact with Commitment[/bold cyan]\n[yellow]GitHub Account:[/yellow] {github_account}\n[yellow]Gist ID:[/yellow] {gist_id}\n[yellow]Hotkey:[/yellow] {wallet.hotkey.ss58_address}\n[yellow]Netuid:[/yellow] {netuid}", title="Upload", border_style="cyan"))    
     
     try:
-        logger.info(f"Starting upload with burn for Gist {gist_id} using wallet {wallet.hotkey.ss58_address} on Netuid {netuid}")
+        logger.info(f"Starting upload with Commitment for Gist {gist_id} using wallet {wallet.hotkey.ss58_address} on Netuid {netuid}")
         
         with httpx.Client() as client:
             console.print("Checking agent eligibility with the Bitrecs API...", style="dim")           
