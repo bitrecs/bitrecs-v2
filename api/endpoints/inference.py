@@ -3,11 +3,25 @@ from api.endpoints.validator import Validator, get_request_validator_with_lock
 from models.inference_report import InferenceReport
 from queries.inference import insert_inference
 from api.utils.limiter import limiter
+from utils.inference_coster import InferenceCoster
 
 router = APIRouter()
 
-# /inference/report-run
-@router.post("/report-run")
+def get_inference_coster(provider: str, model_name: str) -> InferenceCoster:
+    return InferenceCoster(provider, model_name)
+
+# /inference/calculate-cost
+@router.post("/calculate-cost")
+async def calculate_inference_cost(
+    provider: str, model_name: str, input_tokens: int, output_tokens: int,
+    coster: InferenceCoster = Depends(get_inference_coster)
+) -> dict:
+    cost = await coster.calculate_cost(input_tokens, output_tokens)
+    return {"cost": cost}
+
+
+# /inference/report-cost
+@router.post("/report-cost")
 @limiter.limit("60/minute")
 async def report_inference_run(
     request: InferenceReport,  
@@ -29,4 +43,3 @@ async def report_inference_run(
         return {"inference_id": inference_id, "status": "reported"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to report inference: {str(e)}")
-
