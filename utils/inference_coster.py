@@ -7,11 +7,11 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 from llm.llm_provider import LLM
 
-async def pre_cahe_inference_cost():
+async def pre_cache_inference_cost():
     for provider in [LLM.CHUTES, LLM.OPEN_ROUTER]:
         try:            
             dummy_coster = InferenceCoster(provider.name, "ignored")
-            await dummy_coster._get_cached_data(provider.name)  # This fetches and caches the full provider data
+            await dummy_coster._get_cached_data(provider.name)
             logger.info(f"Preloaded cache for provider: {provider.name}")
         except Exception as e:
             logger.error(f"Failed to preload cache for {provider.name}: {e}")
@@ -27,11 +27,10 @@ class CostResult:
     output: float
 
 
-class InferenceCoster:
-    # Class-level cache: provider -> (data, timestamp)
+class InferenceCoster:    
     _cache: Dict[str, Tuple[Optional[Dict[str, Any]], datetime]] = {}
     _lock = asyncio.Lock()
-    _cache_ttl = timedelta(minutes=30)  # Refresh every 30 minutes
+    _cache_ttl = timedelta(minutes=30)
 
     def __init__(self, provider: str, model_name: str):
         self.provider = provider
@@ -79,10 +78,20 @@ class InferenceCoster:
         Fetch all models data from OpenRouter API.
         """
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get("https://openrouter.ai/api/v1/models")
-                response.raise_for_status()
-                return response.json()
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        response = await client.get("https://openrouter.ai/api/v1/models")
+                        response.raise_for_status()
+                        return response.json()
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 429 and attempt < max_retries - 1:
+                        wait_time = 2 ** attempt
+                        logger.warning(f"Rate limited (429), retrying in {wait_time}s...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        raise
         except Exception as e:
             logger.error(f"Error fetching data from OpenRouter: {e}")
             return None
@@ -98,9 +107,9 @@ class InferenceCoster:
                     return data
             
             # Fetch fresh data
-            if provider.upper() == "CHUTES":
+            if provider.upper() == LLM.CHUTES.name.upper():
                 data = await self._fetch_chutes_data()
-            elif provider.upper() == "OPEN_ROUTER":
+            elif provider.upper() == LLM.OPEN_ROUTER.name.upper():
                 data = await self._fetch_openrouter_data()
             else:
                 data = None
@@ -116,7 +125,7 @@ class InferenceCoster:
         if data is None:
             return None
         
-        if self.provider.upper() == "CHUTES":
+        if self.provider.upper() == LLM.CHUTES.name.upper():
             target_id = self.model_name.lower()
             target_base = target_id.split("/")[-1]
             items = data.get("items", [])
@@ -130,7 +139,7 @@ class InferenceCoster:
             logger.warning(f"Model {self.model_name} not found in cached Chutes data.")
             return None
         
-        elif self.provider.upper() == "OPEN_ROUTER":
+        elif self.provider.upper() == LLM.OPEN_ROUTER.name.upper():
             models = data.get("data", [])
             target_id = self.model_name.lower()
             target_base = target_id.split("/")[-1]

@@ -62,7 +62,7 @@ from utils.gist import get_gist, get_gist_created_at
 from models.payments import AgentUploadResponse, ErrorResponse
 from utils.commitment import is_commitment_valid
 from queries.hotkey_gist import log_hotkey_gist
-from utils.inference_coster import InferenceCoster, pre_cahe_inference_cost
+from utils.inference_coster import InferenceCoster, pre_cache_inference_cost
 from utils.verify import (
     verify_submission_signature, verify_timestamp, 
     verify_transport_signature
@@ -108,7 +108,7 @@ async def lifespan(app: FastAPI):
         raise Exception("Fatal error: No API keys loaded from database. Shutting down.")
     app.state.inference_coster = InferenceCoster
     logger.info("Preloading InferenceCoster cache for all providers...")
-    await pre_cahe_inference_cost()
+    await pre_cache_inference_cost()
   
     try:
         logger.info(f"V2 API STARTED version: {this_version}")
