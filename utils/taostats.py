@@ -32,13 +32,13 @@ def get_alpha_price_from_taostats() -> float:
     return alpha_price
 
 
-def get_value_from_alpha(alpha_burned_rao: float) -> float:
-    """
-    Takes raw rao amount and returns the value in USD based on the current price of alpha and tao.
-    """
-    tao_price = get_tao_price_from_taostats()
-    alpha_price = get_alpha_price_from_taostats()
-    alpha_burned = alpha_burned_rao / 1e9
-    bitrecs_price = alpha_price * tao_price
-    value = alpha_burned * bitrecs_price
-    return value
+# def get_value_from_alpha(alpha_burned_rao: float) -> float:
+#     """
+#     Takes raw rao amount and returns the value in USD based on the current price of alpha and tao.
+#     """
+#     tao_price = get_tao_price_from_taostats()
+#     alpha_price = get_alpha_price_from_taostats()
+#     alpha_burned = alpha_burned_rao / 1e9
+#     bitrecs_price = alpha_price * tao_price
+#     value = alpha_burned * bitrecs_price
+#     return value
