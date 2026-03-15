@@ -175,6 +175,7 @@ class InferenceCoster:
         pricing = await self.fetch_cost()
         if pricing is None:
             logger.warning("Pricing information not available, cannot calculate cost.")
+            logger.warning(f"Provider: {self.provider}, Model: {self.model_name}")
             return None
         total_cost = (input_tokens / 1e6) * pricing.input + (output_tokens / 1e6) * pricing.output
         return total_cost

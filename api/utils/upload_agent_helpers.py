@@ -8,8 +8,6 @@ from utils.bittensor import check_if_hotkey_is_registered
 from utils.validator_hotkeys import WHITELISTED_VALIDATORS
 
 
-MAX_FILE_SIZE_MB = 1
-
 async def check_if_hotkey_is_validator(hotkey: str) -> None:
     match = [w for w in WHITELISTED_VALIDATORS if w["hotkey"] == hotkey]
     if match:
