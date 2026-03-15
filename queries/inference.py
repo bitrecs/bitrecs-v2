@@ -17,6 +17,7 @@ async def insert_inference(
     num_input_tokens: Optional[int] = None,
     num_output_tokens: Optional[int] = None,
     cost_usd: Optional[float] = None,
+    request_received_at: Optional[datetime] = None,
     response_sent_at: Optional[datetime] = None
 ) -> UUID:
     """
@@ -27,12 +28,12 @@ async def insert_inference(
         INSERT INTO inferences (
             evaluation_run_id, provider, model, temperature, messages,
             status_code, response, num_input_tokens, num_output_tokens,
-            cost_usd, response_sent_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            cost_usd, request_received_at, response_sent_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING inference_id
         """,
         evaluation_run_id, provider, model, temperature, json.dumps(messages),
         status_code, response, num_input_tokens, num_output_tokens,
-        cost_usd, response_sent_at
+        cost_usd, request_received_at, response_sent_at
     )
     return result['inference_id']

@@ -16,3 +16,4 @@ class InferenceReport(BaseModel):
     num_output_tokens: Optional[int] = None
     cost_usd: Optional[float] = None
     response_sent_at: Optional[datetime] = None
+    request_received_at: Optional[datetime] = None

@@ -1,5 +1,6 @@
 import pytest
 import secrets
+from datetime import datetime, timezone
 from uuid import UUID
 from models.inference_report import InferenceReport
 from queries.inference import insert_inference
@@ -48,7 +49,8 @@ async def test_insert_inference_report():
         num_input_tokens=5,
         num_output_tokens=4,
         cost_usd=0.001,
-        response_sent_at=None
+        response_sent_at=datetime.now(timezone.utc),
+        request_received_at=datetime.now(timezone.utc)
     )
     inference_id = await insert_inference(
         evaluation_run_id=report.evaluation_run_id,
@@ -61,7 +63,8 @@ async def test_insert_inference_report():
         num_input_tokens=report.num_input_tokens,
         num_output_tokens=report.num_output_tokens,
         cost_usd=report.cost_usd,
-        response_sent_at=report.response_sent_at
+        response_sent_at=report.response_sent_at,
+        request_received_at=report.request_received_at        
     )
     assert inference_id is not None, "Expected a valid inference ID to be returned after insertion"
 
