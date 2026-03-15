@@ -11,7 +11,7 @@ The steps for a miner are:
 - take gist_id and run this command:
 
 ```
-uv run bitrecs_cli3.py upload-burn --github-account mygithubaccount --gist-id 41bc02cec215b0149c5efdae4087f2cc --coldkey-name default --hotkey-name default
+uv run bitrecs_cli3.py upload --github-account mygithubaccount --gist-id your_gist_id --coldkey-name default --hotkey-name default
 ```
 
 ## Eval Process
@@ -42,5 +42,5 @@ SUBTENSOR_NETWORK=test
 
 Submit artifact
 ```
-uv run bitrecs_cli3.py upload-burn --github-account mygithubaccount --gist-id 41bc02cec215b0149c5efdae4087f2cc --coldkey-name default --hotkey-name default
+uv run bitrecs_cli3.py upload --github-account mygithubaccount --gist-id your_gist_id --coldkey-name default --hotkey-name default
 ```

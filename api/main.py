@@ -35,7 +35,7 @@ from utils.database import (
 )
 from api.utils.upload_agent_helpers import (
     check_agent_banned, check_hotkey_registered, check_if_gist_used, 
-    check_if_hotkey_is_validator, check_if_hotkey_used    
+    check_if_hotkey_is_validator, check_if_hotkey_used, check_rate_limit    
 )
 from utils.network import get_client_ip
 from utils.bittensor import is_hotkey_valid_format
@@ -58,16 +58,13 @@ from version import __version__ as this_version
 from api.utils.limiter import limiter
 from models.miner_submission import MinerSubmission
 from utils.gist import get_gist, get_gist_created_at
+from models.payments import AgentUploadResponse, ErrorResponse
+from utils.commitment import is_commitment_valid
+from queries.hotkey_gist import log_hotkey_gist
 from utils.verify import (
     verify_submission_signature, verify_timestamp, 
     verify_transport_signature
 )
-from utils.commitment import is_commitment_valid
-from queries.hotkey_gist import log_hotkey_gist
-from queries.payments import record_evaluation_payment, retrieve_payment_by_hash
-from models.payments import UploadPriceResponse, AgentUploadResponse, ErrorResponse
-from utils.coingecko import get_bitrecs_price
-from aiocache import cached, Cache
 
 
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
@@ -148,7 +145,6 @@ app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(APIKeyMiddleware)
 
-
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
@@ -161,7 +157,6 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
     return response
 
-
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
@@ -170,7 +165,6 @@ async def global_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"error": "Internal Server Error", "detail": str(exc)}
     )
-
 
 app.include_router(retrieval_router, prefix="/retrieval")
 app.include_router(scoring_router, prefix="/scoring")
@@ -198,25 +192,11 @@ async def ensure_min_validators() -> None:
         raise HTTPException(
             status_code=503,
             detail=f"Not enough validators available for evaluation (connected: {connected_validators})"
-        )
-    
+        )    
 
-@cached(ttl=900, cache=Cache.MEMORY)
-async def calculate_upload_price() -> UploadPriceResponse:
-    """Price of participation"""
-    PRICE_BUFFER = 1.1
-    BITRECS_PRICE = await get_bitrecs_price()
-    eval_cost_usd = config.COST_PER_MINER_SUBMISSION_USD
-    eval_cost_alpha = eval_cost_usd / BITRECS_PRICE
-    amount_rao = int(eval_cost_alpha * 1e9 * PRICE_BUFFER)
-    return UploadPriceResponse(
-        amount_rao=amount_rao,
-        bitrecs_price_usd=BITRECS_PRICE
-    )
-    
 
 @app.get("/")
-@limiter.limit("60/minute")
+@limiter.limit("30/minute")
 async def read_root(request: Request):
     ts = str(int(time.time()))
     request_ip = get_client_ip(request)
@@ -234,7 +214,7 @@ async def read_root(request: Request):
 
 
 @app.get("/health")
-@limiter.limit("60/minute")
+@limiter.limit("30/minute")
 async def health(request: Request):
     client_ip = get_client_ip(request)
     logger.info(f"Health check from IP: {client_ip}")   
@@ -279,30 +259,13 @@ async def health(request: Request):
     }
 
 
-@app.get(
-    "/eval-pricing",    
-    tags=["cli"],
-    response_model=UploadPriceResponse
-)
-@limiter.limit("60/minute")
-async def get_upload_price(request: Request) -> UploadPriceResponse:
-    client_ip = get_client_ip(request)
-    logger.info(f"Upload price requested from IP {client_ip}")
-    try:
-        price_response = await calculate_upload_price()
-        logger.info(f"Calculated upload price: {price_response.amount_rao} rao ")
-        return price_response
-    except Exception as e:
-        logger.error(f"Error calculating upload price: {e}")
-        raise HTTPException(status_code=500, detail="Error calculating upload price")
-    
 
 @app.post(
     "/check",
     tags=["cli"],
     response_model=AgentUploadResponse
 )
-@limiter.limit("60/minute")
+@limiter.limit("30/minute")
 async def check_agent_post(
     request: Request,
     submission: MinerSubmission   
@@ -314,6 +277,8 @@ async def check_agent_post(
         raise HTTPException(status_code=503, detail="Submissions are currently disabled. Please try again later.")
     
     await ensure_min_validators()
+
+    await check_rate_limit()
     
     if not verify_submission_signature(submission):
         logger.warning(f"Invalid signature for submission from hotkey {submission.hotkey}")
@@ -335,21 +300,7 @@ async def check_agent_post(
         await check_if_hotkey_used(miner_hotkey)
         await check_if_gist_used(submission.gist_id)        
         await check_agent_banned(miner_hotkey)
-        await check_hotkey_registered(miner_hotkey)
-
-    subtensor = await get_subtensor()
-    coldkey = await subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey)
-    stake_info = await subtensor.get_stake(
-        coldkey_ss58=coldkey,
-        hotkey_ss58=miner_hotkey,
-        netuid=config.NETUID,
-    )
-    alpha_stake = stake_info.rao / 1e9
-    upload_price = await calculate_upload_price()
-    alpha_upload_requirement = upload_price.amount_rao / 1e9
-    if alpha_stake < alpha_upload_requirement:
-        logger.warning(f"Miner hotkey {miner_hotkey} has insufficient stake {alpha_stake} alpha to cover upload price of {alpha_upload_requirement} alpha")
-        return JSONResponse(content={"error": "Insufficient stake to cover upload price"}, status_code=402)
+        await check_hotkey_registered(miner_hotkey)    
 
     gist_created_at = get_gist_created_at(submission.gist_id)
     gist_raw_data = get_gist(submission.github_account, submission.gist_id)
@@ -392,7 +343,7 @@ async def check_agent_post(
         500: {"model": ErrorResponse, "description": "Internal Server Error - Server-side processing failed"},
         503: {"model": ErrorResponse, "description": "Service Unavailable - No screeners available for evaluation"}
     })
-@limiter.limit("60/minute")
+@limiter.limit("30/minute")
 async def miner_submission(request: Request, submission: MinerSubmission):
     client_ip = get_client_ip(request)
     logger.info(f"Submit artifact endpoint accessed from IP {client_ip}")
@@ -406,27 +357,24 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         raise HTTPException(status_code=503, detail="Submissions are currently disabled. Please try again later.")
 
     await ensure_min_validators()
+    
+    await check_rate_limit()
 
     try:       
         x_signature = request.headers.get("X-Signature")
         x_timestamp = request.headers.get("X-Timestamp")       
         x_nonce = request.headers.get("X-Nonce")        
-        payment_block_hash = request.headers.get("X-Payment-Block-Hash")
-        payment_extrinsic_hash = request.headers.get("X-Payment-Extrinsic-Hash")        
-        payment_extrinsic_index = request.headers.get("X-Payment-Extrinsic-Index")
-        payment_amount_rao = int(request.headers.get("X-Payment-Amount-Rao"))
+        t_nonce = request.headers.get("X-T-Nonce")      
         if not verify_timestamp(x_timestamp):
             logger.warning(f"Invalid or expired timestamp: {x_timestamp}")
             raise HTTPException(status_code=400, detail="Invalid or expired timestamp")
 
         transport_signature_valid = verify_transport_signature(
             submission=submission,
-            transport_signature=x_signature,
-            payment_block_hash=payment_block_hash,
-            payment_extrinsic_hash=payment_extrinsic_hash,
-            payment_extrinsic_index=payment_extrinsic_index,
-            amt_rao=payment_amount_rao,
-            nonce=x_nonce
+            transport_signature=x_signature,            
+            nonce=x_nonce,
+            t_nonce=t_nonce,
+            ts=int(x_timestamp)
         )
         if not transport_signature_valid:
             logger.warning(f"Invalid transport signature for submission from hotkey {submission.hotkey}")
@@ -437,23 +385,6 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             raise HTTPException(status_code=400, detail="Invalid submission signature")
         
         await check_if_hotkey_is_validator(submission.hotkey)
-        
-        existing_payment = await retrieve_payment_by_hash(
-            payment_block_hash=payment_block_hash,
-            payment_extrinsic_index=payment_extrinsic_index
-        )
-        if existing_payment is not None:
-            raise HTTPException(status_code=402, detail="Payment already used")
-        
-        onchain_payment_valid = await check_onchain_payment(
-            miner_hotkey=submission.hotkey,
-            payment_block_hash=payment_block_hash,
-            payment_extrinsic_index=payment_extrinsic_index,
-            amount_rao=payment_amount_rao
-        )
-        if not onchain_payment_valid:
-            logger.warning("On-chain payment verification failed")
-            raise HTTPException(status_code=402, detail="On-chain payment verification failed")              
 
         gist_created_at = get_gist_created_at(submission.gist_id)
         gist_raw_data = get_gist(submission.github_account, submission.gist_id)        
@@ -545,23 +476,14 @@ async def miner_submission(request: Request, submission: MinerSubmission):
                               uid=miner_uid, 
                               github_account=submission.github_account)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
-
-        await record_evaluation_payment(
-            payment_block_hash=payment_block_hash,
-            payment_extrinsic_index=payment_extrinsic_index,
-            amount_rao=payment_amount_rao,
-            agent_id=artifact_instance.agent_id,
-            miner_hotkey=artifact_instance.miner_hotkey,
-            miner_coldkey=coldkey
-        )
-
+    
         upload_data = {
             'hotkey': artifact_instance.miner_hotkey,
             'agent_name': artifact_instance.name,
             'filename': "artifact.yaml",
             'file_size_bytes': Agent.token_count(artifact_instance),
             'ip_address': client_ip
-        } 
+        }
 
         await record_upload_attempt(
             upload_type="agent",
@@ -602,66 +524,6 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         )
         return JSONResponse(content=error_details, status_code=400)
 
-
-
-async def check_onchain_payment(miner_hotkey: str, payment_block_hash: str, payment_extrinsic_index: int, amount_rao: int) -> bool:    
-    subtensor = await get_subtensor()
-    try:
-        payment_block = await subtensor.substrate.get_block(block_hash=payment_block_hash)
-    except Exception as e:
-        logger.error(f"Error retrieving payment block: {e}")
-        raise HTTPException(
-            status_code=402,
-            detail="Payment could not be verified"
-        )
-
-    block_number = payment_block['header']['number']
-    coldkey = await subtensor.get_hotkey_owner(hotkey_ss58=miner_hotkey, block=int(block_number))    
-    payment_extrinsic = payment_block['extrinsics'][int(payment_extrinsic_index)]
-
-    failed = await check_if_extrinsic_failed(payment_block_hash, int(payment_extrinsic_index))
-    if failed:
-        return False    
-    
-    onchain_payment_value_rao = None
-    for arg in payment_extrinsic.value['call']['call_args']:
-        if arg['name'] == 'amount' and arg['type'] == "AlphaCurrency":
-            onchain_payment_value_rao = arg['value']
-            break
-    
-    if onchain_payment_value_rao is None:
-        raise HTTPException(
-            status_code=402,
-            detail="Payment value not found"
-        )
-
-    if int(onchain_payment_value_rao) != amount_rao:
-        raise HTTPException(
-            status_code=402,
-            detail="Payment amount does not match"
-        )
-    
-    # Make sure coldkey is the same as hotkeys owner coldkey
-    if coldkey != payment_extrinsic['address']:
-        raise HTTPException(
-            status_code=402,
-            detail="Coldkey does not match"
-        )
-
-    return True
-
-
-async def check_if_extrinsic_failed(block_hash: str, extrinsic_index: int) -> bool:
-    subtensor = await get_subtensor()
-    events = await subtensor.substrate.get_events(block_hash=block_hash)
-    for event in events:
-        if event.get("extrinsic_idx") != extrinsic_index:
-            continue
-        module = event["event"]["module_id"]
-        event_id = event["event"]["event_id"]
-        if module == "System" and event_id == "ExtrinsicFailed":
-            return True
-    return False
 
 
 async def check_similar_agents(
