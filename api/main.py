@@ -35,7 +35,7 @@ from utils.database import (
 )
 from api.utils.upload_agent_helpers import (
     check_agent_banned, check_hotkey_registered, check_if_gist_used, 
-    check_if_hotkey_is_validator, check_if_hotkey_used    
+    check_if_hotkey_is_validator, check_if_hotkey_used, check_rate_limit    
 )
 from utils.network import get_client_ip
 from utils.bittensor import is_hotkey_valid_format
@@ -58,13 +58,13 @@ from version import __version__ as this_version
 from api.utils.limiter import limiter
 from models.miner_submission import MinerSubmission
 from utils.gist import get_gist, get_gist_created_at
+from models.payments import AgentUploadResponse, ErrorResponse
+from utils.commitment import is_commitment_valid
+from queries.hotkey_gist import log_hotkey_gist
 from utils.verify import (
     verify_submission_signature, verify_timestamp, 
     verify_transport_signature
 )
-from utils.commitment import is_commitment_valid
-from queries.hotkey_gist import log_hotkey_gist
-from models.payments import AgentUploadResponse, ErrorResponse
 
 
 BT_NETWORK = os.environ.get("BT_NETWORK", "test")
@@ -277,6 +277,8 @@ async def check_agent_post(
         raise HTTPException(status_code=503, detail="Submissions are currently disabled. Please try again later.")
     
     await ensure_min_validators()
+
+    await check_rate_limit()
     
     if not verify_submission_signature(submission):
         logger.warning(f"Invalid signature for submission from hotkey {submission.hotkey}")
@@ -355,6 +357,8 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         raise HTTPException(status_code=503, detail="Submissions are currently disabled. Please try again later.")
 
     await ensure_min_validators()
+    
+    await check_rate_limit()
 
     try:       
         x_signature = request.headers.get("X-Signature")
@@ -472,23 +476,14 @@ async def miner_submission(request: Request, submission: MinerSubmission):
                               uid=miner_uid, 
                               github_account=submission.github_account)
         logger.info(f"Artifact submitted successfully with ID: {artifact_id}")
-
-        # await record_evaluation_payment(
-        #     payment_block_hash=payment_block_hash,
-        #     payment_extrinsic_index=payment_extrinsic_index,
-        #     amount_rao=payment_amount_rao,
-        #     agent_id=artifact_instance.agent_id,
-        #     miner_hotkey=artifact_instance.miner_hotkey,
-        #     miner_coldkey=coldkey
-        # )
-
+    
         upload_data = {
             'hotkey': artifact_instance.miner_hotkey,
             'agent_name': artifact_instance.name,
             'filename': "artifact.yaml",
             'file_size_bytes': Agent.token_count(artifact_instance),
             'ip_address': client_ip
-        } 
+        }
 
         await record_upload_attempt(
             upload_type="agent",

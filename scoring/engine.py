@@ -165,7 +165,6 @@ async def set_weights_onchain(validator_hotkey: Keypair, netuid: int, weight_rec
                 logger.info(f"Attempt {attempt + 1}/{max_retries}")
                 current_block = await subtensor.get_current_block()
                 logger.info(f"Current block: {current_block}")
-
                 success = await asyncio.wait_for(
                     subtensor.set_weights(
                         wallet=wallet,
@@ -176,13 +175,15 @@ async def set_weights_onchain(validator_hotkey: Keypair, netuid: int, weight_rec
                         wait_for_finalization=True,
                     ),
                     timeout=timeout
-                )                
+                )
+                await post_weights_to_agora(wallet.hotkey.ss58_address, 
+                                            current_block, uids, weights, 
+                                            "ok" if success else "error")
                 if success:
                     logger.info("✅ Weights set successfully (chain confirmed)")
                     return True
                 else:
                     logger.error(f"❌ Chain rejected weight setting on attempt {attempt + 1}")
-                    
             except asyncio.TimeoutError:
                 logger.error(f"Timeout on attempt {attempt + 1}")
             except Exception as e:
@@ -199,3 +200,23 @@ async def set_weights_onchain(validator_hotkey: Keypair, netuid: int, weight_rec
     
     finally:
         await close_subtensor()
+
+
+async def post_weights_to_agora(hotkey: str, block: int, uids: list[int], weights: list[float], status: str) -> None:
+    logger.info(f"Posting weights to Agora: hotkey={hotkey}, block={block}, uids={uids}, weights={weights}, status={status}")
+    return
+
+    try:
+        from utils.agora import post_to_agora, AgoraStatus
+        weight_info = {f"uid{uid}": weight for uid, weight in zip(uids, weights)}
+        payload = AgoraStatus(
+            id="validator",
+            from_server=hotkey,
+            priority=1,
+            description=str({"block": block, "weights": weight_info}),
+            status=status
+        )
+        await post_to_agora(payload)
+    except Exception as e:
+        logger.error(f"post_weights_to_agora failed to post weights to Agora: {e}")
+   
