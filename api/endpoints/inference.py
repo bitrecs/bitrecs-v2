@@ -12,12 +12,14 @@ def get_inference_coster(provider: str, model_name: str) -> InferenceCoster:
 
 # /inference/calculate-cost
 @router.post("/calculate-cost")
+@limiter.limit("60/minute")
 async def calculate_inference_cost(
+    request: Request,
     provider: str, model_name: str, input_tokens: int, output_tokens: int,
     coster: InferenceCoster = Depends(get_inference_coster)
 ) -> dict:
     cost = await coster.calculate_cost(input_tokens, output_tokens)
-    return {"cost": cost}
+    return {"cost": cost, "currency": "USD"}
 
 
 # /inference/report-cost
