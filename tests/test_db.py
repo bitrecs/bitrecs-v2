@@ -1,5 +1,8 @@
 import pytest
 import secrets
+from uuid import UUID
+from models.inference_report import InferenceReport
+from queries.inference import insert_inference
 from queries.system_enabled import get_system_enabled
 from utils.database import check_database_health
 from queries.session import insert_validator_session
@@ -28,4 +31,37 @@ async def test_is_system_enabled():
     enabled = await get_system_enabled()
     print(f"System enabled status: {enabled}")
     assert isinstance(enabled, bool), "Expected a boolean value for system enabled status"
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("db_setup")
+async def test_insert_inference_report():
+    run_id = UUID("00054fc0-8a1e-4ff1-bda2-661c0b24287f")
+    report = InferenceReport(
+        evaluation_run_id=run_id,
+        provider="test_provider",
+        model="test_model",
+        temperature=0.5,
+        messages=[{"role": "user", "content": "Hello, world!"}],
+        status_code=200,
+        response="Hello, user!",
+        num_input_tokens=5,
+        num_output_tokens=4,
+        cost_usd=0.001,
+        response_sent_at=None
+    )
+    inference_id = await insert_inference(
+        evaluation_run_id=report.evaluation_run_id,
+        provider=report.provider,
+        model=report.model,
+        temperature=report.temperature,
+        messages=report.messages,
+        status_code=report.status_code,
+        response=report.response,
+        num_input_tokens=report.num_input_tokens,
+        num_output_tokens=report.num_output_tokens,
+        cost_usd=report.cost_usd,
+        response_sent_at=report.response_sent_at
+    )
+    assert inference_id is not None, "Expected a valid inference ID to be returned after insertion"
 
