@@ -179,3 +179,13 @@ class InferenceCoster:
             return None
         total_cost = (input_tokens / 1e6) * pricing.input + (output_tokens / 1e6) * pricing.output
         return total_cost
+    
+    async def cost_estimate(self, input_tokens: float, output_tokens: float) -> Optional[CostResult]:
+        pricing = await self.fetch_cost()
+        if pricing is None:
+            logger.warning("Pricing information not available, cannot provide cost estimate.")
+            logger.warning(f"Provider: {self.provider}, Model: {self.model_name}")
+            return None
+        input_cost = (input_tokens / 1e6) * pricing.input
+        output_cost = (output_tokens / 1e6) * pricing.output
+        return CostResult(input=input_cost, output=output_cost)
