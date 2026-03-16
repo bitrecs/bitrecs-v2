@@ -30,7 +30,7 @@ class CostResult:
 class InferenceCoster:    
     _cache: Dict[str, Tuple[Optional[Dict[str, Any]], datetime]] = {}
     _lock = asyncio.Lock()
-    _cache_ttl = timedelta(minutes=30)
+    _cache_ttl = timedelta(minutes=45)
 
     def __init__(self, provider: str, model_name: str):
         self.provider = provider
