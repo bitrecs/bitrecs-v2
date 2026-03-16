@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from api.endpoints.validator import Validator, get_request_validator_with_lock
+from api.endpoints.validator_models import InferenceCostEstimateRequest
 from models.inference_report import InferenceReport
 from queries.inference import insert_inference
 from api.utils.limiter import limiter
@@ -10,27 +11,16 @@ router = APIRouter()
 def get_inference_coster(provider: str, model_name: str) -> InferenceCoster:
     return InferenceCoster(provider, model_name)
 
-# /inference/calculate-cost
-@router.post("/calculate-cost")
-@limiter.limit("60/minute")
-async def calculate_inference_cost(
-    request: Request,
-    provider: str, model_name: str, input_tokens: int, output_tokens: int,
-    coster: InferenceCoster = Depends(get_inference_coster)
-) -> dict:
-    cost = await coster.calculate_cost(input_tokens, output_tokens)
-    return {"cost": cost, "currency": "USD"}
-
 
 # /inference/estimate-cost
 @router.post("/estimate-cost")
-@limiter.limit("60/minute")
-async def estimate_inference_cost(
+@limiter.limit("120/minute")
+async def estimate_inference_cost(   
     request: Request,
-    provider: str, model_name: str, input_tokens: int, output_tokens: int,
-    coster: InferenceCoster = Depends(get_inference_coster)
+    inference_request: InferenceCostEstimateRequest
 ) -> dict:
-    cost = await coster.cost_estimate(input_tokens, output_tokens)
+    coster = get_inference_coster(inference_request.provider, inference_request.model_name)
+    cost = await coster.cost_estimate(inference_request.input_tokens, inference_request.output_tokens)
     if cost is None:
         raise HTTPException(status_code=503, detail="Cost estimation not available")
     return {
@@ -43,7 +33,7 @@ async def estimate_inference_cost(
 
 # /inference/report-cost
 @router.post("/report-cost")
-@limiter.limit("60/minute")
+@limiter.limit("120/minute")
 async def report_inference_run(
     request: InferenceReport,  
     validator: Validator = Depends(get_request_validator_with_lock)) -> dict:   

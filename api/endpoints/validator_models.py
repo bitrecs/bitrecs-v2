@@ -101,3 +101,10 @@ class ConnectedValidatorInfo(BaseModel):
 
     evaluation: Optional[Evaluation] = None
     agent: Optional[Agent] = None
+
+
+class InferenceCostEstimateRequest(BaseModel):
+    provider: str
+    model_name: str
+    input_tokens: int
+    output_tokens: int
