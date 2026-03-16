@@ -22,6 +22,25 @@ async def calculate_inference_cost(
     return {"cost": cost, "currency": "USD"}
 
 
+# /inference/estimate-cost
+@router.post("/estimate-cost")
+@limiter.limit("60/minute")
+async def estimate_inference_cost(
+    request: Request,
+    provider: str, model_name: str, input_tokens: int, output_tokens: int,
+    coster: InferenceCoster = Depends(get_inference_coster)
+) -> dict:
+    cost = await coster.cost_estimate(input_tokens, output_tokens)
+    if cost is None:
+        raise HTTPException(status_code=503, detail="Cost estimation not available")
+    return {
+        "input_cost": cost.input,
+        "output_cost": cost.output,
+        "total_cost": cost.input + cost.output,
+        "currency": "USD"
+    }
+
+
 # /inference/report-cost
 @router.post("/report-cost")
 @limiter.limit("60/minute")
