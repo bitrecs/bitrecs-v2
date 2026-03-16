@@ -3,6 +3,7 @@ import httpx
 import pytest
 from unittest.mock import patch
 from datetime import datetime
+from api.endpoints.validator_models import InferenceCostEstimateRequest
 from utils.inference_coster import InferenceCoster, CostResult
 
 @pytest.fixture(autouse=True)
@@ -232,31 +233,6 @@ async def test_open_router_valid_model():
 
 
 @pytest.mark.asyncio
-async def test_open_router_get_cost_api_ok():
-    SERVICE_URL = "http://localhost:8000"
-    base_url = SERVICE_URL
-    key = os.environ.get("BITRECS_PLATFORM_API_KEY")
-    headers = {"X-API-Key": key}
-   
-    with httpx.Client() as client:
-        response = client.post(
-            f"{base_url}/inference/calculate-cost",
-            headers=headers,
-            params={
-                "provider": "open_router",
-                "model_name": "qwen/qwen3.5-9b",
-                "input_tokens": 1_000_000,
-                "output_tokens": 1_000_000
-            }
-        )
-        assert response.status_code == 200
-        result = response.json()
-        assert "cost" in result
-        assert result["cost"] == pytest.approx(0.35, rel=0.1)
-
-
-
-@pytest.mark.asyncio
 async def test_open_router_get_cost_estimate_api_ok():
     
     base_url = os.getenv("BITRECS_PLATFORM_URL")
@@ -264,17 +240,17 @@ async def test_open_router_get_cost_estimate_api_ok():
 
     key = os.environ.get("BITRECS_PLATFORM_API_KEY")
     headers = {"X-API-Key": key}
-   
+    estimate = InferenceCostEstimateRequest(
+        provider="open_router",
+        model_name="qwen/qwen3.5-9b",
+        input_tokens=1_000_000,
+        output_tokens=1_000_000
+    )
     with httpx.Client() as client:
         response = client.post(
             f"{base_url}/inference/estimate-cost",
             headers=headers,
-            params={
-                "provider": "open_router",
-                "model_name": "qwen/qwen3.5-9b",
-                "input_tokens": 1_000_000,
-                "output_tokens": 1_000_000
-            }
+            json=estimate.model_dump()            
         )
         assert response.status_code == 200
         result = response.json()
@@ -286,3 +262,36 @@ async def test_open_router_get_cost_estimate_api_ok():
         assert result["output_cost"] == pytest.approx(0.15, rel=0.1)
         assert result["total_cost"] == pytest.approx(0.20, rel=0.1)
         
+    
+
+
+@pytest.mark.asyncio
+async def test_chutesr_get_cost_estimate_api_ok():
+    
+    base_url = os.getenv("BITRECS_PLATFORM_URL")
+    base_url = "http://localhost:8000" 
+
+    key = os.environ.get("BITRECS_PLATFORM_API_KEY")
+    headers = {"X-API-Key": key}
+    estimate = InferenceCostEstimateRequest(
+        provider="chutes",
+        model_name="unsloth/Mistral-Nemo-Instruct-2407",
+        input_tokens=1_000_000,
+        output_tokens=1_000_000
+    )
+    with httpx.Client() as client:
+        response = client.post(
+            f"{base_url}/inference/estimate-cost",
+            headers=headers,
+            json=estimate.model_dump()            
+        )
+        assert response.status_code == 200
+        result = response.json()
+        print(result)
+        assert "input_cost" in result
+        assert "output_cost" in result
+        assert "total_cost" in result
+        assert result["input_cost"] == pytest.approx(0.02, rel=0.1)
+        assert result["output_cost"] == pytest.approx(0.04, rel=0.1)
+        assert result["total_cost"] == pytest.approx(0.06, rel=0.1)
+            

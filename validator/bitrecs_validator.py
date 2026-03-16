@@ -18,7 +18,7 @@ from utils.git import COMMIT_HASH
 from utils.system_metrics import get_system_metrics
 from models.agent import Agent
 from api.endpoints.validator_models import (
-    ScreenerRegistrationRequest, ScreenerRegistrationResponse, 
+    InferenceCostEstimateRequest, ScreenerRegistrationRequest, ScreenerRegistrationResponse, 
     ValidatorDisconnectRequest, ValidatorFinishEvaluationRequest, 
     ValidatorHeartbeatRequest, ValidatorRegistrationRequest, 
     ValidatorRegistrationResponse, ValidatorRequestEvaluationRequest, 
@@ -150,6 +150,19 @@ async def get_eval_log(run_id: str) -> str | None:
     except Exception as e:
         logger.error(f"Error reading eval log file {log_path}: {e}")
         return None
+
+
+async def get_cost_estimate(provider: str, model: str, input_tokens: int, output_tokens: int) -> Dict[str, Any] | None:
+    response = await post_bitrecs_platform("/inference/estimate-cost", 
+                                           InferenceCostEstimateRequest(
+                                            provider=provider, 
+                                            model_name=model,
+                                            input_tokens=input_tokens,
+                                            output_tokens=output_tokens),
+                                            bearer_token=session_id, quiet=2)
+    if response is not None and "input_cost" in response and "output_cost" in response:
+        return response
+    return None
 
 
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
@@ -516,7 +529,7 @@ async def main():
     global running_eval_timeout_seconds
     global max_evaluation_run_log_size_bytes
     
-    await register_validator()    
+    await register_validator()   
     
     asyncio.create_task(send_heartbeat_loop())
     
