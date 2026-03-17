@@ -247,6 +247,11 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info(f"Miner Artifact Status: {miner_agent.status}")
             logger.info(f"Miner Artifact Hotkey: {miner_agent.miner_hotkey}")
 
+            cost_estimate = await get_cost_estimate(miner_agent.provider, miner_agent.model, input_tokens=1_000_000, output_tokens=1_000_000)
+            if not cost_estimate:
+                logger.warning("Cost estimate not available")
+                raise Exception(f"Cost estimate not available for provider: {miner_agent.provider}, model: {miner_agent.model}")
+            logger.info(f"Cost estimate:  input cost: {cost_estimate['input_cost']}, output cost: {cost_estimate['output_cost']})")
             logger.info(f"Testing model: {miner_agent.model} with provider: {miner_agent.provider}")
 
             # Move from pending -> initializing_agent
@@ -268,12 +273,14 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             af_hostname = "localhost" if not is_docker else "bitrecs-evals-main"  # Container name for network access
             af_container_port = 8000            
             
-            af_run_token = secrets.token_hex(16)
+            af_run_token = secrets.token_hex(16)            
             af_env_vars = {                
                 "BITRECS_RUN_TOKEN": af_run_token,
                 "BITRECS_RUN_ID": bitrecs_run_id,
                 "OPENROUTER_API_KEY": openrouter_api_key,
-                "CHUTES_API_KEY": chutes_api_key
+                "CHUTES_API_KEY": chutes_api_key,
+                "MODEL_COST_INPUT": str(cost_estimate["input_cost"]),
+                "MODEL_COST_OUTPUT": str(cost_estimate["output_cost"])
             }
             env = af_env.load_env(
                 image=af_image,
@@ -302,8 +309,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")
             logger.info("Triggering evaluation in Affine environment...")
 
-            # Move from running_agent -> initializing_eval
-            #await asyncio.sleep(random.random() * 3)
+            # Move from running_agent -> initializing_eval            
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_eval, {
                 "patch": "initializing_eval",
                 "agent_logs": f"run_id: {bitrecs_run_id}\nDocker container port: {af_container_port}\nDocker environment health: {af_health}"
@@ -328,8 +334,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 logger.info(f"Received response: {response.text}")
                 response.raise_for_status()
                 result = response.json()
-
-            #logger.debug(f"RAW Evaluation result: {result}")
+            
             tak_name = result.get("task_name", "N/A")
             run_id = result.get("run_id", "N/A")
             score = result.get("score", 0.0)

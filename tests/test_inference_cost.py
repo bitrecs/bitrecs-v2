@@ -269,7 +269,7 @@ async def test_open_router_get_cost_estimate_api_ok():
 async def test_chutesr_get_cost_estimate_api_ok():
     
     base_url = os.getenv("BITRECS_PLATFORM_URL")
-    base_url = "http://localhost:8000" 
+    #base_url = "http://localhost:8000" 
 
     key = os.environ.get("BITRECS_PLATFORM_API_KEY")
     headers = {"X-API-Key": key}
