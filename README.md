@@ -14,11 +14,11 @@
 
 **What is Bitrecs V2?** 
 
-Bitrecs V2 is a prompt evolution subnet which rewards miners who optimize an artifact.yml, an object containing a prompt, model, temperature and other parameters against a rotating set of challenging ecommerce evaluations. Miners submit artifacts via the CLI by making an onchain commitment to begin evaluation.
+Bitrecs V2 is a prompt evolution subnet which rewards miners who optimize an artifact.yaml, an object containing a prompt, model, temperature and other parameters against a rotating set of challenging ecommerce evaluations. Miners submit artifacts via the CLI by making an onchain commitment to begin evaluation.
 
 **What does Bitrecs do?**
 
-Bitrecs is a novel recommendation engine powered by Bittensor. Our flagship product is an ecommerce recommendation widget which drives sales for merchants by utilizing the newest state of the art models and novel generateive recommendation techniques. Merchants can expect to see personalized customer journey experinces drive higher average order values, resulting in more sales. 
+Bitrecs is a novel recommendation engine powered by Bittensor. Our flagship product is an ecommerce recommendation widget which drives sales for merchants by utilizing the newest state of the art models and novel generative recommendation techniques. Merchants can expect to see personalized customer journey experiences drive higher average order values, resulting in more sales. 
 
 ## Validator
 
