@@ -36,6 +36,7 @@ from validator.r2_sync import r2_sync
 from get_version import get_git_info
 from utils.epoch import get_current_epoch_info
 from utils.subtensor import get_subtensor
+from models.inference_report import InferenceReport
 
 
 EVAL_TIMEOUT = (30, 600)
@@ -163,6 +164,36 @@ async def get_cost_estimate(provider: str, model: str, input_tokens: int, output
     if response is not None and "input_cost" in response and "output_cost" in response:
         return response
     return None
+
+async def post_cost_report(evaluation_run_id: UUID,
+                           provider: str, model: str, 
+                           temperature: float, 
+                           messages: list, 
+                           status_code: int, 
+                           response: str, 
+                           num_input_tokens: int, 
+                           num_output_tokens: int, 
+                           cost_usd: float):
+    try:
+        await post_bitrecs_platform("/inference/report-cost", 
+                                    InferenceReport(
+                                        evaluation_run_id=evaluation_run_id,
+                                        provider=provider,
+                                        model=model,
+                                        temperature=temperature,
+                                        messages=messages,
+                                        status_code=status_code,
+                                        response=response,
+                                        num_input_tokens=num_input_tokens,
+                                        num_output_tokens=num_output_tokens,
+                                        cost_usd=cost_usd,
+                                        response_sent_at=int(time.time())
+                                    ),
+                                    bearer_token=session_id, quiet=2)
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error reporting inference cost: {e.response.status_code} - {e.response.text}")
+    except Exception as e:
+        logger.error(f"Error reporting inference cost: {e}")
 
 
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
@@ -341,6 +372,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             success = result.get("success", False)
             duration = result.get("duration", 0.0)
             samples = result.get("samples", 0)
+            inference_report = result.get("inference_data", {})
+            cost_report = result.get("cost_report", {})
+
             extra = ""
             logger.info("Evaluation Result:")
             logger.info(f"  Run ID: {run_id}")
@@ -373,6 +407,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 this_log += f"\n\nEval Log Error: Failed to retrieve eval log"
             else:
                 this_log += "\n\nEval Log:\n" + (eval_log if eval_log else "No eval log available")
+
+            # if inference_report is not None:
+            #     this_log += "\n\nInference Report:\n" + str(inference_report)
             
             await env.cleanup()
 
@@ -399,6 +436,19 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 logger.error("Failed to save result to local backup")
             else:
                 logger.info("Saved result to local backup successfully")
+          
+            await post_cost_report(
+                evaluation_run_id=evaluation_run_id,
+                provider=miner_agent.provider,
+                model=miner_agent.model,
+                temperature=miner_agent.sampling_params.temperature if miner_agent.sampling_params else 0.0,
+                messages=[],
+                status_code=200 if success else 500,
+                response="",
+                num_input_tokens=cost_report.get("input_tokens", 0),
+                num_output_tokens=cost_report.get("output_tokens", 0),
+                cost_usd=cost_report.get("estimated_cost_usd", 0.0)
+            )           
 
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
                 "test_results": [problem_test_result.model_dump()],
