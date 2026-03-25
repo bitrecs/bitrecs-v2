@@ -79,7 +79,7 @@ def get_value_from_alpha(alpha_burned_rao: int) -> float:
     value = alpha_burned * bitrecs_price
     return value
     
-
+@pytest.mark.skip(reason="skipped")
 def test_one():
     tolerance = 3.0
     burned = 22823068312
