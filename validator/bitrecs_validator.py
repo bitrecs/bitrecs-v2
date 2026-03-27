@@ -36,6 +36,7 @@ from validator.r2_sync import r2_sync
 from get_version import get_git_info
 from utils.epoch import get_current_epoch_info
 from utils.subtensor import get_subtensor
+from models.inference_report import InferenceReport
 
 
 EVAL_TIMEOUT = (30, 600)
@@ -164,6 +165,36 @@ async def get_cost_estimate(provider: str, model: str, input_tokens: int, output
         return response
     return None
 
+async def post_cost_report(evaluation_run_id: UUID,
+                           provider: str, model: str, 
+                           temperature: float, 
+                           messages: list, 
+                           status_code: int, 
+                           response: str, 
+                           num_input_tokens: int, 
+                           num_output_tokens: int, 
+                           cost_usd: float):
+    try:
+        await post_bitrecs_platform("/inference/report-cost", 
+                                    InferenceReport(
+                                        evaluation_run_id=evaluation_run_id,
+                                        provider=provider,
+                                        model=model,
+                                        temperature=temperature,
+                                        messages=messages,
+                                        status_code=status_code,
+                                        response=response,
+                                        num_input_tokens=num_input_tokens,
+                                        num_output_tokens=num_output_tokens,
+                                        cost_usd=cost_usd,
+                                        response_sent_at=int(time.time())
+                                    ),
+                                    bearer_token=session_id, quiet=2)
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error reporting inference cost: {e.response.status_code} - {e.response.text}")
+    except Exception as e:
+        logger.error(f"Error reporting inference cost: {e}")
+
 
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
     """Load an agent by its evaluation run ID."""
@@ -247,6 +278,11 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info(f"Miner Artifact Status: {miner_agent.status}")
             logger.info(f"Miner Artifact Hotkey: {miner_agent.miner_hotkey}")
 
+            cost_estimate = await get_cost_estimate(miner_agent.provider, miner_agent.model, input_tokens=1_000_000, output_tokens=1_000_000)
+            if not cost_estimate:
+                logger.warning("Cost estimate not available")
+                raise Exception(f"Cost estimate not available for provider: {miner_agent.provider}, model: {miner_agent.model}")
+            logger.info(f"Cost estimate:  input cost: {cost_estimate['input_cost']}, output cost: {cost_estimate['output_cost']})")
             logger.info(f"Testing model: {miner_agent.model} with provider: {miner_agent.provider}")
 
             # Move from pending -> initializing_agent
@@ -268,12 +304,14 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             af_hostname = "localhost" if not is_docker else "bitrecs-evals-main"  # Container name for network access
             af_container_port = 8000            
             
-            af_run_token = secrets.token_hex(16)
+            af_run_token = secrets.token_hex(16)            
             af_env_vars = {                
                 "BITRECS_RUN_TOKEN": af_run_token,
                 "BITRECS_RUN_ID": bitrecs_run_id,
                 "OPENROUTER_API_KEY": openrouter_api_key,
-                "CHUTES_API_KEY": chutes_api_key
+                "CHUTES_API_KEY": chutes_api_key,
+                "MODEL_COST_INPUT": str(cost_estimate["input_cost"]),
+                "MODEL_COST_OUTPUT": str(cost_estimate["output_cost"])
             }
             env = af_env.load_env(
                 image=af_image,
@@ -302,8 +340,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info(f"Loaded YAML content from : {miner_agent.agent_id}")
             logger.info("Triggering evaluation in Affine environment...")
 
-            # Move from running_agent -> initializing_eval
-            #await asyncio.sleep(random.random() * 3)
+            # Move from running_agent -> initializing_eval            
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_eval, {
                 "patch": "initializing_eval",
                 "agent_logs": f"run_id: {bitrecs_run_id}\nDocker container port: {af_container_port}\nDocker environment health: {af_health}"
@@ -328,14 +365,16 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 logger.info(f"Received response: {response.text}")
                 response.raise_for_status()
                 result = response.json()
-
-            #logger.debug(f"RAW Evaluation result: {result}")
+            
             tak_name = result.get("task_name", "N/A")
             run_id = result.get("run_id", "N/A")
             score = result.get("score", 0.0)
             success = result.get("success", False)
             duration = result.get("duration", 0.0)
             samples = result.get("samples", 0)
+            inference_report = result.get("inference_data", {})
+            cost_report = result.get("cost_report", {})
+
             extra = ""
             logger.info("Evaluation Result:")
             logger.info(f"  Run ID: {run_id}")
@@ -368,6 +407,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 this_log += f"\n\nEval Log Error: Failed to retrieve eval log"
             else:
                 this_log += "\n\nEval Log:\n" + (eval_log if eval_log else "No eval log available")
+
+            # if inference_report is not None:
+            #     this_log += "\n\nInference Report:\n" + str(inference_report)
             
             await env.cleanup()
 
@@ -394,6 +436,19 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 logger.error("Failed to save result to local backup")
             else:
                 logger.info("Saved result to local backup successfully")
+          
+            await post_cost_report(
+                evaluation_run_id=evaluation_run_id,
+                provider=miner_agent.provider,
+                model=miner_agent.model,
+                temperature=miner_agent.sampling_params.temperature if miner_agent.sampling_params else 0.0,
+                messages=[],
+                status_code=200 if success else 500,
+                response="",
+                num_input_tokens=cost_report.get("input_tokens", 0),
+                num_output_tokens=cost_report.get("output_tokens", 0),
+                cost_usd=cost_report.get("estimated_cost_usd", 0.0)
+            )           
 
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
                 "test_results": [problem_test_result.model_dump()],

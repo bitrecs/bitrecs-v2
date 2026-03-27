@@ -1,6 +1,7 @@
 import os
 import httpx
 import pytest
+import time  # Add this import
 from unittest.mock import patch
 from datetime import datetime
 from api.endpoints.validator_models import InferenceCostEstimateRequest
@@ -166,8 +167,8 @@ async def test_cache_expiration():
         result1 = await coster.fetch_cost()
         assert result1 == CostResult(input=0.5, output=1.0)
         
-        # Advance time past TTL (30 min)
-        mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 31, 0)
+        # Advance time past TTL (45 min)
+        mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 46, 0)
         
         # Second call should refetch
         result2 = await coster.fetch_cost()
@@ -236,7 +237,7 @@ async def test_open_router_valid_model():
 async def test_open_router_get_cost_estimate_api_ok():
     
     base_url = os.getenv("BITRECS_PLATFORM_URL")
-    base_url = "http://localhost:8000" 
+    #base_url = "http://localhost:8000" 
 
     key = os.environ.get("BITRECS_PLATFORM_API_KEY")
     headers = {"X-API-Key": key}
@@ -269,7 +270,7 @@ async def test_open_router_get_cost_estimate_api_ok():
 async def test_chutesr_get_cost_estimate_api_ok():
     
     base_url = os.getenv("BITRECS_PLATFORM_URL")
-    base_url = "http://localhost:8000" 
+    #base_url = "http://localhost:8000" 
 
     key = os.environ.get("BITRECS_PLATFORM_API_KEY")
     headers = {"X-API-Key": key}
@@ -294,4 +295,3 @@ async def test_chutesr_get_cost_estimate_api_ok():
         assert result["input_cost"] == pytest.approx(0.02, rel=0.1)
         assert result["output_cost"] == pytest.approx(0.04, rel=0.1)
         assert result["total_cost"] == pytest.approx(0.06, rel=0.1)
-            
