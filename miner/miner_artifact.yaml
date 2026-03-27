@@ -2,8 +2,6 @@ name: "bitrecs recommender"
 version_num: "1"
 status: "screening_1"
 miner_hotkey: "5F95Nub62Fhwy3UFBMWg5eDou1B45yrzXaa7FjgXMALcER6r"
-miner_uid: ""
-ip_address: ""
 provider: "OPEN_ROUTER"
 model: "qwen/qwen3-next-80b-a3b-instruct"
 

@@ -93,3 +93,21 @@ def test_api_auth():
     # Test excluded paths that should not require authentication
     response_root = client.get(f"{base_url}/")
     assert response_root.status_code == 200, f"Expected 200 OK for root endpoint, got {response_root.status_code}"
+
+
+
+def test_get_current_agents():
+    """Test GET /retrieval/current-agents endpoint"""
+    SERVICE_URL = "http://localhost:8000"
+    key = os.environ.get("BITRECS_PLATFORM_API_KEY")
+    headers = {"X-API-Key": key}  
+    response = client.get(f"{SERVICE_URL}/retrieval/current-agents", headers=headers)
+    assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+    agents = response.json()
+    print(agents)
+    assert isinstance(agents, list), "Response should be a list of agents"
+    if agents:
+        agent = agents[0]
+        assert "agent_id" in agent, "Agent should have an agent_id"
+        assert "name" in agent, "Agent should have a name"
+        assert "status" in agent, "Agent should have a status"
