@@ -35,21 +35,22 @@ async def estimate_inference_cost(
 @router.post("/report-cost")
 @limiter.limit("120/minute")
 async def report_inference_run(
-    request: InferenceReport,  
+    request: Request,
+    inference_report: InferenceReport,  
     validator: Validator = Depends(get_request_validator_with_lock)) -> dict:   
     try:
         inference_id = await insert_inference(
-            evaluation_run_id=request.evaluation_run_id,
-            provider=request.provider,
-            model=request.model,
-            temperature=request.temperature,
-            messages=request.messages,
-            status_code=request.status_code,
-            response=request.response,
-            num_input_tokens=request.num_input_tokens,
-            num_output_tokens=request.num_output_tokens,
-            cost_usd=request.cost_usd,
-            response_sent_at=request.response_sent_at
+            evaluation_run_id=inference_report.evaluation_run_id,
+            provider=inference_report.provider,
+            model=inference_report.model,
+            temperature=inference_report.temperature,
+            messages=inference_report.messages,
+            status_code=inference_report.status_code,
+            response=inference_report.response,
+            num_input_tokens=inference_report.num_input_tokens,
+            num_output_tokens=inference_report.num_output_tokens,
+            cost_usd=inference_report.cost_usd,
+            response_sent_at=inference_report.response_sent_at
         )
         return {"inference_id": inference_id, "status": "reported"}
     except Exception as e:
