@@ -13,6 +13,7 @@ import utils.logger as logger
 from dotenv import load_dotenv
 load_dotenv()
 from api import config
+from datetime import datetime, timezone
 from api.auth import APIKeyMiddleware
 from queries.auth_key import load_keys
 from api.db_sync import r2_download_and_sync
@@ -199,6 +200,21 @@ async def ensure_min_validators() -> None:
             status_code=503,
             detail=f"Not enough validators available for evaluation (connected: {connected_validators})"
         )    
+
+
+async def get_miner_info(hotkey: str, netuid: int, commit_block: int) -> tuple[int, str]:
+    sub = await get_subtensor()
+    for attempt in range(3):
+        try:
+            miner_uid = await sub.get_uid_for_hotkey_on_subnet(hotkey_ss58=hotkey, netuid=netuid)
+            coldkey = await sub.get_hotkey_owner(hotkey_ss58=hotkey, block=int(commit_block))
+            return miner_uid, coldkey
+        except Exception as e:
+            logger.warning(f"Attempt {attempt + 1} failed to get miner info for {hotkey}: {e}")
+            if attempt < 2:
+                await asyncio.sleep(1)
+    raise Exception(f"Failed to get miner info for {hotkey} after 3 attempts")
+
 
 
 @app.get("/")
@@ -428,15 +444,18 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         else:
             logger.info(f"MinerSubmission commitment to chain is valid for Gist {submission.gist_id} from hotkey {submission.hotkey} on block {commit_block}")
         
-        sub = await get_subtensor()
-        miner_uid = await sub.get_uid_for_hotkey_on_subnet(hotkey_ss58=submission.hotkey, netuid=config.NETUID)
-        coldkey = await sub.get_hotkey_owner(hotkey_ss58=submission.hotkey, block=int(commit_block))        
+        miner_uid, coldkey = await get_miner_info(submission.hotkey, config.NETUID, commit_block)
         artifact_instance.miner_uid = str(miner_uid)
         logger.info(f"Miner UID {miner_uid} for {submission.hotkey} from coldkey {coldkey}")
+
+        if miner_uid is None or miner_uid == 0:
+            logger.warning(f"Could not retrieve valid miner UID for hotkey {submission.hotkey}")
+            return JSONResponse(content={"error": "Could not retrieve valid miner UID for this hotkey"}, status_code=400)
 
         # Assign UUID before similarity check (needed for embedding)
         artifact_instance.agent_id = uuid.uuid4()
         artifact_instance.ip_address = request_id #obfuscate IP with request ID for privacy
+        artifact_instance.created_at = datetime.now(timezone.utc)
 
         similar_agents = []
         if COSINE_COMPARE_ENABLED and 1==2:

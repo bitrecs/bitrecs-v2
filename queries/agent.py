@@ -284,6 +284,16 @@ async def get_top_agents(
 
 
 @db_operation
+async def get_current_agents(conn: DatabaseConnection) -> list[Agent]:
+    results = await conn.fetch("""SELECT * FROM AGENTS WHERE created_at >= (
+        SELECT MIN(created_at) FROM evaluation_sets
+        WHERE set_id = (SELECT MAX(set_id) FROM evaluation_sets));
+    """)
+    return [Agent.parse_agent_from_db_row(row) for row in results]
+
+
+
+@db_operation
 async def get_agents_in_queue(conn: DatabaseConnection, queue_stage: EvaluationSetGroup) -> list[Agent]:
     queue_to_query = f"{queue_stage.value}_queue"
 
