@@ -437,7 +437,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             else:
                 logger.info("Saved result to local backup successfully")
 
-            updated_cost = get_cost_estimate(miner_agent.provider, 
+            updated_cost = await get_cost_estimate(miner_agent.provider, 
                                              miner_agent.model, 
                                              input_tokens=cost_report.get("input_tokens", 0), 
                                              output_tokens=cost_report.get("output_tokens", 0))

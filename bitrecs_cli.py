@@ -156,12 +156,32 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
                 response = client.post(submit_url, json=submission.to_dict(), timeout=120, headers=headers)
             
             if response.status_code == 201:
+                response_data = response.json()
                 console.print(Panel(f"[bold green]Upload Complete[/bold green]\n[cyan]Artifact uploaded successfully![/cyan]", title="Success", border_style="green"))
                 console.print(f"The {submission.github_account}/{submission.gist_id} artifact has been uploaded and is queued for evaluation.")
-                artifact_id = response.json().get('artifact_id')
+                artifact_id = response_data.get('artifact_id')
                 console.print(f"Your artifact ID is: [yellow]{artifact_id}[/yellow]")
                 artifact_url = f"https://dashboard.bitrecs.ai/agent/{artifact_id}"
                 console.print(f"View your artifact here: [yellow]{artifact_url}[/yellow]")
+                
+                # Display additional response details
+                request_id = response_data.get('request_id')
+                message = response_data.get('message')
+                similarity_check = response_data.get('similarity_check')
+                similar_results = response_data.get('similar_results', [])
+                
+                console.print(f"\n[bold cyan]Response Details:[/bold cyan]")
+                console.print(f"Request ID: [yellow]{request_id}[/yellow]")
+                console.print(f"Message: [yellow]{message}[/yellow]")
+                console.print(f"Similarity Check: [yellow]{similarity_check}[/yellow]")
+                if similar_results:
+                    console.print(f"Similar Agents:")
+                    for result in similar_results:
+                        agent_id = result.get('agent_id')
+                        distance = result.get('distance')
+                        console.print(f"  - Agent ID: [yellow]{agent_id}[/yellow], Distance: [yellow]{distance}[/yellow]")
+                else:
+                    console.print("No similar agents found.")
             else:
                 error = response.json().get('detail', 'Unknown error') if response.headers.get('content-type', '').startswith('application/json') else response.text
                 console.print(f"Upload failed (status {response.status_code}): {error}", style="bold red")
