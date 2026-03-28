@@ -436,7 +436,18 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 logger.error("Failed to save result to local backup")
             else:
                 logger.info("Saved result to local backup successfully")
-          
+
+            updated_cost = get_cost_estimate(miner_agent.provider, 
+                                             miner_agent.model, 
+                                             input_tokens=cost_report.get("input_tokens", 0), 
+                                             output_tokens=cost_report.get("output_tokens", 0))
+            if updated_cost:
+                logger.info(f"Updated cost estimate:  input cost: {updated_cost['input_cost']}, output cost: {updated_cost['output_cost']})")                
+                try:
+                    total_cost = float(updated_cost.get("total_cost", 0.0))
+                except (ValueError, TypeError):
+                    total_cost = 0.0
+
             await post_cost_report(
                 evaluation_run_id=evaluation_run_id,
                 provider=miner_agent.provider,
@@ -447,8 +458,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 response="",
                 num_input_tokens=cost_report.get("input_tokens", 0),
                 num_output_tokens=cost_report.get("output_tokens", 0),
-                cost_usd=cost_report.get("estimated_cost_usd", 0.0)
-            )           
+                cost_usd=total_cost
+            )
 
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.finished, {
                 "test_results": [problem_test_result.model_dump()],

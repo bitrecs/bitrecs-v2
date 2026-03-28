@@ -268,7 +268,7 @@ async def get_top_agents(
         JOIN agent_scores ass ON a.agent_id = ass.agent_id
         WHERE ass.set_id = (SELECT MAX(set_id) FROM evaluation_sets)
         AND a.agent_id NOT IN (SELECT agent_id FROM benchmark_agent_ids)
-        ORDER BY ROUND(ass.final_score::numeric, 6) DESC, a.created_at ASC
+        ORDER BY ROUND(ass.final_score::numeric, 8) DESC, a.created_at ASC
         LIMIT $1 OFFSET $2
         """, number_of_agents, offset
     )
