@@ -74,7 +74,7 @@ BT_NETWORK = os.environ.get("BT_NETWORK", "test")
 BT_NETUID = int(os.environ.get("BT_NETUID", 296))
 
 #COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
-COSINE_COMPARE_ENABLED = False
+COSINE_COMPARE_ENABLED = True
 SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.0001"))
 
 @asynccontextmanager
@@ -458,7 +458,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         artifact_instance.created_at = datetime.now(timezone.utc)
 
         similar_agents = []
-        if COSINE_COMPARE_ENABLED and 1==2:
+        if COSINE_COMPARE_ENABLED and 1==1:
             logger.info("Cosine similarity check is ENABLED for artifact submissions")
             logger.info(f"Checking similarity for artifact ID: {artifact_instance.agent_id}")
             logger.info(f"Threshold: {SIMILARITY_THRESHOLD}")
@@ -482,15 +482,15 @@ async def miner_submission(request: Request, submission: MinerSubmission):
                     f"Artifact submission rejected due to similarity: "
                     f"{[{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]}"
                 )                
-                return JSONResponse(
-                    status_code=409,  # Conflict
-                    content={
-                        "error": "Agent is too similar to existing agents",
-                        "message": "This agent appears to be a duplicate or very similar to existing submissions",
-                        "similar_agents": similar_details,
-                        "threshold": SIMILARITY_THRESHOLD
-                    }
-                )
+                # return JSONResponse(
+                #     status_code=409,  # Conflict
+                #     content={
+                #         "error": "Agent is too similar to existing agents",
+                #         "message": "This agent appears to be a duplicate or very similar to existing submissions",
+                #         "similar_agents": similar_details,
+                #         "threshold": SIMILARITY_THRESHOLD
+                #     }
+                # )
             
         
         artifact_id = await create_agent(artifact_instance)
