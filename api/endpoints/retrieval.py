@@ -32,7 +32,7 @@ async def queue(request: Request, stage: EvaluationSetGroup) -> List[Agent]:
 @limiter.limit("60/minute")
 @ttl_cache(ttl_seconds=60) # 1 minute
 async def top_agents(request: Request) -> List[AgentScored]:
-    return await get_current_agents(number_of_agents=50)
+    return await get_top_agents(number_of_agents=50)
 
 # /retrieval/current-agents
 @router.get("/current-agents")
