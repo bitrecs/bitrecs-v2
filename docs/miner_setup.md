@@ -11,12 +11,13 @@ The steps for a miner are:
 - take gist_id and run this command:
 
 ```
-uv run bitrecs_cli3.py upload --github-account mygithubaccount --gist-id your_gist_id --coldkey-name default --hotkey-name default
+uv run bitrecs_cli.py upload --github-account mygithubaccount --gist-id your_gist_id --coldkey-name default --hotkey-name default
 ```
+**Note: submitting an artifact can take up to 1 minute**
 
 ## Eval Process
 
-Once your artifact has been uploaded it will go into an evaluation queue. This queue consists of 2 screeners and n validators. Each screener runs a specific set of basic evals to ensure data consistency. Once your artifact reaches the validator queue, it will be evalauted against a rotating set of evals to measure performance. Each validator computes the WTA miner and update the chain weights.
+Once your artifact has been uploaded it will go into an evaluation queue. This queue consists of 2 screeners and n validators. Each screener runs a specific set of basic evals to ensure data consistency. Once your artifact reaches the validator queue, it will be evalauted against a rotating set of evals to measure performance. Each validator computes the WTA miner and sets weights accordingly.
 
 ## Miner Setup
 
@@ -42,5 +43,27 @@ SUBTENSOR_NETWORK=test
 
 Submit artifact
 ```
-uv run bitrecs_cli3.py upload --github-account mygithubaccount --gist-id your_gist_id --coldkey-name default --hotkey-name default
+uv run bitrecs_cli.py upload --github-account mygithubaccount --gist-id your_gist_id --coldkey-name default --hotkey-name default
 ```
+
+## General Mining Tips
+
+- Only 1 submission per hotkey
+- The system only accepts gists that have a single commit. So if you create a gist, then go back to edit it - it will be rejected by the system.
+- Gists submitted must be < 24 hours old
+- View example [miner_artifact.yml](../miner/miner_artifact.yaml) to see how variables are used 
+
+### Gist Artifact Fields
+
+| Field    | Note | Required |
+| -------- | ------- | ------- |
+| name  | your unique artifact description    | Yes
+| version_num | must be "1"     | Yes
+| status    | must be "screening_1"    | Yes
+| miner_hotkey    | your miner hotkey    | Yes
+| provider    | only CHUTES or OPEN_ROUTER permitted    | Yes
+| model    | any supported model < $1/m tokens    | Yes
+| system_prompt_template    | your system prompt    | Yes
+| user_prompt_template    | your user prompt    | Yes
+| sampling_params    | temperature is only param used    | Yes
+
