@@ -196,10 +196,13 @@ async def ensure_min_validators() -> None:
     validator_info = get_connected_validators_info()
     connected_validators = validator_info.get("connected_validators", 0)
     if connected_validators < config.NUM_EVALS_PER_AGENT:
+        logger.error(f"Not enough validators available for evaluation (connected: {connected_validators})")
         raise HTTPException(
             status_code=503,
             detail=f"Not enough validators available for evaluation (connected: {connected_validators})"
-        )    
+        )
+    if connected_validators != config.NUM_EVALS_PER_AGENT:
+        logger.warning(f"Number of connected validators ({connected_validators}) does not match expected ({config.NUM_EVALS_PER_AGENT})")
 
 
 async def get_miner_info(hotkey: str, netuid: int, commit_block: int) -> tuple[int, str]:
@@ -214,7 +217,6 @@ async def get_miner_info(hotkey: str, netuid: int, commit_block: int) -> tuple[i
             if attempt < 2:
                 await asyncio.sleep(1)
     raise Exception(f"Failed to get miner info for {hotkey} after 3 attempts")
-
 
 
 @app.get("/")
@@ -454,7 +456,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
 
         # Assign UUID before similarity check (needed for embedding)
         artifact_instance.agent_id = uuid.uuid4()
-        artifact_instance.ip_address = request_id #obfuscate IP with request ID for privacy
+        artifact_instance.ip_address = request_id #obfuscate for privacy
         artifact_instance.created_at = datetime.now(timezone.utc)
 
         similar_agents = []

@@ -36,6 +36,21 @@ async def test_is_system_enabled():
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("db_setup")
+async def test_get_current_agents():
+    from queries.agent import get_current_agents
+    agents = await get_current_agents()
+    assert isinstance(agents, list), "Expected a list of agents to be returned"
+    #agents = sorted(agents, key=lambda x: x.created_at, reverse=True)
+    for agent in agents:
+        print(f"{agent.name} - Agent ID: {agent.agent_id}, Miner Hotkey: {agent.miner_hotkey}, Status: {agent.status}")
+        assert agent.system_prompt_template == '', "Expected system_prompt_template to be null"
+        assert agent.user_prompt_template == '', "Expected user_prompt_template to be null"
+
+    print(f"Total agents retrieved: {len(agents)}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("db_setup")
 async def test_insert_inference_report():
     run_id = UUID("00054fc0-8a1e-4ff1-bda2-661c0b24287f")
     report = InferenceReport(

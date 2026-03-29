@@ -1,7 +1,6 @@
-from typing import Optional
 from uuid import UUID
+from typing import Optional
 from models.miner_submission import GistInfo
-from utils import gist
 from utils.database import db_operation, DatabaseConnection
 
 @db_operation
