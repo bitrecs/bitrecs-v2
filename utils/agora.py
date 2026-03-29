@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
 import os
 import httpx
 import utils.logger as logger
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 
 @dataclass
@@ -27,19 +27,3 @@ async def post_to_agora(payload: AgoraStatus) -> bool:
     except Exception as e:
         logger.error(f"Failed to post to Agora: {e}")
         return False
-
-
-# async def post_weights_to_agora(hotkey: str, block: int, uids: list[int], weights: list[float], status: str) -> bool:    
-#     try:
-#         weight_info = {f"uid{uid}": weight for uid, weight in zip(uids, weights)}
-#         payload = AgoraStatus(
-#             id="validator",
-#             from_server=hotkey,
-#             priority=1,
-#             description=str({"block": block, "weights": weight_info}),
-#             status=status  # Ensure this is "ok", "degraded", or "outage" to match StatusValue
-#         )
-#         return await post_to_agora(payload)
-#     except Exception as e:
-#         logger.error(f"post_weights_to_agora failed to post weights to Agora: {e}")
-#         return False

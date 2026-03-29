@@ -203,9 +203,7 @@ async def set_weights_onchain(validator_hotkey: Keypair, netuid: int, weight_rec
 
 
 async def post_weights_to_agora(hotkey: str, block: int, uids: list[int], weights: list[float], status: str) -> None:
-    logger.info(f"Posting weights to Agora: hotkey={hotkey}, block={block}, uids={uids}, weights={weights}, status={status}")
-    return
-
+    logger.info(f"Posting weights to Agora: hotkey={hotkey}, block={block}, uids={uids}, weights={weights}, status={status}")    
     try:
         from utils.agora import post_to_agora, AgoraStatus
         weight_info = {f"uid{uid}": weight for uid, weight in zip(uids, weights)}
