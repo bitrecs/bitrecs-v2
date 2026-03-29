@@ -521,11 +521,11 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         )
         
         response_content = {
+            "artifact_id": str(artifact_id),
             "request_id": request_id,
             "message": "Artifact submitted successfully",
-            "artifact_id": str(artifact_id),
-            "similarity_check": "passed",
-            "similar_results": [{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]
+            "similarity_check": "enabled" if COSINE_COMPARE_ENABLED else "disabled",
+            "similar_results": [{'agent_id': str(agent_id), 'distance': distance} for agent_id, distance in similar_agents]
         }
         return JSONResponse(status_code=201, content=response_content)
     
