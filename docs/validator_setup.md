@@ -28,11 +28,6 @@ sudo systemctl status docker
 
 ```
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
-reactivate shell:
-
-source $HOME/.local/bin/env
-
 ```
 
 # Setup Working Directory
@@ -47,7 +42,6 @@ Please ensure the folder is named bitrecs as docker compose expects ~/bitrecs
 ```
 uv init
 uv pip install bittensor-cli
-uv add typing-extensions (if missing)
 uv run btcli w regen-coldkeypub --ss58 COLDKEY_ADDR
 uv run btcli w regen-hotkey
 ```
@@ -86,7 +80,7 @@ VALIDATOR_HOTKEY_NAME=default
 CHECK_RUNNING_AGENTS_INTERVAL_SECONDS=60
 CHECK_PENDING_EVALUATIONS_INTERVAL_SECONDS=30
 CHECK_AGENT_UPLOAD_RATE_LIMIT_INTERVAL_SECONDS=600
-R2_SYNC_INTERVAL_SECONDS=3600
+R2_SYNC_INTERVAL_SECONDS=1800
 REQUEST_EVALUATION_INTERVAL_SECONDS=45
 SIMULATE_EVALUATION_RUNS=False
 SIMULATE_EVALUATION_RUN_MAX_TIME_PER_STAGE_SECONDS=3
@@ -101,13 +95,14 @@ CHUTES_API_KEY=
 copy .yml file into ~/bitrecs:
  
 https://github.com/bitrecs/bitrecs-v2/blob/main/validator/docker-compose-prod.yml
-
+docker compose -f validator/docker-compose-prod.yml build
 docker compose -f validator/docker-compose-prod.yml up -d
 ```
 
 # Logs
 ```
 docker compose -f docker-compose-prod.yml logs --tail 10 --follow
+docker compose -f docker-compose-prod.yml logs --tail 10 --follow validator
 ```
 
 # Watchtower

@@ -27,10 +27,10 @@ VARIABLE_COUNT_RESTRICTIONS = {
 }
 
 def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
-    if len(agent.name) == 0:
-        return False, "name must not be empty"
-    if agent.version_num <= 0:
-        return False, "version_num must be greater than 0" 
+    if len(agent.name) == 0 or len(agent.name) > 50:
+        return False, "name must not be empty and must not exceed 50 characters"
+    if agent.version_num != 1:
+        return False, "version_num must be 1"
     if len(agent.provider) == 0:
         return False, "provider must not be empty"
     if len(agent.model) == 0:
