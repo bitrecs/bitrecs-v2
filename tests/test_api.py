@@ -98,7 +98,8 @@ def test_api_auth():
 
 def test_get_current_agents():
     """Test GET /retrieval/current-agents endpoint"""
-    SERVICE_URL = "http://localhost:8000"
+    #SERVICE_URL = "http://localhost:8000"
+    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "http://localhost:8000")
     key = os.environ.get("BITRECS_PLATFORM_API_KEY")
     headers = {"X-API-Key": key}  
     response = client.get(f"{SERVICE_URL}/retrieval/current-agents", headers=headers)
@@ -111,3 +112,4 @@ def test_get_current_agents():
         assert "agent_id" in agent, "Agent should have an agent_id"
         assert "name" in agent, "Agent should have a name"
         assert "status" in agent, "Agent should have a status"
+    print(f" found {len(agents)} agents in response")

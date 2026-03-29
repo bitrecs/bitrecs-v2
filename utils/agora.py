@@ -1,8 +1,8 @@
+from datetime import datetime, timezone
 import os
 import httpx
 import utils.logger as logger
-from dataclasses import dataclass
-
+from dataclasses import dataclass, field
 
 @dataclass
 class AgoraStatus:
@@ -11,9 +11,10 @@ class AgoraStatus:
     priority: int
     description: str
     status: str
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
-async def post_to_agora(payload: AgoraStatus) -> None:   
+async def post_to_agora(payload: AgoraStatus) -> bool:   
     try:
         url = os.environ.get("AGORA_URL", "")
         key = os.environ.get("AGORA_API_KEY", "")
@@ -21,21 +22,24 @@ async def post_to_agora(payload: AgoraStatus) -> None:
         async with httpx.AsyncClient(base_url=url, headers=headers) as client:
             response = await client.post("/submit", json=payload.__dict__)
             response.raise_for_status()
+            logger.info(f"Successfully posted to Agora: {payload}")
+            return True
     except Exception as e:
         logger.error(f"Failed to post to Agora: {e}")
+        return False
 
 
-async def post_weights_to_agora(hotkey: str, block: int, uids: list[int], weights: list[float], status: str) -> None:    
-    try:
-        from utils.agora import post_to_agora, AgoraStatus
-        weight_info = {f"uid{uid}": weight for uid, weight in zip(uids, weights)}
-        payload = AgoraStatus(
-            id="validator",
-            from_server=hotkey,
-            priority=1,
-            description=str({"block": block, "weights": weight_info}),
-            status=status
-        )
-        await post_to_agora(payload)
-    except Exception as e:
-        logger.error(f"post_weights_to_agora failed to post weights to Agora: {e}")
+# async def post_weights_to_agora(hotkey: str, block: int, uids: list[int], weights: list[float], status: str) -> bool:    
+#     try:
+#         weight_info = {f"uid{uid}": weight for uid, weight in zip(uids, weights)}
+#         payload = AgoraStatus(
+#             id="validator",
+#             from_server=hotkey,
+#             priority=1,
+#             description=str({"block": block, "weights": weight_info}),
+#             status=status  # Ensure this is "ok", "degraded", or "outage" to match StatusValue
+#         )
+#         return await post_to_agora(payload)
+#     except Exception as e:
+#         logger.error(f"post_weights_to_agora failed to post weights to Agora: {e}")
+#         return False
