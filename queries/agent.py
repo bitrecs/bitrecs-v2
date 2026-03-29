@@ -285,12 +285,14 @@ async def get_top_agents(
 
 @db_operation
 async def get_current_agents(conn: DatabaseConnection) -> list[Agent]:
-    results = await conn.fetch("""SELECT * FROM AGENTS WHERE created_at >= (
+    results = await conn.fetch("""
+        SELECT *, '' AS system_prompt_template, '' as user_prompt_template 
+        FROM AGENTS WHERE created_at >= (
         SELECT MIN(created_at) FROM evaluation_sets
-        WHERE set_id = (SELECT MAX(set_id) FROM evaluation_sets));
+        WHERE set_id = (SELECT MAX(set_id) FROM evaluation_sets))
+        ORDER BY created_at DESC;
     """)
     return [Agent.parse_agent_from_db_row(row) for row in results]
-
 
 
 @db_operation
