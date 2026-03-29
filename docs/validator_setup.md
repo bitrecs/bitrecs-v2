@@ -102,6 +102,7 @@ docker compose -f validator/docker-compose-prod.yml up -d
 # Logs
 ```
 docker compose -f docker-compose-prod.yml logs --tail 10 --follow
+docker compose -f docker-compose-prod.yml logs --tail 10 --follow validator
 ```
 
 # Watchtower
