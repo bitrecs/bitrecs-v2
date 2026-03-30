@@ -105,42 +105,42 @@ class ProblemSuite(ABC):
 
 
 
-    def run_agent_sandbox(
-        self,
-        sandbox_manager: SandboxManager,
-        agent_sandbox: Sandbox
-    ) -> Tuple[str, str]:
-        try:
-            try:
-                sandbox_result_with_logs = sandbox_manager.run_sandbox(agent_sandbox)
-                timed_out = False
-            # NOTE ADAM: Docker bug
-            # except TimeoutError:
-            except requests.exceptions.ConnectionError:
-                timed_out = True
+    # def run_agent_sandbox(
+    #     self,
+    #     sandbox_manager: SandboxManager,
+    #     agent_sandbox: Sandbox
+    # ) -> Tuple[str, str]:
+    #     try:
+    #         try:
+    #             sandbox_result_with_logs = sandbox_manager.run_sandbox(agent_sandbox)
+    #             timed_out = False
+    #         # NOTE ADAM: Docker bug
+    #         # except TimeoutError:
+    #         except requests.exceptions.ConnectionError:
+    #             timed_out = True
 
-            if timed_out:
-                raise EvaluationRunException(
-                    EvaluationRunErrorCode.AGENT_TIMEOUT_RUNNING_AGENT,
-                    f"{EvaluationRunErrorCode.AGENT_TIMEOUT_RUNNING_AGENT.get_error_message()}: The agent exceeded the timeout of {agent_sandbox.timeout_seconds} seconds."
-                )
+    #         if timed_out:
+    #             raise EvaluationRunException(
+    #                 EvaluationRunErrorCode.AGENT_TIMEOUT_RUNNING_AGENT,
+    #                 f"{EvaluationRunErrorCode.AGENT_TIMEOUT_RUNNING_AGENT.get_error_message()}: The agent exceeded the timeout of {agent_sandbox.timeout_seconds} seconds."
+    #             )
 
-            if not sandbox_result_with_logs.success:
-                raise EvaluationRunException(
-                    EvaluationRunErrorCode.AGENT_EXCEPTION_RUNNING_AGENT,
-                    f"{EvaluationRunErrorCode.AGENT_EXCEPTION_RUNNING_AGENT.get_error_message()}: {sandbox_result_with_logs.error}\n\nTraceback:\n{sandbox_result_with_logs.traceback}"
-                )
+    #         if not sandbox_result_with_logs.success:
+    #             raise EvaluationRunException(
+    #                 EvaluationRunErrorCode.AGENT_EXCEPTION_RUNNING_AGENT,
+    #                 f"{EvaluationRunErrorCode.AGENT_EXCEPTION_RUNNING_AGENT.get_error_message()}: {sandbox_result_with_logs.error}\n\nTraceback:\n{sandbox_result_with_logs.traceback}"
+    #             )
             
-            return sandbox_result_with_logs.output, sandbox_result_with_logs.logs
+    #         return sandbox_result_with_logs.output, sandbox_result_with_logs.logs
 
-        except EvaluationRunException:
-            raise
+    #     except EvaluationRunException:
+    #         raise
 
-        except Exception as e:
-            raise EvaluationRunException(
-                EvaluationRunErrorCode.VALIDATOR_FAILED_RUNNING_AGENT,
-                f"{EvaluationRunErrorCode.VALIDATOR_FAILED_RUNNING_AGENT.get_error_message()}: {e}\n\nTraceback:\n{traceback.format_exc()}"
-            )
+    #     except Exception as e:
+    #         raise EvaluationRunException(
+    #             EvaluationRunErrorCode.VALIDATOR_FAILED_RUNNING_AGENT,
+    #             f"{EvaluationRunErrorCode.VALIDATOR_FAILED_RUNNING_AGENT.get_error_message()}: {e}\n\nTraceback:\n{traceback.format_exc()}"
+    #         )
 
 
     

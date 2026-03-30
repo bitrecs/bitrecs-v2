@@ -12,7 +12,7 @@ NETUID = int(NETUID)
 
 SUBTENSOR_ADDRESS = os.getenv("SUBTENSOR_ADDRESS")
 if not SUBTENSOR_ADDRESS:
-    logger.fatal("SUBTENSOR_ADDRESS is not set in .env")
+    logger.warning("SUBTENSOR_ADDRESS is not set in .env")
 
 SUBTENSOR_NETWORK = os.getenv("SUBTENSOR_NETWORK")
 if not SUBTENSOR_NETWORK:

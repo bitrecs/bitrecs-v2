@@ -3,11 +3,9 @@ import json
 import httpx
 import shutil
 import utils.logger as logger
-
 from typing import Any, Dict, Callable
-#from utils.temp import create_temp_dir, delete_temp_dir
 from evaluator.models import Sandbox, SandboxResultWithLogs
-#from utils.docker import DOCKER_PREFIX, get_docker_client, build_docker_image, create_internal_docker_network, connect_docker_container_to_internet, stop_and_delete_all_docker_containers
+
 
 DOCKER_PREFIX = "test"
 
@@ -21,23 +19,20 @@ SANDBOX_PROXY_PORT = 80
 class SandboxManager:
     def __init__(self, inference_gateway_url: str):
         # Setup inference gateway
-        self._check_inference_gateway(inference_gateway_url)
-
-        # Setup Docker
-        #stop_and_delete_all_docker_containers()
+        self._check_inference_gateway(inference_gateway_url)       
 
         # Setup sandbox-network
         #create_internal_docker_network(SANDBOX_NETWORK_NAME)
 
         # Setup sandbox-image
         # if os.getenv("CXII_NO_BUILD_SANDBOX_IMAGE") is None:
-        #     build_docker_image(os.path.dirname(__file__), "sandbox-image")
+        
         self.sandboxes = {}
 
         # Setup sandbox-proxy
         self.proxy_container = None
         self.proxy_temp_dir = None
-        #build_docker_image(os.path.dirname(__file__) + "/proxy", "sandbox-proxy-image")
+        
         self._create_sandbox_proxy(inference_gateway_url)
 
 
@@ -73,20 +68,8 @@ class SandboxManager:
         So to do inference, they send requests to this proxy server, which forwards appropriate requests to the inference gateway.
         """
   
-        logger.info("Running sandbox proxy")
+        logger.info("Running sandbox proxy")      
 
-        # self.proxy_container = get_docker_client().containers.run(
-        #     name=SANDBOX_PROXY_HOST,
-        #     image=f"{DOCKER_PREFIX}-sandbox-proxy-image",
-        #     network=SANDBOX_NETWORK_NAME,
-        #     environment={
-        #         "GATEWAY_URL": gateway_url,
-        #         "GATEWAY_HOST": gateway_url.split("://")[1].split(":")[0]
-        #     },
-        #     detach=True
-        # )
-
-        # connect_docker_container_to_internet(self.proxy_container)
 
 
 
@@ -136,21 +119,7 @@ class SandboxManager:
         elif script_extension == ".js":
             command = f"node /sandbox/{script_name} 2>&1"
 
-        # Create Docker container
-        # container = get_docker_client().containers.run(
-        #     name=name,
-        #     image=f"{DOCKER_PREFIX}-sandbox-image",
-        #     volumes={temp_dir: {"bind": "/sandbox", "mode": "rw"}},
-        #     network=SANDBOX_NETWORK_NAME,
-        #     environment={
-        #         "PYTHONUNBUFFERED": "1",
-        #         "PYTHONDONTWRITEBYTECODE": "1", # No __pycache__
-        #         "SANDBOX_PROXY_URL": f"http://{SANDBOX_PROXY_HOST}:{SANDBOX_PROXY_PORT}",
-        #         **env_vars
-        #     },
-        #     command=command,
-        #     detach=True
-        # )
+       
 
         return Sandbox(
             name=name,
