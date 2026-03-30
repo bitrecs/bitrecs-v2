@@ -104,6 +104,8 @@ if not R2_SYNC_INTERVAL_SECONDS:
     logger.fatal("R2_SYNC_INTERVAL_SECONDS is not set in .env")
 R2_SYNC_INTERVAL_SECONDS = int(R2_SYNC_INTERVAL_SECONDS)
 
+EVAL_CONTAINER_TAG = "ghcr.io/bitrecs/bitrecs-evals:main"
+
 logger.info("=== Validator Configuration ===")
 
 logger.info(f"Network ID: {NETUID}")
@@ -128,6 +130,7 @@ logger.info(f"Set Weights Interval: {SET_WEIGHTS_INTERVAL_SECONDS} second(s)")
 logger.info(f"Set Weights Timeout: {SET_WEIGHTS_TIMEOUT_SECONDS} second(s)")
 logger.info(f"Request Evaluation Interval: {REQUEST_EVALUATION_INTERVAL_SECONDS} second(s)")
 logger.info(f"R2 Sync Interval: {R2_SYNC_INTERVAL_SECONDS} second(s)")
+logger.info(f"Evaluation Container Tag: {EVAL_CONTAINER_TAG}")
 logger.info("-------------------------------")
 
 if SIMULATE_EVALUATION_RUNS:
