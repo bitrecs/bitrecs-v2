@@ -178,3 +178,23 @@ async def winner_take_all(request: Request) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error in winner_take_all endpoint: {e}")
         return {"error": "No miners in current evaluation set"}
+
+
+
+@router.get("/constants")
+@limiter.limit("60/minute")
+async def get_constants(request: Request) -> Dict[str, Any]:
+    from scoring.constants import (
+        DEFAULT_Z_SCORE, MIN_THRESHOLD_GAP, 
+        MAX_THRESHOLD_GAP, MINER_EMISSION_PORTION, 
+        MIN_EPSILON, MAX_EPSILON, DEFAULT_EPISODES_PER_ENV
+    )
+    return {       
+        "MIN_THRESHOLD_GAP": MIN_THRESHOLD_GAP,
+        "MAX_THRESHOLD_GAP": MAX_THRESHOLD_GAP,
+        "DEFAULT_Z_SCORE": DEFAULT_Z_SCORE,
+        "DEFAULT_EPISODES_PER_ENV": DEFAULT_EPISODES_PER_ENV,
+        "MIN_EPSILON": MIN_EPSILON,
+        "MAX_EPSILON": MAX_EPSILON,
+        "MINER_EMISSION_PORTION": MINER_EMISSION_PORTION
+    }

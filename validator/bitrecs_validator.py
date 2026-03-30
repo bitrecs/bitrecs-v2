@@ -31,7 +31,7 @@ from models.eval_type import BitrecsEvaluationType
 from validator.http_utils import get_bitrecs_platform, post_bitrecs_platform
 from scoring.engine import calculate_scores, get_current_eval_set_id
 from scoring.persist import ScorePersister
-from utils.docker import is_running_in_container
+from utils.docker import is_running_in_container, list_all_docker_containers
 from validator.r2_sync import r2_sync
 from get_version import get_git_info
 from utils.epoch import get_current_epoch_info
@@ -43,6 +43,15 @@ EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 STATE_BACKUP = ScorePersister(base_path="data/weights", filename="scores.db")
+
+
+async def list_docker_containers_loop():
+    while True:
+        containers = await list_all_docker_containers()
+        logger.info(f"Running Docker containers: {len(containers)}:")
+        for container in containers:
+            logger.info(f"Container Name: {container['name']}, Image: {container['image']}, Status: {container['status']}, Created: {container['created']}, Id: {container['id']}")
+        await asyncio.sleep(1800)
 
 
 async def calculate_scores_loop():
@@ -302,9 +311,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
             af_mode = "docker"
             af_hostname = "localhost" if not is_docker else "bitrecs-evals-main"  # Container name for network access
-            af_container_port = 8000            
+            af_container_port = 8000
             
-            af_run_token = secrets.token_hex(16)            
+            af_run_token = secrets.token_hex(16)
             af_env_vars = {                
                 "BITRECS_RUN_TOKEN": af_run_token,
                 "BITRECS_RUN_ID": bitrecs_run_id,
@@ -594,8 +603,10 @@ async def main():
     global running_agent_timeout_seconds
     global running_eval_timeout_seconds
     global max_evaluation_run_log_size_bytes
+
+    asyncio.create_task(list_docker_containers_loop())
     
-    await register_validator()   
+    await register_validator()
     
     asyncio.create_task(send_heartbeat_loop())
     
