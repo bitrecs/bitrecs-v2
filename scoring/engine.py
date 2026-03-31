@@ -5,6 +5,7 @@ import utils.logger as logger
 from bittensor_wallet import Keypair, Wallet
 from utils.subtensor import close_subtensor, get_subtensor
 from scoring.persist import ScorePersister
+from scoring.pareto import compute_pareto_frontier
 from scoring.threshold import compute_miner_thresholds
 from scoring.types import MinerFirstBlocks, MinerScores
 from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
@@ -104,8 +105,13 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
                                                     z_score=DEFAULT_Z_SCORE,
                                                     min_gap=MIN_THRESHOLD_GAP,
                                                     max_gap=MAX_THRESHOLD_GAP)
+
+        pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
+        frontier_uids = set(pareto_result.frontier_uids)
+        filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
+
         subset_scores = compute_subset_scores_with_priority(
-            miner_scores, miner_thresholds, miner_blocks, envs
+            filtered_scores, miner_thresholds, miner_blocks, envs
         )
         weights = scores_to_weights(subset_scores)
         logger.info("Subset scores:")
