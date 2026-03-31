@@ -14,7 +14,8 @@ root_path = Path(__file__).parent.parent.absolute()
 
 DATA_FILE_PATH = os.path.join(root_path, "data", "weights")
 #DATA_FILE = "scores.db"
-DATA_FILE = "combined_20260331_132851.sqlite"
+#DATA_FILE = "combined_20260331_132851.sqlite"
+DATA_FILE = "combined_20260331_174129.sqlite"
 
 
 @pytest.mark.asyncio
@@ -130,6 +131,7 @@ async def test_scoring_wta():
     print(f"Current evaluation_set_id: {current_set_id}")    
     persister = ScorePersister(base_path=DATA_FILE_PATH, filename=DATA_FILE)
     data = persister.load_scores(evaluation_set_id=current_set_id)
+    print(f"Loaded {len(data)} score records")
     miner_scores = df_to_miner_scores(data)
     samples = df_to_samples(data)
     envs = list(samples.keys())
@@ -139,12 +141,12 @@ async def test_scoring_wta():
                                                 min_gap=MIN_THRESHOLD_GAP,
                                                 max_gap=MAX_THRESHOLD_GAP)
 
-    pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
-    frontier_uids = set(pareto_result.frontier_uids)
-    filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
+    # pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
+    # frontier_uids = set(pareto_result.frontier_uids)
+    # filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
 
     subset_scores = compute_subset_scores_with_priority(
-        filtered_scores, miner_thresholds, miner_blocks, envs
+        miner_scores, miner_thresholds, miner_blocks, envs
     )
     weights = scores_to_weights(subset_scores)
     typer.echo("\nSubset scores:")
@@ -158,6 +160,48 @@ async def test_scoring_wta():
     top_weight_uid = max(weights, key=weights.get)
     typer.echo(f"\nTop weight UID: {top_weight_uid} with weight {weights[top_weight_uid]:.4f}")
 
+
+
+
+
+@pytest.mark.asyncio
+async def test_scoring_wta_all():    
+    current_set_id = await get_current_eval_set_id()
+    print(f"Current evaluation_set_id: {current_set_id}")    
+    dbs = ["1.db", "2.db", "3_test.db"]
+
+    for db in dbs:
+        print(f"\nTesting with database: {db}")
+        persister = ScorePersister(base_path=DATA_FILE_PATH, filename=db)
+        data = persister.load_scores(evaluation_set_id=current_set_id)
+        print(f"Loaded {len(data)} score records")
+        miner_scores = df_to_miner_scores(data)
+        samples = df_to_samples(data)
+        envs = list(samples.keys())
+        miner_blocks = df_to_miner_blocks(data)   
+        miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples,
+                                                    z_score=DEFAULT_Z_SCORE,
+                                                    min_gap=MIN_THRESHOLD_GAP,
+                                                    max_gap=MAX_THRESHOLD_GAP)
+
+        # pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
+        # frontier_uids = set(pareto_result.frontier_uids)
+        # filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
+
+        subset_scores = compute_subset_scores_with_priority(
+            miner_scores, miner_thresholds, miner_blocks, envs
+        )
+        weights = scores_to_weights(subset_scores)
+        typer.echo("\nSubset scores:")
+        for uid, score in sorted(subset_scores.items(), key=lambda x: x[1], reverse=True):
+            typer.echo(f"  UID {uid}: {score:.1f} points")
+
+        typer.echo("\nFinal weights:")
+        for uid, weight in sorted(weights.items(), key=lambda x: x[1], reverse=True):
+            typer.echo(f"  UID {uid}: {weight:.4f}")
+
+        top_weight_uid = max(weights, key=weights.get)
+        typer.echo(f"\nTop weight UID: {top_weight_uid} with weight {weights[top_weight_uid]:.4f}")
 
 
 
