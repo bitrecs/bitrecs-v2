@@ -1,3 +1,4 @@
+import re
 import utils.logger as logger
 from typing import Tuple
 from models.agent import Agent
@@ -27,8 +28,10 @@ VARIABLE_COUNT_RESTRICTIONS = {
 }
 
 def validate_artifact_template(agent: Agent) -> Tuple[bool, str]:
-    if len(agent.name) == 0 or len(agent.name) > 50:
-        return False, "name must not be empty and must not exceed 50 characters"
+    if len(agent.name) == 0 or len(agent.name) > 30:
+        return False, "name must not be empty and must not exceed 30 characters"
+    if not re.match(r'^[a-zA-Z0-9 ]{1,30}$', agent.name):
+        return False, "name must be 1-30 alphanumeric characters only (letters and numbers, no special characters)"
     if agent.version_num != 1:
         return False, "version_num must be 1"
     if len(agent.provider) == 0:
