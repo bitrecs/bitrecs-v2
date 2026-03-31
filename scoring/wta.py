@@ -1,6 +1,7 @@
 """Winners-take-all scoring over environment subsets with first-commit advantage."""
 import numpy as np
 from itertools import combinations
+from scoring.constants import MIN_THRESHOLD_GAP
 from scoring.types import (
     EnvironmentId,
     MinerFirstBlocks,
@@ -63,93 +64,6 @@ def scores_to_weights(
     return {uid: float(w) for uid, w in zip(uids, weights, strict=True)}
 
 
-def find_subset_winner_with_priority(
-    miner_scores: MinerScores,
-    miner_thresholds: MinerThresholds,
-    miner_first_blocks: MinerFirstBlocks,
-    subset: tuple[EnvironmentId, ...],
-) -> MinerUID | None:
-    """
-    Find the miner that dominates all others on a subset, with first-commit advantage.
-
-    The earlier miner (lower first_block) wins ties. A later miner must beat the
-    earlier miner's threshold on ALL environments in the subset to win.
-
-    Args:
-        miner_scores: Dict mapping uid -> env_id -> score
-        miner_thresholds: Dict mapping uid -> env_id -> threshold (score + gap)
-        miner_first_blocks: Dict mapping uid -> first committed block
-        subset: Tuple of environment IDs to check
-
-    Returns:
-        UID of the winner, or None if no clear winner
-    """
-    uids = list(miner_scores.keys())
-
-    if len(uids) < 2:
-        return uids[0] if uids else None
-
-    # Sort by first_block (earlier first), then by uid for determinism
-    sorted_uids = sorted(uids, key=lambda u: (miner_first_blocks.get(u, float("inf")), u))
-
-    # skip miners with zero scores on ALL tasks in subset
-    # They can't meaningfully "win" a subset they didn't participate in
-    def has_any_score(uid: MinerUID) -> bool:
-        return any(miner_scores[uid].get(env, 0.0) > 0.0 for env in subset)
-
-    eligible_uids = [u for u in sorted_uids if has_any_score(u)]
-    if not eligible_uids:
-        return None
-
-    for candidate in eligible_uids:
-        dominates_all = True
-        candidate_block = miner_first_blocks.get(candidate, float("inf"))
-
-        for other in eligible_uids:
-            if candidate == other:
-                continue
-
-            other_block = miner_first_blocks.get(other, float("inf"))
-
-            # Determine who came first
-            if candidate_block <= other_block:
-                earlier_uid = candidate
-                later_uid = other
-            else:
-                earlier_uid = other
-                later_uid = candidate
-
-            # Count wins for the later miner (must beat threshold to win)
-            later_wins = 0
-            for env in subset:
-                earlier_score = miner_scores[earlier_uid].get(env, 0.0)
-                later_score = miner_scores[later_uid].get(env, 0.0)
-                threshold = miner_thresholds[earlier_uid].get(env, earlier_score + 0.02)
-
-                if later_score > threshold:
-                    later_wins += 1
-
-            # Determine who dominates this pair on the subset
-            n_envs = len(subset)
-            if candidate_block <= other_block:
-                # Candidate is earlier: candidate dominates if other doesn't win all
-                if later_wins == n_envs:
-                    # Other beat all thresholds - candidate doesn't dominate
-                    dominates_all = False
-                    break
-            else:
-                # Other is earlier: candidate dominates only if candidate wins all
-                if later_wins < n_envs:
-                    # Candidate didn't beat all thresholds - candidate doesn't dominate
-                    dominates_all = False
-                    break
-
-        if dominates_all:
-            return candidate
-    
-    return None  # No clear winner
-
-
 def compute_subset_scores_with_priority(
     miner_scores: MinerScores,
     miner_thresholds: MinerThresholds,
@@ -195,7 +109,7 @@ def compute_subset_scores_with_priority(
 
         # Check each subset of this size
         for subset in combinations(env_ids, subset_size):
-            winner = find_subset_winner_with_priority(
+            winner = find_subset_winner_score_first(
                 miner_scores,
                 miner_thresholds,
                 miner_first_blocks,
@@ -205,3 +119,47 @@ def compute_subset_scores_with_priority(
                 final_scores[winner] += subset_weight
 
     return final_scores
+
+
+def find_subset_winner_score_first(
+    miner_scores: MinerScores,
+    miner_thresholds: MinerThresholds,
+    miner_first_blocks: MinerFirstBlocks,
+    subset: tuple[EnvironmentId, ...],
+) -> MinerUID | None:
+    eligible = [
+        u for u in miner_scores
+        if any(miner_scores[u].get(e, 0.0) > 0.0 for e in subset)
+    ]
+    if not eligible:
+        return None
+    if len(eligible) == 1:
+        return eligible[0]
+
+    def subset_score(uid):
+        return sum(miner_scores[uid].get(e, 0.0) for e in subset)
+
+    # Sort by score descending first, then by block ascending as secondary
+    ranked = sorted(
+        eligible,
+        key=lambda u: (-subset_score(u), miner_first_blocks.get(u, float("inf")))
+    )
+
+    leader   = ranked[0]
+    runner_up = ranked[1]
+
+    # Does the leader clearly beat the runner-up's threshold on EVERY env in subset?
+    leader_is_clear = all(
+        miner_scores[leader].get(env, 0.0)
+        > miner_thresholds[runner_up].get(env, miner_scores[runner_up].get(env, 0.0) + MIN_THRESHOLD_GAP)
+        for env in subset
+    )
+
+    if leader_is_clear:
+        return leader  # score wins, no blocks involved
+
+    # Statistical tie between leader and runner-up: first-block decides between them only
+    return min(
+        [leader, runner_up],
+        key=lambda u: (miner_first_blocks.get(u, float("inf")), u)
+    )
