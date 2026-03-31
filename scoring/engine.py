@@ -30,10 +30,10 @@ async def get_current_eval_set_id() -> int:
 
 def df_to_miner_scores(df) -> MinerScores:
     """
-    Aggregate scores across multiple validators per uid+task.    
+    Aggregate scores: take the max per uid+task (to handle retries by using the best score).
     """
-    miner_scores: MinerScores = {}
-    grouped = df.groupby(['uid', 'task_name'])['score'].mean().reset_index()    
+    miner_scores: MinerScores = {}    
+    grouped = df.groupby(['uid', 'task_name'])['score'].max().reset_index()
     for _, row in grouped.iterrows():
         uid = row['uid']
         env_id = row['task_name']
@@ -41,7 +41,7 @@ def df_to_miner_scores(df) -> MinerScores:
         if uid not in miner_scores:
             miner_scores[uid] = {}
         miner_scores[uid][env_id] = score    
-    logger.info(f"Aggregated scores: {len(grouped)} uid+task combinations (mean across validators)")
+    logger.info(f"Aggregated scores: {len(grouped)} uid+task combinations (max per group)")
     return miner_scores
 
 
@@ -223,4 +223,3 @@ async def post_weights_to_agora(hotkey: str, block: int, uids: list[int], weight
         await post_to_agora(payload)
     except Exception as e:
         logger.error(f"post_weights_to_agora failed to post weights to Agora: {e}")
-   

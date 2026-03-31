@@ -4,6 +4,7 @@ import httpx
 import pytest
 import typer
 from pathlib import Path
+from scoring.constants import DEFAULT_Z_SCORE, MAX_THRESHOLD_GAP, MIN_THRESHOLD_GAP
 from scoring.engine import df_to_miner_blocks, df_to_miner_scores, df_to_samples, get_current_eval_set_id, miners_first_blocks
 from scoring.pareto import compute_pareto_frontier
 from scoring.persist import ScorePersister
@@ -13,7 +14,7 @@ root_path = Path(__file__).parent.parent.absolute()
 
 DATA_FILE_PATH = os.path.join(root_path, "data", "weights")
 #DATA_FILE = "scores.db"
-DATA_FILE = "combined_20260331_102547.sqlite"
+DATA_FILE = "combined_20260331_132851.sqlite"
 
 
 @pytest.mark.asyncio
@@ -133,9 +134,17 @@ async def test_scoring_wta():
     samples = df_to_samples(data)
     envs = list(samples.keys())
     miner_blocks = df_to_miner_blocks(data)   
-    miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
+    miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples,
+                                                z_score=DEFAULT_Z_SCORE,
+                                                min_gap=MIN_THRESHOLD_GAP,
+                                                max_gap=MAX_THRESHOLD_GAP)
+
+    pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
+    frontier_uids = set(pareto_result.frontier_uids)
+    filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
+
     subset_scores = compute_subset_scores_with_priority(
-        miner_scores, miner_thresholds, miner_blocks, envs
+        filtered_scores, miner_thresholds, miner_blocks, envs
     )
     weights = scores_to_weights(subset_scores)
     typer.echo("\nSubset scores:")
