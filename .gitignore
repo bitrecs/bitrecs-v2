@@ -211,3 +211,6 @@ message_and_signature.*
 *.sqlite3
 scores.db
 scores2.db
+
+data/weights/*.sqlite
+data/weights/*.db

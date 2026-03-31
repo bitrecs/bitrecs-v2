@@ -115,7 +115,11 @@ class ScorePersister:
         """Load all scores for a given evaluation set ID."""
         with self._connect() as conn:
             df = pd.read_sql_query(
-                "SELECT * FROM miner_scores WHERE evaluation_set_id = ?",
+                """SELECT * FROM (
+                    SELECT *, ROW_NUMBER() OVER (PARTITION BY hotkey, task_name ORDER BY score DESC, created_at DESC) AS rn
+                    FROM miner_scores 
+                    WHERE evaluation_set_id = ?
+                ) WHERE rn = 1""",
                 conn,
                 params=(evaluation_set_id,)
             )
