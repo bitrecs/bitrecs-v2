@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from api.endpoints.validator import Validator, get_request_validator_with_lock
 from api.endpoints.validator_models import InferenceCostEstimateRequest
 from models.inference_report import InferenceReport
-from queries.inference import insert_inference
+from queries.inference import get_cost_report_for_agent, insert_inference
 from api.utils.limiter import limiter
 from utils.inference_coster import InferenceCoster
 
@@ -55,3 +55,15 @@ async def report_inference_run(
         return {"inference_id": inference_id, "status": "reported"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to report inference: {str(e)}")
+
+
+
+# /inference/cost
+@router.get("/cost")
+@limiter.limit("120/minute")
+async def get_agent_inference_cost(request: Request, agent_id: str) -> dict:
+    try:
+        report = await get_cost_report_for_agent(agent_id)
+        return {"agent_id": agent_id, "inference_cost_report": report}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve inference cost report: {str(e)}")

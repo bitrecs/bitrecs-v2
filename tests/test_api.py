@@ -113,3 +113,29 @@ def test_get_current_agents():
         assert "name" in agent, "Agent should have a name"
         assert "status" in agent, "Agent should have a status"
     print(f" found {len(agents)} agents in response")
+
+
+def test_get_agent_cost_report():
+    """Test GET /inference/cost endpoint"""
+    SERVICE_URL = "http://localhost:8000"  
+    #SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "http://localhost:8000")
+
+    key = os.environ.get("BITRECS_PLATFORM_API_KEY")
+    headers = {"X-API-Key": key}  
+    agent_id = "79d21d40-f895-4b93-a352-735aa2003961"
+    response = client.get(f"{SERVICE_URL}/inference/cost?agent_id={agent_id}", headers=headers)
+    assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+    result = response.json()
+    assert "agent_id" in result, "Response should contain agent_id"
+    assert "inference_cost_report" in result, "Response should contain inference_cost_report"
+    print(f"Inference cost report for agent {result['agent_id']}: {result['inference_cost_report']}")
+
+    run_cost = sum(item.get("cost_usd", 0) for item in result["inference_cost_report"])
+    print(f"Total inference cost for agent {result['agent_id']}: ${run_cost:.4f}")
+    total_input_tokens = sum(item.get("num_input_tokens", 0) for item in result["inference_cost_report"])
+    total_output_tokens = sum(item.get("num_output_tokens", 0) for item in result["inference_cost_report"])
+    print(f"Total input tokens: {total_input_tokens}, Total output tokens: {total_output_tokens}")
+    total_tokens = total_input_tokens + total_output_tokens
+    print(f"\033[1;32mTotal tokens: {total_tokens} for cost of ${run_cost:.8f}\033[0m")
+    
+  
