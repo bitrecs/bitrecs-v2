@@ -31,7 +31,7 @@ from models.eval_type import BitrecsEvaluationType
 from validator.http_utils import get_bitrecs_platform, post_bitrecs_platform
 from scoring.engine import calculate_scores, get_current_eval_set_id
 from scoring.persist import ScorePersister
-from utils.docker import is_running_in_container, list_all_docker_containers
+from utils.docker import is_running_in_container, list_all_docker_containers, get_eval_container_sha
 from validator.r2_sync import r2_sync
 from get_version import get_git_info
 from utils.epoch import get_current_epoch_info
@@ -51,6 +51,8 @@ async def list_docker_containers_loop():
         logger.info(f"Running Docker containers: {len(containers)}:")
         for container in containers:
             logger.info(f"Container Name: {container['name']}, Image: {container['image']}, Status: {container['status']}, Created: {container['created']}, Id: {container['id']}")
+        eval_sha = await get_eval_container_sha()
+        logger.info(f"Eval container SHA: {eval_sha}")
         await asyncio.sleep(1800)
 
 
@@ -307,8 +309,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             if not any([openrouter_api_key, chutes_api_key]):
                 raise Exception("Missing required API keys for Affine ENV evaluation run")
 
-            bitrecs_run_id = str(evaluation_run_id)
-            af_image = "ghcr.io/bitrecs/bitrecs-evals:main"
+            bitrecs_run_id = str(evaluation_run_id)            
+            af_image = config.EVAL_CONTAINER_TAG
             af_mode = "docker"
             af_hostname = "localhost" if not is_docker else "bitrecs-evals-main"  # Container name for network access
             af_container_port = 8000

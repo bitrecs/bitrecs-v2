@@ -1,8 +1,44 @@
 import os
+import asyncio
 import docker
+import utils.logger as logger
 from pathlib import Path
 from typing import List
-import utils.logger as logger
+from validator import config
+
+
+async def get_eval_container_sha() -> str:
+    try:
+        client = docker.from_env()  # Connects via /var/run/docker.sock by default
+        image = client.images.get(config.EVAL_CONTAINER_TAG)
+        sha = image.labels.get("org.opencontainers.image.revision", "unknown")
+        return sha
+    except docker.errors.DockerException as e:
+        logger.warning(f"Docker API not accessible (likely not in DinD or socket not mounted): {e}")
+        return "unknown"
+    except Exception as e:
+        logger.warning(f"Unexpected error in get_eval_container_sha(): {e}")
+        return "unknown"
+
+
+async def get_eval_container_sha_subprocess() -> str:
+    try:
+        command = f'docker inspect {config.EVAL_CONTAINER_TAG} | jq -r \'.[0].Config.Labels["org.opencontainers.image.revision"]\''
+        process = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        if process.returncode == 0:
+            sha = stdout.decode().strip()
+            return sha if sha else "unknown"
+        else:
+            logger.warning(f"Command failed: {stderr.decode()}")
+            return "unknown"
+    except Exception as e:
+        logger.warning(f"Unexpected error in get_eval_container_sha_subprocess(): {e}")
+        return "unknown"
 
 
 async def get_num_docker_containers() -> int:

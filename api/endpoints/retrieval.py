@@ -37,10 +37,8 @@ async def top_agents(request: Request) -> List[AgentScored]:
 # /retrieval/current-agents
 @router.get("/current-agents")
 @limiter.limit("60/minute")
-@ttl_cache(ttl_seconds=60) # 1 minute
 async def current_agents(request: Request) -> List[Agent]:
     return await get_current_agents()
-
 
 
 # /retrieval/benchmark-agents

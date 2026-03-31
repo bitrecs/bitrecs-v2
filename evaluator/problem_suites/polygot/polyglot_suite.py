@@ -15,7 +15,7 @@ from evaluator.models import Sandbox
 from models.problem import ProblemTestResult
 from evaluator.models import EvaluationRunException
 from models.evaluation_run import EvaluationRunErrorCode
-from utils.git import init_local_repo_with_initial_commit
+#from utils.git import init_local_repo_with_initial_commit
 from evaluator.sandbox.sandbox_manager import SandboxManager
 from evaluator.problem_suites.problem_suite import ProblemSuite, ProblemSuiteName
 #from utils.diff import get_file_diff, apply_diff_to_local_repo, validate_diff_for_local_repo
@@ -105,19 +105,20 @@ class PolyglotSuite(ProblemSuite):
         include_tests: bool = False
     ) -> None:
         # /evaluator/datasets/polyglot_*/*
-        problem_dir = str(pathlib.Path(__file__).parent.parent.parent / "datasets" / (f"polyglot_{self.language}" + ("_unpatched" if self.unpatched else "")) / problem.name.rsplit("-", 1)[0])
+        # problem_dir = str(pathlib.Path(__file__).parent.parent.parent / "datasets" / (f"polyglot_{self.language}" + ("_unpatched" if self.unpatched else "")) / problem.name.rsplit("-", 1)[0])
         
-        # Copy main.*
-        shutil.copy2(os.path.join(problem_dir, f"main.{self.language}"), os.path.join(dir, f"main.{self.language}"))
-        logger.debug(f"Copied main.{self.language} to {dir} for {problem.name}")
+        # # Copy main.*
+        # shutil.copy2(os.path.join(problem_dir, f"main.{self.language}"), os.path.join(dir, f"main.{self.language}"))
+        # logger.debug(f"Copied main.{self.language} to {dir} for {problem.name}")
 
-        if include_tests:
-            # Copy tests.*
-            shutil.copy2(os.path.join(problem_dir, f"tests.{self.language}"), os.path.join(dir, f"tests.{self.language}"))
-            logger.debug(f"Copied tests.{self.language} to {dir} for {problem.name}")
+        # if include_tests:
+        #     # Copy tests.*
+        #     shutil.copy2(os.path.join(problem_dir, f"tests.{self.language}"), os.path.join(dir, f"tests.{self.language}"))
+        #     logger.debug(f"Copied tests.{self.language} to {dir} for {problem.name}")
 
         # Initialize git repository with initial commit
-        init_local_repo_with_initial_commit(dir, "Initial commit")
+        #init_local_repo_with_initial_commit(dir, "Initial commit")
+        pass
 
 
 
