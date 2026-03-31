@@ -4,13 +4,14 @@ import docker
 import utils.logger as logger
 from pathlib import Path
 from typing import List
-from validator import config
 
+
+EVAL_CONTAINER_TAG = "ghcr.io/bitrecs/bitrecs-evals:main"
 
 async def get_eval_container_sha() -> str:
     try:
         client = docker.from_env()  # Connects via /var/run/docker.sock by default
-        image = client.images.get(config.EVAL_CONTAINER_TAG)
+        image = client.images.get(EVAL_CONTAINER_TAG)
         sha = image.labels.get("org.opencontainers.image.revision", "unknown")
         return sha
     except docker.errors.DockerException as e:
@@ -23,7 +24,7 @@ async def get_eval_container_sha() -> str:
 
 async def get_eval_container_sha_subprocess() -> str:
     try:
-        command = f'docker inspect {config.EVAL_CONTAINER_TAG} | jq -r \'.[0].Config.Labels["org.opencontainers.image.revision"]\''
+        command = f'docker inspect {EVAL_CONTAINER_TAG} | jq -r \'.[0].Config.Labels["org.opencontainers.image.revision"]\''
         process = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
