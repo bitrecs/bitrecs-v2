@@ -295,3 +295,35 @@ async def test_chutesr_get_cost_estimate_api_ok():
         assert result["input_cost"] == pytest.approx(0.02, rel=0.1)
         assert result["output_cost"] == pytest.approx(0.04, rel=0.1)
         assert result["total_cost"] == pytest.approx(0.06, rel=0.1)
+
+
+
+def test_get_agent_cost_report():
+    """Test GET /inference/cost endpoint"""
+    #SERVICE_URL = "http://localhost:8000"  
+    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "http://localhost:8000")
+
+    key = os.environ.get("BITRECS_PLATFORM_API_KEY")
+    headers = {"X-API-Key": key}  
+    agent_id = "24cbbac5-b00d-452b-b966-391fa88e5632"
+
+    url = f"{SERVICE_URL}/inference/cost?agent_id={agent_id}"
+    with httpx.Client() as client:
+        response = client.get(
+            url=url,            
+            headers=headers,            
+        )    
+        assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+        result = response.json()
+        assert "agent_id" in result, "Response should contain agent_id"
+        assert "inference_cost_report" in result, "Response should contain inference_cost_report"
+        print(f"Inference cost report for agent {result['agent_id']}: {result['inference_cost_report']}")
+
+        run_cost = sum(item.get("cost_usd", 0) for item in result["inference_cost_report"])
+        print(f"Total inference cost for agent {result['agent_id']}: ${run_cost:.4f}")
+        total_input_tokens = sum(item.get("num_input_tokens", 0) for item in result["inference_cost_report"])
+        total_output_tokens = sum(item.get("num_output_tokens", 0) for item in result["inference_cost_report"])
+        print(f"Total input tokens: {total_input_tokens}, Total output tokens: {total_output_tokens}")
+        total_tokens = total_input_tokens + total_output_tokens
+        print(f"\033[1;32mTotal tokens: {total_tokens} for cost of ${run_cost:.8f}\033[0m")
+    

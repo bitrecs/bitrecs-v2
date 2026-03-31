@@ -13,7 +13,7 @@ root_path = Path(__file__).parent.parent.absolute()
 
 DATA_FILE_PATH = os.path.join(root_path, "data", "weights")
 #DATA_FILE = "scores.db"
-DATA_FILE = "combined_20260306_231658.sqlite"
+DATA_FILE = "combined_20260331_102547.sqlite"
 
 
 @pytest.mark.asyncio
