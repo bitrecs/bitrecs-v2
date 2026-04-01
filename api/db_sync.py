@@ -22,7 +22,7 @@ async def r2_download_and_sync():
                 r2_key = f"{hotkey}/scores.db"
                 local_db_path = download_db_from_r2(bucket_name=config.R2_BUCKET_NAME, key=r2_key, download_dir="/tmp")
                 if local_db_path:
-                    await upsert_to_postgres(sqlite_path=local_db_path)
+                    await upsert_to_postgres(sqlite_path=local_db_path, validator_hotkey=hotkey)
                     os.remove(local_db_path)
         except Exception as e:
             logger.error(f"Error in validator heartbeat timeout loop: {e}")
@@ -60,8 +60,10 @@ def download_db_from_r2(bucket_name: str, key: str, download_dir: str, region: s
         return None
 
 @db_operation
-async def upsert_to_postgres(conn, sqlite_path: str) -> None:   
+async def upsert_to_postgres(conn, sqlite_path: str, validator_hotkey: str) -> None:   
     try:        
+        if not validator_hotkey:
+            raise ValueError("Validator hotkey is required for upsert")
         sqlite_conn = sqlite3.connect(sqlite_path)
         cursor = sqlite_conn.cursor()
         cursor.execute("SELECT run_id, uid, hotkey, task_name, score, success, duration, created_at, evaluation_set_id, sample_size FROM miner_scores")
@@ -81,14 +83,15 @@ async def upsert_to_postgres(conn, sqlite_path: str) -> None:
                 row[6],  # duration
                 datetime.datetime.fromisoformat(row[7].replace('Z', '+00:00')),  # created_at
                 row[8],  # evaluation_set_id
-                row[9]   # sample_size
+                row[9],   # sample_size
+                validator_hotkey 
             )
             for row in rows
         ]        
         
         upsert_query = """
-        INSERT INTO miner_scores (run_id, uid, hotkey, task_name, score, success, duration, created_at, evaluation_set_id, sample_size)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        INSERT INTO miner_scores (run_id, uid, hotkey, task_name, score, success, duration, created_at, evaluation_set_id, sample_size, validator_hotkey)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (run_id) DO NOTHING
         """
         

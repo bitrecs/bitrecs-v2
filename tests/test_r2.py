@@ -144,7 +144,7 @@ async def test_r2_download_and_sync_to_postgres(db_setup):
         count_before = await count_rows_before()
         
         # Upsert to PostgreSQL
-        await upsert_to_postgres(db_path)
+        await upsert_to_postgres(db_path, hotkey)
         
         # Count rows after upsert
         @db_operation
