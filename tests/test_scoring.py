@@ -15,7 +15,7 @@ root_path = Path(__file__).parent.parent.absolute()
 DATA_FILE_PATH = os.path.join(root_path, "data", "weights")
 #DATA_FILE = "scores.db"
 #DATA_FILE = "combined_20260331_132851.sqlite"
-DATA_FILE = "combined_20260331_174129.sqlite"
+DATA_FILE = "combined_20260401_095652.sqlite"
 
 
 @pytest.mark.asyncio
@@ -141,12 +141,12 @@ async def test_scoring_wta():
                                                 min_gap=MIN_THRESHOLD_GAP,
                                                 max_gap=MAX_THRESHOLD_GAP)
 
-    # pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
-    # frontier_uids = set(pareto_result.frontier_uids)
-    # filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
+    pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
+    frontier_uids = set(pareto_result.frontier_uids)
+    filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
 
     subset_scores = compute_subset_scores_with_priority(
-        miner_scores, miner_thresholds, miner_blocks, envs
+        filtered_scores, miner_thresholds, miner_blocks, envs
     )
     weights = scores_to_weights(subset_scores)
     typer.echo("\nSubset scores:")
@@ -168,7 +168,9 @@ async def test_scoring_wta():
 async def test_scoring_wta_all():    
     current_set_id = await get_current_eval_set_id()
     print(f"Current evaluation_set_id: {current_set_id}")    
-    dbs = ["1.db", "2.db", "3_test.db"]
+    dbs = ["5Eyj7B2PzUMzRpW59eXziw4LazsQkn8bESF5gnbchyTdZEhX_scores.sqlite", 
+           "5FNL6e4JsB3ZPUGk1x1izK1xnTWsZDZrVF6WaRp1gNpoTvsM_scores.sqlite", 
+           "5FtH6Aj3xKbkNdgbZUghkTeJrkJexn6eBRZSnS8Zgc3oo4GX_scores.sqlite"]
 
     for db in dbs:
         print(f"\nTesting with database: {db}")
@@ -179,17 +181,14 @@ async def test_scoring_wta_all():
         samples = df_to_samples(data)
         envs = list(samples.keys())
         miner_blocks = df_to_miner_blocks(data)   
-        miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples,
-                                                    z_score=DEFAULT_Z_SCORE,
-                                                    min_gap=MIN_THRESHOLD_GAP,
-                                                    max_gap=MAX_THRESHOLD_GAP)
+        miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
 
-        # pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
-        # frontier_uids = set(pareto_result.frontier_uids)
-        # filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
+        pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
+        frontier_uids = set(pareto_result.frontier_uids)
+        filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
 
         subset_scores = compute_subset_scores_with_priority(
-            miner_scores, miner_thresholds, miner_blocks, envs
+            filtered_scores, miner_thresholds, miner_blocks, envs
         )
         weights = scores_to_weights(subset_scores)
         typer.echo("\nSubset scores:")

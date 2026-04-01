@@ -109,7 +109,7 @@ def compute_subset_scores_with_priority(
 
         # Check each subset of this size
         for subset in combinations(env_ids, subset_size):
-            winner = find_subset_winner_with_priority(
+            winner = find_subset_winner_score_first(
                 miner_scores,
                 miner_thresholds,
                 miner_first_blocks,
@@ -148,12 +148,16 @@ def find_subset_winner_score_first(
     leader   = ranked[0]
     runner_up = ranked[1]
 
-    # Does the leader clearly beat the runner-up's threshold on EVERY env in subset?
-    leader_is_clear = all(
-        miner_scores[leader].get(env, 0.0)
+    # Does the leader clearly beat the runner-up's threshold on majority of envs (≥ ceil(n/2))
+    n_subset = len(subset)
+    majority = (n_subset + 1) // 2  # ceil(n/2)
+
+    wins_over_runner_up = sum(
+        1 for env in subset
+        if miner_scores[leader].get(env, 0.0)
         > miner_thresholds[runner_up].get(env, miner_scores[runner_up].get(env, 0.0) + MIN_THRESHOLD_GAP)
-        for env in subset
     )
+    leader_is_clear = wins_over_runner_up >= majority
 
     if leader_is_clear:
         return leader  # score wins, no blocks involved
