@@ -28,7 +28,7 @@ services:
       - ~/.docker/config.json:/config.json:ro
     environment:
       - WATCHTOWER_CLEANUP=true
-    command: --interval 120 --debug bitrecs-validator
+    command: --interval 120 bitrecs-validator
 
 networks:
   bitrecs-network:

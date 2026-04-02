@@ -56,38 +56,61 @@ async def list_docker_containers_loop():
         await asyncio.sleep(1800)
 
 
+
 async def calculate_scores_loop():
-    logger.info("Starting calculate scores loop...")
-    # Immediate run for development (to see logs right away)
+    BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS = 30  # ~6 minutes
+    last_epoch_block_weights_set = -1
+    logger.info(f"Starting calculate scores loop")
+    logger.info(f"Blocks before epoch to set weights: {BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS}")    
+
     try:
         await asyncio.sleep(30)
-        result = await asyncio.wait_for(calculate_scores(netuid=config.NETUID, 
-                                                         validator_hotkey=config.VALIDATOR_HOTKEY,
-                                                         set_weights=False), timeout=120)
+        await asyncio.wait_for(calculate_scores(netuid=config.NETUID,
+                                                validator_hotkey=config.VALIDATOR_HOTKEY,
+                                                set_weights=False), timeout=120)
     except Exception as e:
         logger.warning(f"Initial score calculation failed (non-fatal): {e}")
-    
+
     while True:
-        await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
+        await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)  # 300s
         try:
             st = await get_subtensor()
             current_block = await st.get_current_block()
             next_epoch_block = await st.get_next_epoch_start_block(netuid=config.NETUID)
             blocks_until_next_epoch = next_epoch_block - current_block
-            logger.info(f"Blocks until next epoch: {blocks_until_next_epoch}")
-            duration_s = blocks_until_next_epoch * 12
-            logger.info(f"Seconds to next epoch: {duration_s} seconds")
-            duration_m = duration_s / 60
-            logger.info(f"Minutes to next epoch: {duration_m:.1f} minutes")           
-            result = await asyncio.wait_for(calculate_scores(netuid=config.NETUID, 
-                                                             validator_hotkey=config.VALIDATOR_HOTKEY,
-                                                             set_weights=True), timeout=120)
-            if result:
-                logger.info("\033[32mScores and weights updated successfully\033[0m")
+            duration_m = blocks_until_next_epoch * 12 / 60
+            logger.info("----WEIGHT UPDATE CHECK----")
+            logger.info(f"Current block: {current_block}, Next epoch block: {next_epoch_block}")
+            logger.info(f"Blocks until next epoch: {blocks_until_next_epoch} (~{duration_m:.1f} minutes)")
+
+            already_set = (last_epoch_block_weights_set == next_epoch_block)
+            near_flip = blocks_until_next_epoch <= BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS
+            should_set_weights = near_flip and not already_set
+
+            if already_set:
+                logger.info(f"Weights already set for epoch ending at block {next_epoch_block} - skipped")
+            elif not near_flip:
+                logger.info(f"Not near epoch flip - skipped")
             else:
-                logger.warning("\033[31mError updating scores / weights\033[0m")
+                logger.info(f"\033[32mWithin {BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS} blocks of epoch - setting weights\033[0m")
+                result = await asyncio.wait_for(
+                    calculate_scores(netuid=config.NETUID,
+                                     validator_hotkey=config.VALIDATOR_HOTKEY,
+                                     set_weights=should_set_weights),
+                    timeout=120
+                )
+                if result:
+                    last_epoch_block_weights_set = next_epoch_block
+                    logger.info(f"\033[32mWeights set for epoch ending at block {next_epoch_block}\033[0m")
+                else:
+                    logger.warning("\033[31mWeight set attempted but failed — will retry next loop\033[0m")
+
         except asyncio.TimeoutError as e:
             logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
+        except Exception as e:
+            logger.error(f"Error in calculate_scores_loop(): {type(e).__name__}: {e}")
+            logger.error(traceback.format_exc())
+
 
 
 async def send_heartbeat_loop():
