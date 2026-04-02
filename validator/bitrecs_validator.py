@@ -57,37 +57,35 @@ async def list_docker_containers_loop():
 
 
 async def calculate_scores_loop():
-    logger.info("Starting calculate scores loop...")    
+    logger.info("Starting calculate scores loop...")
     # Immediate run for development (to see logs right away)
     try:
+        await asyncio.sleep(30)
         result = await asyncio.wait_for(calculate_scores(netuid=config.NETUID, 
                                                          validator_hotkey=config.VALIDATOR_HOTKEY,
-                                                         set_weights=False), timeout=120)       
-    except asyncio.TimeoutError as e:
-        logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
+                                                         set_weights=False), timeout=120)
+    except Exception as e:
+        logger.warning(f"Initial score calculation failed (non-fatal): {e}")
     
     while True:
-        await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)        
+        await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)
         try:
             st = await get_subtensor()
             current_block = await st.get_current_block()
-            current_epoch, blocks_until_next_epoch, epoch_start_block = get_current_epoch_info(current_block, config.NETUID)
-            minutes_to_next_epoch = blocks_until_next_epoch * 12 / 60
-            logger.info("\033[32mSTART Calculate Scores\033[0m")
-            logger.info(f"Network: {config.NETUID}")
-            logger.info(f"Current block: {current_block}")
-            logger.info(f"Current epoch: {current_epoch}")
-            logger.info(f"Blocks until next epoch: {blocks_until_next_epoch} (~{minutes_to_next_epoch:.1f} minutes)")
-
+            next_epoch_block = await st.get_next_epoch_start_block(netuid=config.NETUID)
+            blocks_until_next_epoch = next_epoch_block - current_block
+            logger.info(f"Blocks until next epoch: {blocks_until_next_epoch}")
+            duration_s = blocks_until_next_epoch * 12
+            logger.info(f"Seconds to next epoch: {duration_s} seconds")
+            duration_m = duration_s / 60
+            logger.info(f"Minutes to next epoch: {duration_m:.1f} minutes")           
             result = await asyncio.wait_for(calculate_scores(netuid=config.NETUID, 
                                                              validator_hotkey=config.VALIDATOR_HOTKEY,
                                                              set_weights=True), timeout=120)
             if result:
-                logger.info("Scores and weights updated successfully")
+                logger.info("\033[32mScores and weights updated successfully\033[0m")
             else:
-                logger.warning("Error updating scores / weights")
-
-            logger.info("\033[32mEND Calculate Scores\033[0m")
+                logger.warning("\033[31mError updating scores / weights\033[0m")
         except asyncio.TimeoutError as e:
             logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
 
@@ -119,8 +117,7 @@ async def r2_sync_loop():
         os._exit(1)
 
 
-async def get_health_from_docker(url: str) -> dict | None:
-    logger.info(f"Attempting health check to: {url}")
+async def get_health_from_docker(url: str) -> dict | None:    
     try:
         async with httpx.AsyncClient(timeout=(10, 60)) as client:
             response = await client.get(url, headers={"Content-Type": "application/json"})            
@@ -133,9 +130,8 @@ async def get_health_from_docker(url: str) -> dict | None:
     return None
 
 
-async def get_run_log_from_docker(run_id: str, port: int, hostname: str) -> str | None:
-    """ Fetch run log from Docker container """    
-    try:        
+async def get_run_log_from_docker(run_id: str, port: int, hostname: str) -> str | None:    
+    try:
         async with httpx.AsyncClient(timeout=(10, 60)) as client:
             url =  f"http://{hostname}:{port}/run_log/{run_id}"
             response = await client.get(url, headers={"Content-Type": "application/json"})
@@ -604,7 +600,7 @@ async def main():
     global session_id
     global running_agent_timeout_seconds
     global running_eval_timeout_seconds
-    global max_evaluation_run_log_size_bytes
+    global max_evaluation_run_log_size_bytes 
 
     asyncio.create_task(list_docker_containers_loop())
     
