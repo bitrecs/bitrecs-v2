@@ -5,7 +5,7 @@ import pytest
 import typer
 from pathlib import Path
 from scoring.constants import DEFAULT_Z_SCORE, MAX_THRESHOLD_GAP, MIN_THRESHOLD_GAP
-from scoring.engine import df_to_miner_blocks, df_to_miner_scores, df_to_samples, get_current_eval_set_id, miners_first_blocks
+from scoring.engine import df_to_miner_blocks, df_to_miner_scores, df_to_samples, get_current_eval_set_id, latest_scores_to_df, miners_first_blocks
 from scoring.pareto import compute_pareto_frontier
 from scoring.persist import ScorePersister
 from scoring.threshold import compute_miner_thresholds
@@ -126,16 +126,16 @@ async def test_wta_api():
 
 
 @pytest.mark.asyncio
-async def test_scoring_wta():    
+async def test_scoring_wta():
     current_set_id = await get_current_eval_set_id()
-    print(f"Current evaluation_set_id: {current_set_id}")    
+    print(f"Current evaluation_set_id: {current_set_id}")
     persister = ScorePersister(base_path=DATA_FILE_PATH, filename=DATA_FILE)
     data = persister.load_scores(evaluation_set_id=current_set_id)
     print(f"Loaded {len(data)} score records")
     miner_scores = df_to_miner_scores(data)
     samples = df_to_samples(data)
     envs = list(samples.keys())
-    miner_blocks = df_to_miner_blocks(data)   
+    miner_blocks = df_to_miner_blocks(data)
     miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples,
                                                 z_score=DEFAULT_Z_SCORE,
                                                 min_gap=MIN_THRESHOLD_GAP,
@@ -161,6 +161,40 @@ async def test_scoring_wta():
     typer.echo(f"\nTop weight UID: {top_weight_uid} with weight {weights[top_weight_uid]:.4f}")
 
 
+
+@pytest.mark.asyncio
+async def test_scoring_wta_global():
+    current_set_id = await get_current_eval_set_id()
+    print(f"Current evaluation_set_id: {current_set_id}")  
+    data = latest_scores_to_df()
+    print(f"Loaded {len(data)} score records")
+    miner_scores = df_to_miner_scores(data)
+    samples = df_to_samples(data)
+    envs = list(samples.keys())
+    miner_blocks = df_to_miner_blocks(data)
+    miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples,
+                                                z_score=DEFAULT_Z_SCORE,
+                                                min_gap=MIN_THRESHOLD_GAP,
+                                                max_gap=MAX_THRESHOLD_GAP)
+
+    pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
+    frontier_uids = set(pareto_result.frontier_uids)
+    filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
+
+    subset_scores = compute_subset_scores_with_priority(
+        filtered_scores, miner_thresholds, miner_blocks, envs
+    )
+    weights = scores_to_weights(subset_scores)
+    typer.echo("\nSubset scores:")
+    for uid, score in sorted(subset_scores.items(), key=lambda x: x[1], reverse=True):
+        typer.echo(f"  UID {uid}: {score:.1f} points")
+
+    typer.echo("\nFinal weights:")
+    for uid, weight in sorted(weights.items(), key=lambda x: x[1], reverse=True):
+        typer.echo(f"  UID {uid}: {weight:.4f}")
+
+    top_weight_uid = max(weights, key=weights.get)
+    typer.echo(f"\nTop weight UID: {top_weight_uid} with weight {weights[top_weight_uid]:.4f}")
 
 
 
@@ -203,6 +237,18 @@ async def test_scoring_wta_all():
         typer.echo(f"\nTop weight UID: {top_weight_uid} with weight {weights[top_weight_uid]:.4f}")
 
 
-
-
-
+@pytest.mark.asyncio
+async def test_get_latest_scores():    
+    #SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")
+    SERVICE_URL = "http://localhost:8000"
+    async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
+        headers = {
+            'Accept': 'application/json',
+            'X-API-Key': os.getenv("BITRECS_PLATFORM_API_KEY")
+        }
+        response = await client.get("/scoring/latest", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        pretty = json.dumps(data, indent=2) 
+        print(f"{pretty}")
+        assert "scores" in data        

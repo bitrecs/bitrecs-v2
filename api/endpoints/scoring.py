@@ -198,3 +198,16 @@ async def get_constants(request: Request) -> Dict[str, Any]:
         "MAX_EPSILON": MAX_EPSILON,
         "MINER_EMISSION_PORTION": MINER_EMISSION_PORTION
     }
+
+
+@router.get("/latest")
+@limiter.limit("60/minute")
+async def get_latest_scores(request: Request) -> Dict[str, Any]:
+    try:
+        current_set_id = await get_latest_set_id()
+        data = await get_miner_scores(evaluation_set_id=current_set_id)
+        return {"scores": data.to_dict(orient='records')}
+    except Exception as e:
+        logger.error(f"Error in get_latest_scores endpoint: {e}")
+        return {"error": "No artifacts in current evaluation set"}
+

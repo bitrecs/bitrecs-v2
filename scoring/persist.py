@@ -1,12 +1,13 @@
+import time
 import logging
 import sqlite3
-import time
 import pandas as pd
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 from threading import Lock
 from scoring.types import MinerUID
+
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,8 @@ class ScorePersister:
                     duration REAL,
                     created_at TEXT,
                     evaluation_set_id INTEGER,
-                    sample_size INTEGER                                                  
+                    sample_size INTEGER,
+                    validator_hotkey TEXT
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_scores_uid ON miner_scores(uid)")

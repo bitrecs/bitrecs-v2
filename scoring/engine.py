@@ -1,9 +1,9 @@
 import os
 import httpx
 import asyncio
+import pandas as pd
 import utils.logger as logger
 from bittensor_wallet import Keypair, Wallet
-from scoring.persist import ScorePersister
 from utils.subtensor import close_subtensor, get_subtensor
 from scoring.pareto import compute_pareto_frontier
 from scoring.threshold import compute_miner_thresholds
@@ -57,9 +57,7 @@ def df_to_samples(df) -> dict[str, int]:
 
 
 def miners_first_blocks() -> MinerFirstBlocks:
-    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")    
-    if not SERVICE_URL:
-        SERVICE_URL = "http://localhost:8000"  
+    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "http://localhost:8000")
     headers = {"Content-Type": "application/json", 
             "X-API-Key": os.environ.get("BITRECS_PLATFORM_API_KEY")}
     client = httpx.Client(base_url=SERVICE_URL, headers=headers)
@@ -84,13 +82,24 @@ def df_to_miner_blocks(df) -> MinerFirstBlocks:
     return miner_first_blocks
 
 
+def latest_scores_to_df() -> pd.DataFrame:
+    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "http://localhost:8000")  
+    headers = {"Content-Type": "application/json", 
+            "X-API-Key": os.environ.get("BITRECS_PLATFORM_API_KEY")}
+    client = httpx.Client(base_url=SERVICE_URL, headers=headers)
+    response = client.get("/scoring/latest")
+    assert response.status_code == 200
+    data = response.json()
+    df = pd.DataFrame(data["scores"])
+    return df
+
+
 async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: bool = False) -> bool:
     try:
         logger.info("Calculating scores...")
         current_set_id = await get_current_eval_set_id()
-        logger.info(f"Current evaluation set ID: {current_set_id}")        
-        persister = ScorePersister(base_path="data/weights", filename="scores.db")
-        data = persister.load_scores(evaluation_set_id=current_set_id)
+        logger.info(f"Current evaluation set ID: {current_set_id}")      
+        data = latest_scores_to_df()
         logger.info(f"Loaded {len(data)} score records")
         if data.empty:
             logger.warning(f"\033[33mNo score data available to process for evaluation set {current_set_id}\033[0m")
