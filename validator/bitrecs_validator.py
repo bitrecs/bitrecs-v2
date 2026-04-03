@@ -77,6 +77,7 @@ async def calculate_scores_loop():
             st = await get_subtensor()
             current_block = await st.get_current_block()
             next_epoch_block = await st.get_next_epoch_start_block(netuid=config.NETUID)
+            next_epoch_block = next_epoch_block + config.NETUID + 361
             blocks_until_next_epoch = next_epoch_block - current_block
             duration_m = blocks_until_next_epoch * 12 / 60
             logger.info("----WEIGHT UPDATE CHECK----")
@@ -86,6 +87,7 @@ async def calculate_scores_loop():
             already_set = (last_epoch_block_weights_set == next_epoch_block)
             near_flip = blocks_until_next_epoch <= BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS
             should_set_weights = near_flip and not already_set
+            logger.info(f"Last epoch weights set for: {last_epoch_block_weights_set} (current next: {next_epoch_block})")
 
             if already_set:
                 logger.info(f"Weights already set for epoch ending at block {next_epoch_block} - skipped")
