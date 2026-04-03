@@ -216,7 +216,7 @@ async def set_weights_onchain(eval_set_id: int, validator_hotkey: Keypair, netui
     
     last_update = neuron_info.last_update
     miner_hotkey = neuron_info.hotkey
-    is_registered = subtensor.is_hotkey_registered(hotkey_ss58=miner_hotkey, netuid=netuid)
+    is_registered = await subtensor.is_hotkey_registered(hotkey_ss58=miner_hotkey, netuid=netuid)
     if not is_registered:
         logger.error(f"Miner hotkey {miner_hotkey} is not registered on netuid {netuid}")
         return False
