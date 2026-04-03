@@ -196,6 +196,7 @@ async def set_weights_onchain(eval_set_id: int, validator_hotkey: Keypair, netui
     if wallet.hotkey.ss58_address != validator_hotkey.ss58_address:
         logger.error(f"Validator hotkey mismatch: expected {wallet.hotkey.ss58_address}, got {validator_hotkey.ss58_address}")
         return False
+    subtensor = await get_subtensor()
     current_block = await subtensor.get_current_block()
     decay_factor = calculate_decay_factor(first_block, current_block)
     logger.info(f"Calculated decay factor for miner UID {weight_receiving_uid}: {decay_factor:.4f} (first block: {first_block}, current block: {current_block})")
@@ -206,8 +207,8 @@ async def set_weights_onchain(eval_set_id: int, validator_hotkey: Keypair, netui
         return False
     
     uids = [0, weight_receiving_uid]
-    weights = [burn_weight, miner_weight]    
-    subtensor = await get_subtensor()
+    weights = [burn_weight, miner_weight]
+        
     neuron_info : NeuronInfo = await subtensor.neuron_for_uid(uid=weight_receiving_uid, netuid=netuid)
     if not neuron_info:
         logger.error(f"Could not find neuron info for UID {weight_receiving_uid} on netuid {netuid}")
