@@ -169,88 +169,88 @@ def find_subset_winner_score_first(
     )
 
 
-def find_subset_winner_with_priority(
-    miner_scores: MinerScores,
-    miner_thresholds: MinerThresholds,
-    miner_first_blocks: MinerFirstBlocks,
-    subset: tuple[EnvironmentId, ...],
-) -> MinerUID | None:
-    """
-    Find the miner that dominates all others on a subset, with first-commit advantage.
+# def find_subset_winner_with_priority(
+#     miner_scores: MinerScores,
+#     miner_thresholds: MinerThresholds,
+#     miner_first_blocks: MinerFirstBlocks,
+#     subset: tuple[EnvironmentId, ...],
+# ) -> MinerUID | None:
+#     """
+#     Find the miner that dominates all others on a subset, with first-commit advantage.
 
-    The earlier miner (lower first_block) wins ties. A later miner must beat the
-    earlier miner's threshold on ALL environments in the subset to win.
+#     The earlier miner (lower first_block) wins ties. A later miner must beat the
+#     earlier miner's threshold on ALL environments in the subset to win.
 
-    Args:
-        miner_scores: Dict mapping uid -> env_id -> score
-        miner_thresholds: Dict mapping uid -> env_id -> threshold (score + gap)
-        miner_first_blocks: Dict mapping uid -> first committed block
-        subset: Tuple of environment IDs to check
+#     Args:
+#         miner_scores: Dict mapping uid -> env_id -> score
+#         miner_thresholds: Dict mapping uid -> env_id -> threshold (score + gap)
+#         miner_first_blocks: Dict mapping uid -> first committed block
+#         subset: Tuple of environment IDs to check
 
-    Returns:
-        UID of the winner, or None if no clear winner
-    """
-    uids = list(miner_scores.keys())
+#     Returns:
+#         UID of the winner, or None if no clear winner
+#     """
+#     uids = list(miner_scores.keys())
 
-    if len(uids) < 2:
-        return uids[0] if uids else None
+#     if len(uids) < 2:
+#         return uids[0] if uids else None
 
-    # Sort by first_block (earlier first), then by uid for determinism
-    sorted_uids = sorted(uids, key=lambda u: (miner_first_blocks.get(u, float("inf")), u))
+#     # Sort by first_block (earlier first), then by uid for determinism
+#     sorted_uids = sorted(uids, key=lambda u: (miner_first_blocks.get(u, float("inf")), u))
 
-    # skip miners with zero scores on ALL tasks in subset
-    # They can't meaningfully "win" a subset they didn't participate in
-    def has_any_score(uid: MinerUID) -> bool:
-        return any(miner_scores[uid].get(env, 0.0) > 0.0 for env in subset)
+#     # skip miners with zero scores on ALL tasks in subset
+#     # They can't meaningfully "win" a subset they didn't participate in
+#     def has_any_score(uid: MinerUID) -> bool:
+#         return any(miner_scores[uid].get(env, 0.0) > 0.0 for env in subset)
 
-    eligible_uids = [u for u in sorted_uids if has_any_score(u)]
-    if not eligible_uids:
-        return None
+#     eligible_uids = [u for u in sorted_uids if has_any_score(u)]
+#     if not eligible_uids:
+#         return None
 
-    for candidate in eligible_uids:
-        dominates_all = True
-        candidate_block = miner_first_blocks.get(candidate, float("inf"))
+#     for candidate in eligible_uids:
+#         dominates_all = True
+#         candidate_block = miner_first_blocks.get(candidate, float("inf"))
 
-        for other in eligible_uids:
-            if candidate == other:
-                continue
+#         for other in eligible_uids:
+#             if candidate == other:
+#                 continue
 
-            other_block = miner_first_blocks.get(other, float("inf"))
+#             other_block = miner_first_blocks.get(other, float("inf"))
 
-            # Determine who came first
-            if candidate_block <= other_block:
-                earlier_uid = candidate
-                later_uid = other
-            else:
-                earlier_uid = other
-                later_uid = candidate
+#             # Determine who came first
+#             if candidate_block <= other_block:
+#                 earlier_uid = candidate
+#                 later_uid = other
+#             else:
+#                 earlier_uid = other
+#                 later_uid = candidate
 
-            # Count wins for the later miner (must beat threshold to win)
-            later_wins = 0
-            for env in subset:
-                earlier_score = miner_scores[earlier_uid].get(env, 0.0)
-                later_score = miner_scores[later_uid].get(env, 0.0)
-                threshold = miner_thresholds[earlier_uid].get(env, earlier_score + 0.02)
+#             # Count wins for the later miner (must beat threshold to win)
+#             later_wins = 0
+#             for env in subset:
+#                 earlier_score = miner_scores[earlier_uid].get(env, 0.0)
+#                 later_score = miner_scores[later_uid].get(env, 0.0)
+#                 threshold = miner_thresholds[earlier_uid].get(env, earlier_score + 0.02)
 
-                if later_score > threshold:
-                    later_wins += 1
+#                 if later_score > threshold:
+#                     later_wins += 1
 
-            # Determine who dominates this pair on the subset
-            n_envs = len(subset)
-            if candidate_block <= other_block:
-                # Candidate is earlier: candidate dominates if other doesn't win all
-                if later_wins == n_envs:
-                    # Other beat all thresholds - candidate doesn't dominate
-                    dominates_all = False
-                    break
-            else:
-                # Other is earlier: candidate dominates only if candidate wins all
-                if later_wins < n_envs:
-                    # Candidate didn't beat all thresholds - candidate doesn't dominate
-                    dominates_all = False
-                    break
+#             # Determine who dominates this pair on the subset
+#             n_envs = len(subset)
+#             if candidate_block <= other_block:
+#                 # Candidate is earlier: candidate dominates if other doesn't win all
+#                 if later_wins == n_envs:
+#                     # Other beat all thresholds - candidate doesn't dominate
+#                     dominates_all = False
+#                     break
+#             else:
+#                 # Other is earlier: candidate dominates only if candidate wins all
+#                 if later_wins < n_envs:
+#                     # Candidate didn't beat all thresholds - candidate doesn't dominate
+#                     dominates_all = False
+#                     break
 
-        if dominates_all:
-            return candidate
+#         if dominates_all:
+#             return candidate
     
-    return None  # No clear winner
+#     return None  # No clear winner

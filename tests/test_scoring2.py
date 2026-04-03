@@ -11,8 +11,7 @@ from scoring.threshold import calculate_threshold, compute_miner_thresholds
 from scoring.wta import (
     compute_subset_scores_with_priority,
     find_subset_winner_score_first,
-    scores_to_weights,
-    find_subset_winner_with_priority
+    scores_to_weights    
 )
 from scoring.types import BlockNumber, EnvironmentId, MinerUID
 

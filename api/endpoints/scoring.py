@@ -12,7 +12,7 @@ from scoring.types import MinerFirstBlocks
 from utils.ttl import ttl_cache
 from scoring.pareto import compute_pareto_frontier
 from scoring.threshold import compute_miner_thresholds
-from scoring.wta import compute_subset_scores_with_priority, scores_to_weights, find_subset_winner_with_priority, find_subset_winner_score_first
+from scoring.wta import compute_subset_scores_with_priority, scores_to_weights, find_subset_winner_score_first
 from scoring.engine import df_to_miner_scores, df_to_samples, get_current_eval_set_id
 from models.evaluation_set import EvaluationSetGroup
 from queries.evaluation_set import get_latest_set_id, get_set_created_at

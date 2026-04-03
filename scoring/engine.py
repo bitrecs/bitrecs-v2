@@ -1,4 +1,5 @@
 import os
+import math
 import httpx
 import asyncio
 import pandas as pd
@@ -12,6 +13,39 @@ from scoring.types import MinerFirstBlocks, MinerScores
 from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
 from queries.evaluation_set import get_latest_set_id
 from scoring.constants import MINER_EMISSION_PORTION
+
+GRACE_PERIOD_DAYS = 3
+DECAY_FACTOR = 0.05  # 5% decay per day after grace period
+DECAY_FLOOR = 0.25  # Minimum 25% of emissions after decay
+
+
+def calculate_decay_factor(first_block: int, current_block: int, block_time_seconds: int = 12) -> float:
+    """
+    Calculate a linear decay factor for miner weights with a 3-day grace period.
+    
+    - First 3 days: 100% emissions (decay_factor = 1.0)
+    - After 3 days: Linear decay at 5% per day, floor at 25%
+    
+    Args:
+        first_block: The block when the miner was first active.
+        current_block: The current blockchain block.
+        block_time_seconds: Seconds per block (default 12 for Bittensor).
+    
+    Returns:
+        Decay factor (0.25 to 1.0) to multiply miner_weight by.
+    """
+    if first_block <= 0 or first_block >= current_block:
+        return 1.0  # No decay for new/invalid miners
+    
+    time_elapsed_seconds = (current_block - first_block) * block_time_seconds
+    grace_period_seconds = GRACE_PERIOD_DAYS * 24 * 3600
+    
+    if time_elapsed_seconds <= grace_period_seconds:
+        return 1.0  # Full emissions during grace period
+    
+    days_past_grace = (time_elapsed_seconds - grace_period_seconds) / (24 * 3600)  # Days past grace
+    decay_factor = max(DECAY_FLOOR, 1.0 - DECAY_FACTOR * days_past_grace)  # Linear decay, floor at DECAY_FLOOR
+    return decay_factor
 
 
 async def get_current_eval_set_id() -> int:
@@ -128,8 +162,12 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
             logger.info(f"  UID {uid}: {weight:.4f}")
         
         weight_receiving_uid = max(weights, key=weights.get)
-        if set_weights:
-            result = await set_weights_onchain(current_set_id, validator_hotkey, netuid, weight_receiving_uid)
+        first_block = miner_blocks.get(weight_receiving_uid, 0)
+        if first_block == 0:
+            logger.warning(f"\033[33mNo block information for UID {weight_receiving_uid}. Cannot set weights on chain.\033[0m")
+            return False
+        if set_weights:            
+            result = await set_weights_onchain(current_set_id, validator_hotkey, netuid, weight_receiving_uid, first_block)
             if result:
                 logger.info(f"\033[32mWeights set successfully on chain for UID {weight_receiving_uid}\033[0m")
                 return True
@@ -153,13 +191,15 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
         raise
 
 
-async def set_weights_onchain(eval_set_id: int, validator_hotkey: Keypair, netuid: int, weight_receiving_uid: int) -> bool:
+async def set_weights_onchain(eval_set_id: int, validator_hotkey: Keypair, netuid: int, weight_receiving_uid: int, first_block: int) -> bool:
     wallet = Wallet(name=os.getenv("VALIDATOR_WALLET_NAME"), hotkey=os.getenv("VALIDATOR_HOTKEY_NAME"))
     if wallet.hotkey.ss58_address != validator_hotkey.ss58_address:
         logger.error(f"Validator hotkey mismatch: expected {wallet.hotkey.ss58_address}, got {validator_hotkey.ss58_address}")
         return False
-    
-    miner_weight = 1 * MINER_EMISSION_PORTION
+    current_block = await subtensor.get_current_block()
+    decay_factor = calculate_decay_factor(first_block, current_block)
+    logger.info(f"Calculated decay factor for miner UID {weight_receiving_uid}: {decay_factor:.4f} (first block: {first_block}, current block: {current_block})")
+    miner_weight = 1 * MINER_EMISSION_PORTION * decay_factor
     burn_weight = 1 - miner_weight
     if not (0 <= miner_weight <= 1):
         logger.error(f"Invalid weights: miner_weight={miner_weight}, burn_weight={burn_weight}. Must be >=0, <=1, and sum to 1.")
@@ -172,12 +212,13 @@ async def set_weights_onchain(eval_set_id: int, validator_hotkey: Keypair, netui
     if not neuron_info:
         logger.error(f"Could not find neuron info for UID {weight_receiving_uid} on netuid {netuid}")
         return False
+    
     last_update = neuron_info.last_update
     miner_hotkey = neuron_info.hotkey
     is_registered = subtensor.is_hotkey_registered(hotkey_ss58=miner_hotkey, netuid=netuid)
     if not is_registered:
         logger.error(f"Miner hotkey {miner_hotkey} is not registered on netuid {netuid}")
-        return False  
+        return False
     
     try:
         max_retries = 3
@@ -185,8 +226,6 @@ async def set_weights_onchain(eval_set_id: int, validator_hotkey: Keypair, netui
         for attempt in range(max_retries):
             try:
                 logger.info(f"Attempt {attempt + 1}/{max_retries}")
-                current_block = await subtensor.get_current_block()
-                logger.info(f"Current block: {current_block}")
                 success = await asyncio.wait_for(
                     subtensor.set_weights(
                         wallet=wallet,

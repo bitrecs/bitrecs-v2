@@ -74,13 +74,17 @@ async def calculate_scores_loop():
     while True:
         await asyncio.sleep(config.SET_WEIGHTS_INTERVAL_SECONDS)  # 300s
         try:
+            logger.info("----WEIGHT UPDATE CHECK----")
             st = await get_subtensor()
             current_block = await st.get_current_block()
             next_epoch_block = await st.get_next_epoch_start_block(netuid=config.NETUID)
-            next_epoch_block = next_epoch_block + config.NETUID + 1
+            if config.NETUID == 122:
+                logger.info("Production network detected - adjusting next epoch block for mainnet")
+                next_epoch_block = next_epoch_block + config.NETUID + 1
+
             blocks_until_next_epoch = next_epoch_block - current_block
             duration_m = blocks_until_next_epoch * 12 / 60
-            logger.info("----WEIGHT UPDATE CHECK----")
+           
             logger.info(f"Current block: {current_block}, Next epoch block: {next_epoch_block}")
             logger.info(f"Blocks until next epoch: {blocks_until_next_epoch} (~{duration_m:.1f} minutes)")
 
