@@ -77,7 +77,7 @@ async def calculate_scores_loop():
             st = await get_subtensor()
             current_block = await st.get_current_block()
             next_epoch_block = await st.get_next_epoch_start_block(netuid=config.NETUID)
-            next_epoch_block = next_epoch_block + config.NETUID + 361
+            next_epoch_block = next_epoch_block + config.NETUID + 1
             blocks_until_next_epoch = next_epoch_block - current_block
             duration_m = blocks_until_next_epoch * 12 / 60
             logger.info("----WEIGHT UPDATE CHECK----")
