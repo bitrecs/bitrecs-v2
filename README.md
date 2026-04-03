@@ -39,6 +39,6 @@ uv run uvicorn api.main:app --access-log --log-level debug
 
 ## V2 Flowchart
 
-<img src="docs/v2_perseus_bitrecs.png" alt="Perseus V2" style="border: solid 3px #059669;" title="Bitrecs V2"/><sup>Bitrecs V2 separates prompt evolution from inference delivery</sup>
+<img src="docs/bitrecs_v2_flow.png" alt="Perseus V2" style="border: solid 3px #059669;" title="Bitrecs V2"/><sup>Bitrecs V2 separates prompt evolution from inference delivery</sup>
 
 

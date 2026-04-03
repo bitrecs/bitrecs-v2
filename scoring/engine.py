@@ -3,6 +3,7 @@ import httpx
 import asyncio
 import pandas as pd
 import utils.logger as logger
+from bittensor import NeuronInfo
 from bittensor_wallet import Keypair, Wallet
 from utils.subtensor import close_subtensor, get_subtensor
 from scoring.pareto import compute_pareto_frontier
@@ -128,7 +129,7 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
         
         weight_receiving_uid = max(weights, key=weights.get)
         if set_weights:
-            result = await set_weights_onchain(validator_hotkey, netuid, weight_receiving_uid)
+            result = await set_weights_onchain(current_set_id, validator_hotkey, netuid, weight_receiving_uid)
             if result:
                 logger.info(f"\033[32mWeights set successfully on chain for UID {weight_receiving_uid}\033[0m")
                 return True
@@ -152,7 +153,7 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
         raise
 
 
-async def set_weights_onchain(validator_hotkey: Keypair, netuid: int, weight_receiving_uid: int) -> bool:
+async def set_weights_onchain(eval_set_id: int, validator_hotkey: Keypair, netuid: int, weight_receiving_uid: int) -> bool:
     wallet = Wallet(name=os.getenv("VALIDATOR_WALLET_NAME"), hotkey=os.getenv("VALIDATOR_HOTKEY_NAME"))
     if wallet.hotkey.ss58_address != validator_hotkey.ss58_address:
         logger.error(f"Validator hotkey mismatch: expected {wallet.hotkey.ss58_address}, got {validator_hotkey.ss58_address}")
@@ -167,6 +168,17 @@ async def set_weights_onchain(validator_hotkey: Keypair, netuid: int, weight_rec
     uids = [0, weight_receiving_uid]
     weights = [burn_weight, miner_weight]    
     subtensor = await get_subtensor()
+    neuron_info : NeuronInfo = await subtensor.neuron_for_uid(uid=weight_receiving_uid, netuid=netuid)
+    if not neuron_info:
+        logger.error(f"Could not find neuron info for UID {weight_receiving_uid} on netuid {netuid}")
+        return False
+    last_update = neuron_info.last_update
+    miner_hotkey = neuron_info.hotkey
+    is_registered = subtensor.is_hotkey_registered(hotkey_ss58=miner_hotkey, netuid=netuid)
+    if not is_registered:
+        logger.error(f"Miner hotkey {miner_hotkey} is not registered on netuid {netuid}")
+        return False  
+    
     try:
         max_retries = 3
         timeout = 90.0
@@ -186,6 +198,17 @@ async def set_weights_onchain(validator_hotkey: Keypair, netuid: int, weight_rec
                     ),
                     timeout=timeout
                 )
+                await post_weight_set(
+                    netuid=netuid,
+                    block=current_block,
+                    validator_hotkey=wallet.hotkey.ss58_address,
+                    wta_uid=weight_receiving_uid,
+                    wta_hotkey=miner_hotkey,
+                    wta_weight=miner_weight,
+                    weights={uid: weight for uid, weight in zip(uids, weights)},
+                    evaluation_set_id=eval_set_id
+                )
+
                 await post_weights_to_agora(wallet.hotkey.ss58_address, 
                                             current_block, uids, weights, 
                                             "ok" if success else "error")
@@ -227,3 +250,40 @@ async def post_weights_to_agora(hotkey: str, block: int, uids: list[int], weight
         await post_to_agora(payload)
     except Exception as e:
         logger.error(f"post_weights_to_agora failed to post weights to Agora: {e}")
+
+
+async def post_weight_set(
+    netuid: int,
+    block: int,
+    validator_hotkey: str,
+    wta_uid: int,
+    wta_hotkey: str,
+    wta_weight: float,
+    weights: dict[int, float],
+    evaluation_set_id: int
+) -> bool:    
+    try:
+        SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "http://localhost:8000")
+        async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
+            headers = {
+                'Accept': 'application/json',
+                'X-API-Key': os.getenv("BITRECS_PLATFORM_API_KEY")
+            }        
+            payload = {
+                "netuid": netuid,
+                "block": block,
+                "validator_hotkey": validator_hotkey,
+                "wta_uid": wta_uid,
+                "wta_hotkey": wta_hotkey,
+                "wta_weight": wta_weight,
+                "weights": str(weights),
+                "evaluation_set_id": evaluation_set_id
+            }
+            logger.info(f"Posting weight set to platform: {payload}")        
+            response = await client.post("/scoring/weight-set", json=payload, headers=headers)
+            response.raise_for_status()
+            logger.info(f"Successfully posted to Agora: {payload}")
+            return True
+    except Exception as e:
+        logger.error(f"Failed to post weight set: {e}")
+        return False
