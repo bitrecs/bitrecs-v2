@@ -220,7 +220,7 @@ async def post_weight_set(request: Request, weight_set: Dict[str, Any]) -> Dict:
         current_set_id = await get_current_eval_set_id()
         validator_hotkey = weight_set.get("validator_hotkey")
         block = weight_set.get("block", 0)
-        wta_uid = weight_set.get("wta_uid")
+        wta_uid = weight_set.get("wta_uid", 0)
         wta_hotkey = weight_set.get("wta_hotkey")
         wta_weight = weight_set.get("wta_weight", 0.0)
         weights = weight_set.get("weights")
