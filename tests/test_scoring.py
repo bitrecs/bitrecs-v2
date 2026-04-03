@@ -3,6 +3,7 @@ import json
 import httpx
 import pytest
 import typer
+import utils.logger as logger
 from pathlib import Path
 from scoring.constants import DEFAULT_Z_SCORE, MAX_THRESHOLD_GAP, MIN_THRESHOLD_GAP
 from scoring.engine import df_to_miner_blocks, df_to_miner_scores, df_to_samples, get_current_eval_set_id, latest_scores_to_df, miners_first_blocks
@@ -252,3 +253,67 @@ async def test_get_latest_scores():
         pretty = json.dumps(data, indent=2) 
         print(f"{pretty}")
         assert "scores" in data        
+
+
+
+@pytest.mark.asyncio
+async def test_post_weight_set():    
+        netuid = 100
+        block = 123456
+        validator_hotkey = "5FNL6e4JsB3ZPUGk1x1izK1xnTWsZDZrVF6WaRp1gNpoTvsM"
+        wta_uid = 42
+        wta_hotkey = "5FtH6Aj3xKbkNdgbZUghkTeJrkJexn6eBRZSnS8Zgc3oo4GX"
+        wta_weight = 0.75
+        weights = {0: 0.25, 42: 0.75}
+        evaluation_set_id = 7
+    
+        result = await post_weight_set(
+            netuid=netuid,
+            block=block,
+            validator_hotkey=validator_hotkey,
+            wta_uid=wta_uid,
+            wta_hotkey=wta_hotkey,
+            wta_weight=wta_weight,
+            weights=weights,
+            evaluation_set_id=evaluation_set_id
+        )
+        assert result, "Failed to post weight set to platform"
+
+
+
+async def post_weight_set(
+    netuid: int,
+    block: int,
+    validator_hotkey: str,
+    wta_uid: int,
+    wta_hotkey: str,
+    wta_weight: float,
+    weights: dict[int, float],
+    evaluation_set_id: int
+) -> bool:    
+    try:
+        SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "http://localhost:8000")
+        SERVICE_URL = "http://localhost:8000"
+        async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
+            headers = {
+                'Accept': 'application/json',
+                'X-API-Key': os.getenv("BITRECS_PLATFORM_API_KEY")
+            }        
+            payload = {
+                "netuid": netuid,
+                "block": block,
+                "validator_hotkey": validator_hotkey,
+                "wta_uid": wta_uid,
+                "wta_hotkey": wta_hotkey,
+                "wta_weight": wta_weight,
+                "weights": str(weights),
+                "evaluation_set_id": evaluation_set_id
+            }
+            logger.info(f"Posting weight set to platform: {payload}")        
+            response = await client.post("/scoring/weight-set", json=payload, headers=headers)
+            response.raise_for_status()
+            logger.info(f"Successfully posted to Agora: {payload}")
+            return True
+    except Exception as e:
+        logger.error(f"Failed to post to Agora: {e}")
+        return False

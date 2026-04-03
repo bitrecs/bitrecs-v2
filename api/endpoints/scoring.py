@@ -211,3 +211,34 @@ async def get_latest_scores(request: Request) -> Dict[str, Any]:
         logger.error(f"Error in get_latest_scores endpoint: {e}")
         return {"error": "No artifacts in current evaluation set"}
 
+
+@router.post("/weight-set")
+@limiter.limit("60/minute")
+async def post_weight_set(request: Request, weight_set: Dict[str, Any]) -> Dict:
+    from queries.scores import insert_validator_weight_set
+    try:
+        current_set_id = await get_current_eval_set_id()
+        validator_hotkey = weight_set.get("validator_hotkey")
+        block = weight_set.get("block", 0)
+        wta_uid = weight_set.get("wta_uid")
+        wta_hotkey = weight_set.get("wta_hotkey")
+        wta_weight = weight_set.get("wta_weight", 0.0)
+        weights = weight_set.get("weights")
+        if not all([validator_hotkey, wta_uid, wta_hotkey, wta_weight, weights]):
+            raise ValueError("Missing required fields in weight set")
+        
+        await insert_validator_weight_set(
+            netuid=config.NETUID,
+            block=block,
+            validator_hotkey=validator_hotkey,
+            wta_uid=wta_uid,
+            wta_hotkey=wta_hotkey,
+            wta_weight=wta_weight,
+            weights=str(weights),
+            evaluation_set_id=current_set_id
+        )
+        logger.info(f"Successfully inserted weight set for validator {validator_hotkey}")
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error in post_weight_set endpoint: {e}")
+        return {"status": "error", "message": str(e)}
