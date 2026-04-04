@@ -59,7 +59,6 @@ async def list_docker_containers_loop():
 
 async def calculate_scores_loop():
     BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS = 30  # ~6 minutes
-    last_epoch_block_weights_set = -1
     logger.info(f"Starting calculate scores loop")
     logger.info(f"Blocks before epoch to set weights: {BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS}")
     try:
@@ -76,40 +75,30 @@ async def calculate_scores_loop():
             logger.info("----WEIGHT UPDATE CHECK----")
             st = await get_subtensor()
             current_block = await st.get_current_block()
-            next_epoch_block = await st.get_next_epoch_start_block(netuid=config.NETUID)
-            if config.NETUID == 122 or 1==1:
-                next_epoch_block = next_epoch_block + config.NETUID + 1
+            current_epoch, blocks_until_next_epoch, epoch_start_block = get_current_epoch_info(current_block, config.NETUID)
 
-            blocks_until_next_epoch = next_epoch_block - current_block
             duration_m = blocks_until_next_epoch * 12 / 60
-            logger.info(f"Current block: {current_block}, Next epoch block: {next_epoch_block}")
+            logger.info(f"Current block: {current_block}, current epoch: {current_epoch}, epoch start block: {epoch_start_block}")
             logger.info(f"Blocks until next epoch: {blocks_until_next_epoch} (~{duration_m:.1f} minutes)")
-            already_set = (last_epoch_block_weights_set == next_epoch_block)
-            near_flip = blocks_until_next_epoch <= BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS
-            should_set_weights = near_flip and not already_set
-            logger.info(f"Last epoch weights set for: {last_epoch_block_weights_set} (current next: {next_epoch_block})")
-            if already_set:
-                logger.info(f"Weights already set for epoch ending at block {next_epoch_block} - skipped")
-            elif not near_flip:
-                logger.info(f"Not near epoch flip - skipped")
-            else:
+            should_set_weights = blocks_until_next_epoch <= BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS
+            if should_set_weights:
                 logger.info(f"\033[32mWithin {BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS} blocks of epoch - setting weights\033[0m")
                 result = await asyncio.wait_for(
                     calculate_scores(netuid=config.NETUID,
                                      validator_hotkey=config.VALIDATOR_HOTKEY,
                                      set_weights=should_set_weights), timeout=120)
                 if result:
-                    last_epoch_block_weights_set = next_epoch_block
-                    logger.info(f"\033[32mWeights set for epoch ending at block {next_epoch_block}\033[0m")
+                    logger.info(f"\033[32mWeights set for epoch ending at block ~{epoch_start_block + blocks_until_next_epoch}\033[0m")
                 else:
                     logger.warning("\033[31mWeight set attempted but failed — will retry next loop\033[0m")
+            else:
+                logger.info(f"Not near epoch flip - skipped")
 
         except asyncio.TimeoutError as e:
             logger.error(f"asyncio.TimeoutError in calculate_scores(): {e}")
         except Exception as e:
             logger.error(f"Error in calculate_scores_loop(): {type(e).__name__}: {e}")
             logger.error(traceback.format_exc())
-
 
 
 async def send_heartbeat_loop():
