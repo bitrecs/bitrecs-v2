@@ -22,7 +22,7 @@ async def post_to_agora(payload: AgoraStatus) -> bool:
         async with httpx.AsyncClient(base_url=url, headers=headers) as client:
             response = await client.post("/submit", json=payload.__dict__)
             response.raise_for_status()
-            logger.info(f"Successfully posted to Agora: {payload}")
+            logger.info(f"Post agora success: {payload}")
             return True
     except Exception as e:
         logger.error(f"Failed to post to Agora: {e}")

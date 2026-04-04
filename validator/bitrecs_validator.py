@@ -61,10 +61,9 @@ async def calculate_scores_loop():
     BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS = 30  # ~6 minutes
     last_epoch_block_weights_set = -1
     logger.info(f"Starting calculate scores loop")
-    logger.info(f"Blocks before epoch to set weights: {BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS}")    
-
+    logger.info(f"Blocks before epoch to set weights: {BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS}")
     try:
-        await asyncio.sleep(30)
+        await asyncio.sleep(60)
         await asyncio.wait_for(calculate_scores(netuid=config.NETUID,
                                                 validator_hotkey=config.VALIDATOR_HOTKEY,
                                                 set_weights=False), timeout=120)
@@ -78,21 +77,17 @@ async def calculate_scores_loop():
             st = await get_subtensor()
             current_block = await st.get_current_block()
             next_epoch_block = await st.get_next_epoch_start_block(netuid=config.NETUID)
-            if config.NETUID == 122:
-                logger.info("Production network detected - adjusting next epoch block for mainnet")
+            if config.NETUID == 122 or 1==1:
                 next_epoch_block = next_epoch_block + config.NETUID + 1
 
             blocks_until_next_epoch = next_epoch_block - current_block
             duration_m = blocks_until_next_epoch * 12 / 60
-           
             logger.info(f"Current block: {current_block}, Next epoch block: {next_epoch_block}")
             logger.info(f"Blocks until next epoch: {blocks_until_next_epoch} (~{duration_m:.1f} minutes)")
-
             already_set = (last_epoch_block_weights_set == next_epoch_block)
             near_flip = blocks_until_next_epoch <= BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS
             should_set_weights = near_flip and not already_set
             logger.info(f"Last epoch weights set for: {last_epoch_block_weights_set} (current next: {next_epoch_block})")
-
             if already_set:
                 logger.info(f"Weights already set for epoch ending at block {next_epoch_block} - skipped")
             elif not near_flip:
@@ -102,9 +97,7 @@ async def calculate_scores_loop():
                 result = await asyncio.wait_for(
                     calculate_scores(netuid=config.NETUID,
                                      validator_hotkey=config.VALIDATOR_HOTKEY,
-                                     set_weights=should_set_weights),
-                    timeout=120
-                )
+                                     set_weights=should_set_weights), timeout=120)
                 if result:
                     last_epoch_block_weights_set = next_epoch_block
                     logger.info(f"\033[32mWeights set for epoch ending at block {next_epoch_block}\033[0m")
