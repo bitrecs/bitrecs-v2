@@ -13,11 +13,7 @@ from scoring.threshold import compute_miner_thresholds
 from scoring.types import MinerFirstBlocks, MinerScores
 from scoring.wta import compute_subset_scores_with_priority, scores_to_weights
 from queries.evaluation_set import get_latest_set_id
-from scoring.constants import MINER_EMISSION_PORTION
-
-GRACE_PERIOD_DAYS = 3
-DECAY_FACTOR = 0.05  # 5% decay per day after grace period
-DECAY_FLOOR = 0.25  # Minimum 25% of emissions after decay
+from scoring.constants import MINER_EMISSION_PORTION, GRACE_PERIOD_DAYS, DECAY_FACTOR, DECAY_FLOOR
 
 
 def calculate_decay_factor(first_block: int, current_block: int, block_time_seconds: int = 12) -> float:

@@ -20,6 +20,10 @@ Bitrecs V2 is a prompt evolution subnet which rewards miners who optimize an art
 
 Bitrecs is a novel recommendation engine powered by Bittensor. Our flagship product is an ecommerce recommendation widget which drives sales for merchants by utilizing the newest state of the art models and novel generative recommendation techniques. Merchants can expect to see personalized customer journey experiences drive higher average order values, resulting in more sales. 
 
+**Scoring**
+
+Bitrecs V2 employs a winnter take all (WTA) scoring engine to evaluate miner submissions against a diverse set of ecommerce tasks. Submissions are scored based on performance across multiple environments, using ε-Pareto dominance to identify non-dominated miners on the frontier rewarding genuine improvements. Scores incorporate statistical robustness via epsilon tolerances, account for sample sizes, and apply linear decay factors over time (with a 3-day grace period and 5% daily reduction to a 25% floor). The engine then computes winner-takes-all weights, prioritizing miners who surpass thresholds set by earlier participants, and sets these weights onchain for the top-performing miner to receive emissions.
+
 ## Validator
 
 See [Validator Setup](docs/validator_setup.md)
@@ -39,6 +43,6 @@ uv run uvicorn api.main:app --access-log --log-level debug
 
 ## V2 Flowchart
 
-<img src="docs/bitrecs_v2_flow.png" alt="Perseus V2" style="border: solid 3px #059669;" title="Bitrecs V2"/><sup>Bitrecs V2 separates prompt evolution from inference delivery</sup>
+<img src="docs/bitrecs_v2_flow.png" alt="Perseus V2" style="border: solid 3px #059669;" title="Bitrecs V2"/><sup>Bitrecs V2 separates inference from prompt evolution</sup>
 
 

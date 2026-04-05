@@ -63,7 +63,7 @@ class ScoringLatestSetInfo(BaseModel):
     latest_set_created_at: datetime
 
 @router.get("/latest-set-info")
-@limiter.limit("60/minute")
+@limiter.limit("120/minute")
 async def latest_set_info(request: Request) -> ScoringLatestSetInfo:
     latest_set_id = await get_latest_set_id()
     latest_set_created_at = await get_set_created_at(latest_set_id)
@@ -187,7 +187,8 @@ async def get_constants(request: Request) -> Dict[str, Any]:
     from scoring.constants import (
         DEFAULT_Z_SCORE, MIN_THRESHOLD_GAP, 
         MAX_THRESHOLD_GAP, MINER_EMISSION_PORTION, 
-        MIN_EPSILON, MAX_EPSILON, DEFAULT_EPISODES_PER_ENV
+        MIN_EPSILON, MAX_EPSILON, DEFAULT_EPISODES_PER_ENV,
+        GRACE_PERIOD_DAYS, DECAY_FACTOR, DECAY_FLOOR
     )
     return {       
         "MIN_THRESHOLD_GAP": MIN_THRESHOLD_GAP,
@@ -196,7 +197,10 @@ async def get_constants(request: Request) -> Dict[str, Any]:
         "DEFAULT_EPISODES_PER_ENV": DEFAULT_EPISODES_PER_ENV,
         "MIN_EPSILON": MIN_EPSILON,
         "MAX_EPSILON": MAX_EPSILON,
-        "MINER_EMISSION_PORTION": MINER_EMISSION_PORTION
+        "MINER_EMISSION_PORTION": MINER_EMISSION_PORTION,
+        "GRACE_PERIOD_DAYS": GRACE_PERIOD_DAYS,
+        "DECAY_FACTOR": DECAY_FACTOR,
+        "DECAY_FLOOR": DECAY_FLOOR
     }
 
 

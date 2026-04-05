@@ -12,3 +12,8 @@ MAX_EPSILON: float = 0.05
 
 # Other scoring constants
 MINER_EMISSION_PORTION: float = 0.10
+
+# Decay constants for emissions
+GRACE_PERIOD_DAYS = 3
+DECAY_FACTOR = 0.05  # 5% decay per day after grace period
+DECAY_FLOOR = 0.25  # Minimum 25% of emissions after decay
