@@ -25,7 +25,7 @@ def load_agent_from_yaml(miner_yaml_path):
         yaml_content = f.read()
 
     artifact = Agent.from_yaml(yaml_content)
-    validated, reason = validate_artifact_template(artifact)
+    validated, reason = validate_artifact_template(artifact, yaml_content)
     if not validated:
         raise ValueError(f"Artifact validation failed: {reason}")    
     return artifact   

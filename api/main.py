@@ -332,7 +332,7 @@ async def check_agent_post(
     if artifact_instance.agent_id is not None:
         return JSONResponse(content={"error": "agent_id must not be set by the client"}, status_code=400)
     
-    validated, reason = validate_artifact_template(artifact_instance)
+    validated, reason = validate_artifact_template(artifact_instance, gist_raw_data)
     if not validated:
         logger.warning(reason)
         return JSONResponse(content={"error": reason}, status_code=400)
@@ -416,7 +416,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         if artifact_instance.agent_id is not None:
             return JSONResponse(content={"error": "agent_id must not be set by the client"}, status_code=400)
         
-        validated, reason = validate_artifact_template(artifact_instance)
+        validated, reason = validate_artifact_template(artifact_instance, gist_raw_data)
         if not validated:
             logger.warning(reason)
             return JSONResponse(content={"error": reason}, status_code=400)
