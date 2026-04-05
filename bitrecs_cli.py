@@ -94,7 +94,7 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
 
     gist_raw_data = get_gist(github_account, gist_id)
     artifact = Agent.from_yaml(gist_raw_data)
-    validated, reason = validate_artifact_template(artifact)
+    validated, reason = validate_artifact_template(artifact, gist_raw_data)
     if not validated:
         console.print(f"Artifact validation failed: {reason}", style="bold red")
         return

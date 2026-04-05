@@ -72,7 +72,7 @@ def test_gist_file_names():
 async def test_create_commitment():    
     gist_raw_data = get_gist(GITHUB_ACCOUNT, GIST_ID)
     artifact = Agent.from_yaml(gist_raw_data)
-    validated, reason = validate_artifact_template(artifact)
+    validated, reason = validate_artifact_template(artifact, gist_raw_data)
     assert validated, f"Artifact validation failed: {reason}"   
     
     commitment_result = await commit_to_chain(GITHUB_ACCOUNT, GIST_ID, MINER_WALLET_NAME, MINER_WALLET_HOTKEY_NAME)
