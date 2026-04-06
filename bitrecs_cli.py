@@ -129,12 +129,12 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
                 return submission
             
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:                
-                commit_task_id = progress.add_task("Committing to chain...", total=None)
+                commit_task_id = progress.add_task("Committing to chain...this can take up to 1 minute", total=None)
                 commit_task = asyncio.create_task(commit_to_chain_task())
                 await asyncio.gather(commit_task)
-                progress.update(commit_task_id, completed=True)            
+                progress.update(commit_task_id, completed=True)
             
-            submission = commit_task.result()            
+            submission = commit_task.result()
             # Wait for reveal
             console.print(f"Waiting for reveal ...")
             await asyncio.sleep(12)

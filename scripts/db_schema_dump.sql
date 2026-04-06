@@ -82,22 +82,18 @@ DROP SEQUENCE IF EXISTS public.validators_id_seq;
 DROP TABLE IF EXISTS public.validators;
 DROP SEQUENCE IF EXISTS public.validator_weight_sets_id_seq;
 DROP TABLE IF EXISTS public.validator_weight_sets;
-
 DROP TABLE IF EXISTS public.upload_attempts;
 DROP TABLE IF EXISTS public.system_enabled;
 DROP SEQUENCE IF EXISTS public.sessions_id_seq;
 DROP TABLE IF EXISTS public.sessions;
-
 DROP TABLE IF EXISTS public.unapproved_agent_ids;
 DROP SEQUENCE IF EXISTS public.miner_scores_id_seq;
 DROP TABLE IF EXISTS public.miner_scores;
 DROP TABLE IF EXISTS public.inferences;
 DROP SEQUENCE IF EXISTS public.hotkey_gist_id_seq;
 DROP TABLE IF EXISTS public.hotkey_gist;
-
 DROP TABLE IF EXISTS public.evaluations;
 DROP TABLE IF EXISTS public.evaluation_sets;
-
 DROP TABLE IF EXISTS public.evaluation_runs;
 DROP TABLE IF EXISTS public.evaluation_run_logs;
 DROP TABLE IF EXISTS public.evaluation_payments;
@@ -126,13 +122,9 @@ DROP TYPE IF EXISTS public.evaluationsetgroup;
 DROP TYPE IF EXISTS public.evaluationrunstatus;
 DROP TYPE IF EXISTS public.evaluationrunlogtype;
 DROP TYPE IF EXISTS public.agentstatus;
---DROP SCHEMA IF EXISTS public;
---
--- Name: public; Type: SCHEMA; Schema: -; Owner: -
---
+
 
 CREATE SCHEMA IF NOT EXISTS public;
-
 
 --
 -- Name: agentstatus; Type: TYPE; Schema: public; Owner: -
@@ -193,12 +185,6 @@ CREATE TYPE public.evaluationstatus AS ENUM (
     'success',
     'failure'
 );
-
-
-
---
--- Name: evaluations_hydrated _RETURN; Type: RULE; Schema: public; Owner: -
---
 
 --
 -- Name: delete_agent_report(uuid, boolean); Type: FUNCTION; Schema: public; Owner: -
@@ -522,8 +508,6 @@ END;
 $$;
 
 
-
-
 SET default_table_access_method = heap;
 
 --
@@ -839,8 +823,6 @@ CREATE TABLE public.unapproved_agent_ids (
     unapproved_reason text,
     unapproved_at timestamp with time zone DEFAULT now() NOT NULL
 );
-
-
 
 
 

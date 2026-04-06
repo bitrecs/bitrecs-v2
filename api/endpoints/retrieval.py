@@ -113,24 +113,23 @@ async def evaluations_for_agent(request: Request, agent_id: UUID) -> List[Evalua
 @router.get("/agent-code")
 @limiter.limit("60/minute")
 async def agent_code(request: Request, agent_id: UUID) -> str:
-    agent = await get_agent_by_id(agent_id=agent_id)    
-    if not agent:
-        raise HTTPException(
-            status_code=404, 
-            detail=f"Agent with ID {agent_id} not found"
-        )
+    # agent = await get_agent_by_id(agent_id=agent_id)    
+    # if not agent:
+    #     raise HTTPException(
+    #         status_code=404, 
+    #         detail=f"Agent with ID {agent_id} not found"
+    #     )
     
-    if agent.status in [AgentStatus.screening_1, AgentStatus.screening_2, AgentStatus.evaluating]:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Agent {agent.agent_id} is still being screened/evaluated"
-        )
+    # if agent.status in [AgentStatus.screening_1, AgentStatus.screening_2, AgentStatus.evaluating]:
+    #     raise HTTPException(
+    #         status_code=403,
+    #         detail=f"Agent {agent.agent_id} is still being screened/evaluated"
+    #     )
     
     raise HTTPException(
         status_code=501,
         detail="Downloading agent code from S3 is not implemented yet"
-    )
-    #return await download_text_file_from_s3(f"{agent_id}/agent.py")
+    )  
 
 
 
@@ -140,22 +139,6 @@ async def agent_code(request: Request, agent_id: UUID) -> str:
 @ttl_cache(ttl_seconds=60 * 15) # 15 minutes
 async def top_scores_over_time(request: Request) -> List[TopScoreOverTime]:
     return await get_top_scores_over_time()
-
-
-# #/retrieval/perfectly-solved-over-time
-# class PerfectlySolvedOverTimeResponse(BaseModel):
-#     perfectly_solved_over_times: List[PerfectlySolvedOverTime]
-#     problem_set_creation_times: List[ProblemSetCreationTime]
-
-
-# @router.get("/perfectly-solved-over-time")
-# @limiter.limit("60/minute")
-# @ttl_cache(ttl_seconds=60 * 15) # 15 minutes
-# async def perfectly_solved_over_time(request: Request) -> PerfectlySolvedOverTimeResponse:
-#     return PerfectlySolvedOverTimeResponse(
-#         perfectly_solved_over_times=await get_perfectly_solved_over_time(),
-#         problem_set_creation_times=await get_problem_set_creation_times()
-#     )
 
 
 # /retrieval/network-statistics
@@ -173,7 +156,6 @@ async def network_statistics(request: Request) -> NetworkStatisticsResponse:
         agents_created_24_hrs=await agents_created_24_hrs(),
         top_score=await top_score()
     )
-
 
 
 @router.get("/miner-blocks")
