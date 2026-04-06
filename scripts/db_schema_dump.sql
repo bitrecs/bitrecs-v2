@@ -1,3 +1,4 @@
+
 --
 -- PostgreSQL database dump
 --
@@ -31,37 +32,7 @@ DROP TRIGGER IF EXISTS tr_refresh_agent_scores_delete_agents ON public.agents;
 DROP TRIGGER IF EXISTS tr_refresh_agent_scores_banned_hotkeys ON public.banned_hotkeys;
 DROP TRIGGER IF EXISTS tr_refresh_agent_scores_approved_agents ON public.approved_agents;
 DROP TRIGGER IF EXISTS tr_refresh_agent_scores ON public.evaluations;
-CREATE OR REPLACE VIEW public.evaluations_hydrated AS
-SELECT
-    NULL::uuid AS evaluation_id,
-    NULL::uuid AS agent_id,
-    NULL::text AS validator_hotkey,
-    NULL::integer AS set_id,
-    NULL::timestamp with time zone AS created_at,
-    NULL::timestamp with time zone AS finished_at,
-    NULL::public.evaluationsetgroup AS evaluation_set_group,
-    NULL::public.evaluationstatus AS status,
-    NULL::double precision AS score;
-CREATE OR REPLACE VIEW public.evaluation_runs_with_cost AS
-SELECT
-    NULL::uuid AS evaluation_run_id,
-    NULL::uuid AS evaluation_id,
-    NULL::text AS problem_name,
-    NULL::public.evaluationrunstatus AS status,
-    NULL::text AS patch,
-    NULL::jsonb AS test_results,
-    NULL::integer AS error_code,
-    NULL::text AS error_message,
-    NULL::timestamp with time zone AS created_at,
-    NULL::timestamp with time zone AS started_initializing_agent_at,
-    NULL::timestamp with time zone AS started_running_agent_at,
-    NULL::timestamp with time zone AS started_initializing_eval_at,
-    NULL::timestamp with time zone AS started_running_eval_at,
-    NULL::timestamp with time zone AS finished_or_errored_at,
-    NULL::double precision AS total_cost_usd,
-    NULL::bigint AS total_input_tokens,
-    NULL::bigint AS total_output_tokens,
-    NULL::bigint AS num_inferences;
+
 DROP INDEX IF EXISTS public.idx_unapproved_agent_ids_agent_id;
 DROP INDEX IF EXISTS public.idx_miner_scores_uid;
 DROP INDEX IF EXISTS public.idx_miner_scores_evaluation_set_id;
@@ -111,24 +82,22 @@ DROP SEQUENCE IF EXISTS public.validators_id_seq;
 DROP TABLE IF EXISTS public.validators;
 DROP SEQUENCE IF EXISTS public.validator_weight_sets_id_seq;
 DROP TABLE IF EXISTS public.validator_weight_sets;
-DROP VIEW IF EXISTS public.validator_queue;
+
 DROP TABLE IF EXISTS public.upload_attempts;
 DROP TABLE IF EXISTS public.system_enabled;
 DROP SEQUENCE IF EXISTS public.sessions_id_seq;
 DROP TABLE IF EXISTS public.sessions;
-DROP VIEW IF EXISTS public.screener_2_queue;
-DROP VIEW IF EXISTS public.screener_1_queue;
+
 DROP TABLE IF EXISTS public.unapproved_agent_ids;
 DROP SEQUENCE IF EXISTS public.miner_scores_id_seq;
 DROP TABLE IF EXISTS public.miner_scores;
 DROP TABLE IF EXISTS public.inferences;
 DROP SEQUENCE IF EXISTS public.hotkey_gist_id_seq;
 DROP TABLE IF EXISTS public.hotkey_gist;
-DROP VIEW IF EXISTS public.evaluations_hydrated;
+
 DROP TABLE IF EXISTS public.evaluations;
 DROP TABLE IF EXISTS public.evaluation_sets;
-DROP VIEW IF EXISTS public.evaluation_runs_with_cost;
-DROP VIEW IF EXISTS public.evaluation_runs_hydrated;
+
 DROP TABLE IF EXISTS public.evaluation_runs;
 DROP TABLE IF EXISTS public.evaluation_run_logs;
 DROP TABLE IF EXISTS public.evaluation_payments;
@@ -140,6 +109,14 @@ DROP TABLE IF EXISTS public.approved_agents;
 DROP TABLE IF EXISTS public.agents;
 DROP TABLE IF EXISTS public.agent_scores;
 DROP TABLE IF EXISTS public.agent_embeddings;
+
+DROP VIEW IF EXISTS public.validator_queue;
+DROP VIEW IF EXISTS public.screener_2_queue;
+DROP VIEW IF EXISTS public.screener_1_queue;
+DROP VIEW IF EXISTS public.evaluations_hydrated;
+DROP VIEW IF EXISTS public.evaluation_runs_with_cost;
+DROP VIEW IF EXISTS public.evaluation_runs_hydrated;
+
 DROP FUNCTION IF EXISTS public.refresh_agent_scores_for_agent(target_agent_id uuid);
 DROP FUNCTION IF EXISTS public.refresh_agent_scores();
 DROP FUNCTION IF EXISTS public.populate_agent_scores();
@@ -149,12 +126,12 @@ DROP TYPE IF EXISTS public.evaluationsetgroup;
 DROP TYPE IF EXISTS public.evaluationrunstatus;
 DROP TYPE IF EXISTS public.evaluationrunlogtype;
 DROP TYPE IF EXISTS public.agentstatus;
-DROP SCHEMA IF EXISTS public;
+--DROP SCHEMA IF EXISTS public;
 --
 -- Name: public; Type: SCHEMA; Schema: -; Owner: -
 --
 
-CREATE SCHEMA public;
+CREATE SCHEMA IF NOT EXISTS public;
 
 
 --
@@ -217,6 +194,11 @@ CREATE TYPE public.evaluationstatus AS ENUM (
     'failure'
 );
 
+
+
+--
+-- Name: evaluations_hydrated _RETURN; Type: RULE; Schema: public; Owner: -
+--
 
 --
 -- Name: delete_agent_report(uuid, boolean); Type: FUNCTION; Schema: public; Owner: -
@@ -540,6 +522,8 @@ END;
 $$;
 
 
+
+
 SET default_table_access_method = heap;
 
 --
@@ -718,60 +702,6 @@ CREATE TABLE public.evaluation_runs (
 );
 
 
---
--- Name: evaluation_runs_hydrated; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.evaluation_runs_hydrated AS
- SELECT evaluation_run_id,
-    evaluation_id,
-    problem_name,
-    status,
-    patch,
-    test_results,
-    error_code,
-    error_message,
-    created_at,
-    started_initializing_agent_at,
-    started_running_agent_at,
-    started_initializing_eval_at,
-    started_running_eval_at,
-    finished_or_errored_at,
-        CASE
-            WHEN (test_results IS NULL) THEN NULL::boolean
-            WHEN (jsonb_array_length(test_results) = 0) THEN NULL::boolean
-            WHEN (( SELECT count(*) FILTER (WHERE ((test.value ->> 'status'::text) = 'pass'::text)) AS count
-               FROM jsonb_array_elements(evaluation_runs.test_results) test(value)) = jsonb_array_length(test_results)) THEN true
-            ELSE false
-        END AS solved
-   FROM public.evaluation_runs;
-
-
---
--- Name: evaluation_runs_with_cost; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.evaluation_runs_with_cost AS
-SELECT
-    NULL::uuid AS evaluation_run_id,
-    NULL::uuid AS evaluation_id,
-    NULL::text AS problem_name,
-    NULL::public.evaluationrunstatus AS status,
-    NULL::text AS patch,
-    NULL::jsonb AS test_results,
-    NULL::integer AS error_code,
-    NULL::text AS error_message,
-    NULL::timestamp with time zone AS created_at,
-    NULL::timestamp with time zone AS started_initializing_agent_at,
-    NULL::timestamp with time zone AS started_running_agent_at,
-    NULL::timestamp with time zone AS started_initializing_eval_at,
-    NULL::timestamp with time zone AS started_running_eval_at,
-    NULL::timestamp with time zone AS finished_or_errored_at,
-    NULL::double precision AS total_cost_usd,
-    NULL::bigint AS total_input_tokens,
-    NULL::bigint AS total_output_tokens,
-    NULL::bigint AS num_inferences;
-
 
 --
 -- Name: evaluation_sets; Type: TABLE; Schema: public; Owner: -
@@ -800,21 +730,6 @@ CREATE TABLE public.evaluations (
 );
 
 
---
--- Name: evaluations_hydrated; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.evaluations_hydrated AS
-SELECT
-    NULL::uuid AS evaluation_id,
-    NULL::uuid AS agent_id,
-    NULL::text AS validator_hotkey,
-    NULL::integer AS set_id,
-    NULL::timestamp with time zone AS created_at,
-    NULL::timestamp with time zone AS finished_at,
-    NULL::public.evaluationsetgroup AS evaluation_set_group,
-    NULL::public.evaluationstatus AS status,
-    NULL::double precision AS score;
 
 
 --
@@ -926,38 +841,7 @@ CREATE TABLE public.unapproved_agent_ids (
 );
 
 
---
--- Name: screener_1_queue; Type: VIEW; Schema: public; Owner: -
---
 
-CREATE VIEW public.screener_1_queue AS
- SELECT agent_id,
-    status
-   FROM public.agents
-  WHERE ((status = 'screening_1'::public.agentstatus) AND (NOT (EXISTS ( SELECT 1
-           FROM public.evaluations_hydrated
-          WHERE ((evaluations_hydrated.agent_id = agents.agent_id) AND (evaluations_hydrated.status = ANY (ARRAY['success'::public.evaluationstatus, 'running'::public.evaluationstatus])) AND (evaluations_hydrated.evaluation_set_group = 'screener_1'::public.evaluationsetgroup))))) AND (NOT (agent_id IN ( SELECT benchmark_agent_ids.agent_id
-           FROM public.benchmark_agent_ids))) AND (NOT (miner_hotkey IN ( SELECT banned_hotkeys.miner_hotkey
-           FROM public.banned_hotkeys))) AND (NOT (agent_id IN ( SELECT unapproved_agent_ids.agent_id
-           FROM public.unapproved_agent_ids))))
-  ORDER BY created_at;
-
-
---
--- Name: screener_2_queue; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.screener_2_queue AS
- SELECT agent_id,
-    status
-   FROM public.agents
-  WHERE ((status = 'screening_2'::public.agentstatus) AND (NOT (EXISTS ( SELECT 1
-           FROM public.evaluations_hydrated
-          WHERE ((evaluations_hydrated.agent_id = agents.agent_id) AND (evaluations_hydrated.status = ANY (ARRAY['success'::public.evaluationstatus, 'running'::public.evaluationstatus])) AND (evaluations_hydrated.evaluation_set_group = 'screener_2'::public.evaluationsetgroup))))) AND (NOT (agent_id IN ( SELECT benchmark_agent_ids.agent_id
-           FROM public.benchmark_agent_ids))) AND (NOT (miner_hotkey IN ( SELECT banned_hotkeys.miner_hotkey
-           FROM public.banned_hotkeys))) AND (NOT (agent_id IN ( SELECT unapproved_agent_ids.agent_id
-           FROM public.unapproved_agent_ids))))
-  ORDER BY created_at;
 
 
 --
@@ -1023,45 +907,6 @@ CREATE TABLE public.upload_attempts (
     created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
-
---
--- Name: validator_queue; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.validator_queue AS
- WITH validator_eval_counts AS (
-         SELECT evaluations_hydrated.agent_id,
-            count(*) FILTER (WHERE (evaluations_hydrated.status = 'running'::public.evaluationstatus)) AS num_running_evals,
-            count(*) FILTER (WHERE (evaluations_hydrated.status = 'success'::public.evaluationstatus)) AS num_finished_evals
-           FROM public.evaluations_hydrated
-          WHERE ((evaluations_hydrated.status = ANY (ARRAY['success'::public.evaluationstatus, 'running'::public.evaluationstatus])) AND (evaluations_hydrated.evaluation_set_group = 'validator'::public.evaluationsetgroup))
-          GROUP BY evaluations_hydrated.agent_id
-        ), validator_total_eval_counts AS (
-         SELECT evaluations.agent_id,
-            count(*) AS num_total_evals
-           FROM public.evaluations
-          WHERE (evaluations.evaluation_set_group = 'validator'::public.evaluationsetgroup)
-          GROUP BY evaluations.agent_id
-        ), screener_2_scores AS (
-         SELECT evaluations_hydrated.agent_id,
-            max(evaluations_hydrated.score) AS score
-           FROM public.evaluations_hydrated
-          WHERE ((evaluations_hydrated.evaluation_set_group = 'screener_2'::public.evaluationsetgroup) AND (evaluations_hydrated.status = 'success'::public.evaluationstatus))
-          GROUP BY evaluations_hydrated.agent_id
-        )
- SELECT agents.agent_id,
-    agents.status,
-    COALESCE(validator_eval_counts.num_running_evals, (0)::bigint) AS num_running_evals,
-    COALESCE(validator_eval_counts.num_finished_evals, (0)::bigint) AS num_finished_evals
-   FROM (((public.agents
-     JOIN screener_2_scores USING (agent_id))
-     LEFT JOIN validator_eval_counts USING (agent_id))
-     LEFT JOIN validator_total_eval_counts USING (agent_id))
-  WHERE ((agents.status = 'evaluating'::public.agentstatus) AND ((COALESCE(validator_eval_counts.num_running_evals, (0)::bigint) + COALESCE(validator_eval_counts.num_finished_evals, (0)::bigint)) < 3) AND (COALESCE(validator_total_eval_counts.num_total_evals, (0)::bigint) < 9) AND (NOT (agents.agent_id IN ( SELECT benchmark_agent_ids.agent_id
-           FROM public.benchmark_agent_ids))) AND (NOT (agents.miner_hotkey IN ( SELECT banned_hotkeys.miner_hotkey
-           FROM public.banned_hotkeys))) AND (NOT (agents.agent_id IN ( SELECT unapproved_agent_ids.agent_id
-           FROM public.unapproved_agent_ids))))
-  ORDER BY screener_2_scores.score DESC, agents.created_at, COALESCE(validator_eval_counts.num_finished_evals, (0)::bigint) DESC;
 
 
 --
@@ -1475,6 +1320,93 @@ CREATE INDEX idx_miner_scores_uid ON public.miner_scores USING btree (uid);
 CREATE UNIQUE INDEX idx_unapproved_agent_ids_agent_id ON public.unapproved_agent_ids USING btree (agent_id);
 
 
+
+
+
+--
+-- Name: evaluation_runs_hydrated; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE OR REPLACE VIEW public.evaluation_runs_hydrated AS
+ SELECT evaluation_run_id,
+    evaluation_id,
+    problem_name,
+    status,
+    patch,
+    test_results,
+    error_code,
+    error_message,
+    created_at,
+    started_initializing_agent_at,
+    started_running_agent_at,
+    started_initializing_eval_at,
+    started_running_eval_at,
+    finished_or_errored_at,
+        CASE
+            WHEN (test_results IS NULL) THEN NULL::boolean
+            WHEN (jsonb_array_length(test_results) = 0) THEN NULL::boolean
+            WHEN (( SELECT count(*) FILTER (WHERE ((test.value ->> 'status'::text) = 'pass'::text)) AS count
+               FROM jsonb_array_elements(evaluation_runs.test_results) test(value)) = jsonb_array_length(test_results)) THEN true
+            ELSE false
+        END AS solved
+   FROM public.evaluation_runs;
+
+
+CREATE OR REPLACE VIEW public.evaluations_hydrated AS
+ SELECT evaluations.evaluation_id,
+    evaluations.agent_id,
+    evaluations.validator_hotkey,
+    evaluations.set_id,
+    evaluations.created_at,
+    evaluations.finished_at,
+    evaluations.evaluation_set_group,
+    (
+        CASE
+            WHEN every(((erh.status = 'finished'::public.evaluationrunstatus) OR ((erh.status = 'error'::public.evaluationrunstatus) AND ((erh.error_code >= 1000) AND (erh.error_code <= 1999))))) THEN 'success'::text
+            WHEN every((erh.status = ANY (ARRAY['finished'::public.evaluationrunstatus, 'error'::public.evaluationrunstatus]))) THEN 'failure'::text
+            ELSE 'running'::text
+        END)::public.evaluationstatus AS status,
+    ((count(*) FILTER (WHERE erh.solved))::double precision / (count(*))::double precision) AS score
+   FROM (public.evaluations
+     JOIN public.evaluation_runs_hydrated erh USING (evaluation_id))
+  GROUP BY evaluations.evaluation_id;
+
+
+--
+-- Name: screener_1_queue; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE OR REPLACE VIEW public.screener_1_queue AS
+ SELECT agent_id,
+    status
+   FROM public.agents
+  WHERE ((status = 'screening_1'::public.agentstatus) AND (NOT (EXISTS ( SELECT 1
+           FROM public.evaluations_hydrated
+          WHERE ((evaluations_hydrated.agent_id = agents.agent_id) AND (evaluations_hydrated.status = ANY (ARRAY['success'::public.evaluationstatus, 'running'::public.evaluationstatus])) AND (evaluations_hydrated.evaluation_set_group = 'screener_1'::public.evaluationsetgroup))))) AND (NOT (agent_id IN ( SELECT benchmark_agent_ids.agent_id
+           FROM public.benchmark_agent_ids))) AND (NOT (miner_hotkey IN ( SELECT banned_hotkeys.miner_hotkey
+           FROM public.banned_hotkeys))) AND (NOT (agent_id IN ( SELECT unapproved_agent_ids.agent_id
+           FROM public.unapproved_agent_ids))))
+  ORDER BY created_at;
+
+
+--
+-- Name: screener_2_queue; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE OR REPLACE VIEW public.screener_2_queue AS
+ SELECT agent_id,
+    status
+   FROM public.agents
+  WHERE ((status = 'screening_2'::public.agentstatus) AND (NOT (EXISTS ( SELECT 1
+           FROM public.evaluations_hydrated
+          WHERE ((evaluations_hydrated.agent_id = agents.agent_id) AND (evaluations_hydrated.status = ANY (ARRAY['success'::public.evaluationstatus, 'running'::public.evaluationstatus])) AND (evaluations_hydrated.evaluation_set_group = 'screener_2'::public.evaluationsetgroup))))) AND (NOT (agent_id IN ( SELECT benchmark_agent_ids.agent_id
+           FROM public.benchmark_agent_ids))) AND (NOT (miner_hotkey IN ( SELECT banned_hotkeys.miner_hotkey
+           FROM public.banned_hotkeys))) AND (NOT (agent_id IN ( SELECT unapproved_agent_ids.agent_id
+           FROM public.unapproved_agent_ids))))
+  ORDER BY created_at;
+
+
+
 --
 -- Name: evaluation_runs_with_cost _RETURN; Type: RULE; Schema: public; Owner: -
 --
@@ -1503,28 +1435,45 @@ CREATE OR REPLACE VIEW public.evaluation_runs_with_cost AS
   GROUP BY er.evaluation_run_id;
 
 
+
 --
--- Name: evaluations_hydrated _RETURN; Type: RULE; Schema: public; Owner: -
+-- Name: validator_queue; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE OR REPLACE VIEW public.evaluations_hydrated AS
- SELECT evaluations.evaluation_id,
-    evaluations.agent_id,
-    evaluations.validator_hotkey,
-    evaluations.set_id,
-    evaluations.created_at,
-    evaluations.finished_at,
-    evaluations.evaluation_set_group,
-    (
-        CASE
-            WHEN every(((erh.status = 'finished'::public.evaluationrunstatus) OR ((erh.status = 'error'::public.evaluationrunstatus) AND ((erh.error_code >= 1000) AND (erh.error_code <= 1999))))) THEN 'success'::text
-            WHEN every((erh.status = ANY (ARRAY['finished'::public.evaluationrunstatus, 'error'::public.evaluationrunstatus]))) THEN 'failure'::text
-            ELSE 'running'::text
-        END)::public.evaluationstatus AS status,
-    ((count(*) FILTER (WHERE erh.solved))::double precision / (count(*))::double precision) AS score
-   FROM (public.evaluations
-     JOIN public.evaluation_runs_hydrated erh USING (evaluation_id))
-  GROUP BY evaluations.evaluation_id;
+CREATE OR REPLACE VIEW public.validator_queue AS
+ WITH validator_eval_counts AS (
+         SELECT evaluations_hydrated.agent_id,
+            count(*) FILTER (WHERE (evaluations_hydrated.status = 'running'::public.evaluationstatus)) AS num_running_evals,
+            count(*) FILTER (WHERE (evaluations_hydrated.status = 'success'::public.evaluationstatus)) AS num_finished_evals
+           FROM public.evaluations_hydrated
+          WHERE ((evaluations_hydrated.status = ANY (ARRAY['success'::public.evaluationstatus, 'running'::public.evaluationstatus])) AND (evaluations_hydrated.evaluation_set_group = 'validator'::public.evaluationsetgroup))
+          GROUP BY evaluations_hydrated.agent_id
+        ), validator_total_eval_counts AS (
+         SELECT evaluations.agent_id,
+            count(*) AS num_total_evals
+           FROM public.evaluations
+          WHERE (evaluations.evaluation_set_group = 'validator'::public.evaluationsetgroup)
+          GROUP BY evaluations.agent_id
+        ), screener_2_scores AS (
+         SELECT evaluations_hydrated.agent_id,
+            max(evaluations_hydrated.score) AS score
+           FROM public.evaluations_hydrated
+          WHERE ((evaluations_hydrated.evaluation_set_group = 'screener_2'::public.evaluationsetgroup) AND (evaluations_hydrated.status = 'success'::public.evaluationstatus))
+          GROUP BY evaluations_hydrated.agent_id
+        )
+ SELECT agents.agent_id,
+    agents.status,
+    COALESCE(validator_eval_counts.num_running_evals, (0)::bigint) AS num_running_evals,
+    COALESCE(validator_eval_counts.num_finished_evals, (0)::bigint) AS num_finished_evals
+   FROM (((public.agents
+     JOIN screener_2_scores USING (agent_id))
+     LEFT JOIN validator_eval_counts USING (agent_id))
+     LEFT JOIN validator_total_eval_counts USING (agent_id))
+  WHERE ((agents.status = 'evaluating'::public.agentstatus) AND ((COALESCE(validator_eval_counts.num_running_evals, (0)::bigint) + COALESCE(validator_eval_counts.num_finished_evals, (0)::bigint)) < 3) AND (COALESCE(validator_total_eval_counts.num_total_evals, (0)::bigint) < 9) AND (NOT (agents.agent_id IN ( SELECT benchmark_agent_ids.agent_id
+           FROM public.benchmark_agent_ids))) AND (NOT (agents.miner_hotkey IN ( SELECT banned_hotkeys.miner_hotkey
+           FROM public.banned_hotkeys))) AND (NOT (agents.agent_id IN ( SELECT unapproved_agent_ids.agent_id
+           FROM public.unapproved_agent_ids))))
+  ORDER BY screener_2_scores.score DESC, agents.created_at, COALESCE(validator_eval_counts.num_finished_evals, (0)::bigint) DESC;
 
 
 --
@@ -1629,6 +1578,11 @@ ALTER TABLE ONLY public.unapproved_agent_ids
 --
 -- PostgreSQL database dump complete
 --
+
+
+
+
+
 
 
 
