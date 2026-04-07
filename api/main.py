@@ -106,6 +106,7 @@ async def lifespan(app: FastAPI):
     app.state.api_keys = await load_keys()
     logger.info(f"Loaded {len(app.state.api_keys)} API keys from database")
     if len(app.state.api_keys) == 0:
+        logger.error("Fatal error: No API keys loaded from database. Shutting down.")
         raise Exception("Fatal error: No API keys loaded from database. Shutting down.")
     app.state.inference_coster = InferenceCoster
     logger.info("Preloading InferenceCoster cache for all providers...")
