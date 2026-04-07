@@ -70,9 +70,6 @@ from utils.verify import (
 )
 
 
-BT_NETWORK = os.environ.get("BT_NETWORK", "test")
-BT_NETUID = int(os.environ.get("BT_NETUID", 296))
-
 #COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
 COSINE_COMPARE_ENABLED = True
 SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.0001"))
@@ -140,11 +137,11 @@ async def lifespan(app: FastAPI):
 version_info = load_version_info()
 app_version = version_info if version_info else "2.0"
 library_version = this_version
-
+app_title = f"Bitrecs V2 API ({library_version})" if config.ENV == "prod" else f"Bitrecs V2 Testnet API ({library_version})"
 app = FastAPI(
-    title=f"Bitrecs V2 Testnet API ({library_version})",
+    title=app_title,
     version=app_version,
-    description=f"(Netuid: {BT_NETWORK} - Network: {BT_NETUID})",
+    description=f"(Netuid: {config.SUBTENSOR_NETWORK} - Network: {config.NETUID})",
     debug=False,
     lifespan=lifespan
 )
@@ -229,10 +226,11 @@ async def read_root(request: Request):
     submissions_enabled = await is_system_enabled()
     return JSONResponse(
         status_code=200,
-        content={"message": "Bitrecs V2 Testnet ⛏️",
+        content={"message": app_title, 
+                 "version": app_version,
                  "ts": str(ts), 
-                 "network": BT_NETWORK,
-                 "uid": BT_NETUID,
+                 "network": config.SUBTENSOR_NETWORK,
+                 "uid": config.NETUID,
                  "submissions_enabled": submissions_enabled,
                  "total_requests": app.state.total_requests,
                  "exceptions": app.state.exceptions })
