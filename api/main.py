@@ -70,9 +70,6 @@ from utils.verify import (
 )
 
 
-BT_NETWORK = os.environ.get("BT_NETWORK", "test")
-BT_NETUID = int(os.environ.get("BT_NETUID", 296))
-
 #COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
 COSINE_COMPARE_ENABLED = True
 SIMILARITY_THRESHOLD = float(os.environ.get("SIMILARITY_THRESHOLD", "0.0001"))
@@ -144,7 +141,7 @@ app_title = f"Bitrecs V2 API ({library_version})" if config.ENV == "prod" else f
 app = FastAPI(
     title=app_title,
     version=app_version,
-    description=f"(Netuid: {BT_NETWORK} - Network: {BT_NETUID})",
+    description=f"(Netuid: {config.SUBTENSOR_NETWORK} - Network: {config.NETUID})",
     debug=False,
     lifespan=lifespan
 )
@@ -232,8 +229,8 @@ async def read_root(request: Request):
         content={"message": app_title, 
                  "version": app_version,
                  "ts": str(ts), 
-                 "network": BT_NETWORK,
-                 "uid": BT_NETUID,
+                 "network": config.SUBTENSOR_NETWORK,
+                 "uid": config.NETUID,
                  "submissions_enabled": submissions_enabled,
                  "total_requests": app.state.total_requests,
                  "exceptions": app.state.exceptions })
