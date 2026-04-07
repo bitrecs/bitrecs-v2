@@ -26,3 +26,22 @@ async def get_banned_hotkey(conn: DatabaseConnection, miner_hotkey: str) -> Opti
         return None
 
     return BannedHotkey(**banned_hotkey)
+
+
+@db_operation
+async def add_banned_hotkey(conn: DatabaseConnection, miner_hotkey: str, banned_reason: str) -> bool:
+    existing = await get_banned_hotkey(miner_hotkey)
+    if existing:
+        return True # Already banned
+    
+    banned_hotkey = await conn.fetchrow(
+        """
+        INSERT INTO banned_hotkeys (miner_hotkey, banned_reason)
+        VALUES ($1, $2)
+        RETURNING *
+        """,
+        miner_hotkey,
+        banned_reason
+    )
+
+    return banned_hotkey is not None
