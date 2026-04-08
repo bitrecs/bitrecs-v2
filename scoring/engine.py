@@ -128,9 +128,12 @@ def latest_scores_to_df() -> pd.DataFrame:
 
 async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: bool = False) -> bool:
     try:
-        logger.info("Calculating scores...")
+        logger.info("Calculating scores...")       
         current_set_id = await get_current_eval_set_id()
-        logger.info(f"Current evaluation set ID: {current_set_id}")      
+        logger.info(f"Current evaluation set ID: {current_set_id}")
+        if set_weights and MINER_EMISSION_PORTION <= 0:
+            return await set_weights_burn_only(current_set_id, validator_hotkey, netuid)
+
         data = latest_scores_to_df()
         logger.info(f"Loaded {len(data)} score records")
         if data.empty:
@@ -186,6 +189,53 @@ async def calculate_scores(netuid: int, validator_hotkey: Keypair, set_weights: 
         traceback_str = traceback.format_exc()        
         logger.error(f"Full traceback: {traceback_str}")        
         raise
+
+
+async def set_weights_burn_only(eval_set_id: int, validator_hotkey: Keypair, netuid: int) -> bool:
+    st = time.perf_counter()
+    logger.info("--- Begin Set Weights (Burn Only) ---")
+    wallet = Wallet(name=os.getenv("VALIDATOR_WALLET_NAME"), hotkey=os.getenv("VALIDATOR_HOTKEY_NAME"))
+    if wallet.hotkey.ss58_address != validator_hotkey.ss58_address:
+        logger.error(f"Validator hotkey mismatch: expected {wallet.hotkey.ss58_address}, got {validator_hotkey.ss58_address}")
+        return False
+    subtensor = await get_subtensor()
+    current_block = await subtensor.get_current_block()
+    
+    uids = [0]
+    weights = [1.0]
+    try:
+        success = await subtensor.set_weights(
+            wallet=wallet,
+            netuid=netuid,
+            uids=uids,
+            weights=weights,
+            wait_for_inclusion=True,
+            wait_for_finalization=True,
+        )
+        await post_weight_set(
+            netuid=netuid,
+            block=current_block,
+            validator_hotkey=wallet.hotkey.ss58_address,
+            wta_uid=0,
+            wta_hotkey="burn",
+            wta_weight=1.0,
+            weights={0: 1.0},
+            evaluation_set_id=eval_set_id
+        )
+        if success:
+            logger.info("✅ Burn-only weights set successfully (chain confirmed)")
+            return True
+        else:
+            logger.error("❌ Chain rejected burn-only weight setting")
+            return False
+    except Exception as e:
+        logger.error(f"Error in set_weights_burn_only: {e}")
+        return False
+    finally:
+        await close_subtensor()
+        et = time.perf_counter() - st
+        logger.info(f"Total time for set_weights_burn_only: {et:.4f} seconds")
+        logger.info("--- End Set Weights (Burn Only) ---")
 
 
 async def set_weights_onchain(eval_set_id: int, validator_hotkey: Keypair, netuid: int, weight_receiving_uid: int, first_block: int) -> bool:

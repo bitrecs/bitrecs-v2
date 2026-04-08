@@ -11,7 +11,7 @@ MIN_EPSILON: float = 0.005
 MAX_EPSILON: float = 0.05
 
 # Other scoring constants
-MINER_EMISSION_PORTION: float = 0.10
+MINER_EMISSION_PORTION: float = 0.0
 
 # Decay constants for emissions
 GRACE_PERIOD_DAYS = 3
