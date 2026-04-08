@@ -16,32 +16,18 @@ from queries.evaluation_set import get_latest_set_id
 from scoring.constants import MINER_EMISSION_PORTION, GRACE_PERIOD_DAYS, DECAY_FACTOR, DECAY_FLOOR
 
 
-def calculate_decay_factor(first_block: int, current_block: int, block_time_seconds: int = 12) -> float:
-    """
-    Calculate a linear decay factor for miner weights with a 3-day grace period.
-    
-    - First 3 days: 100% emissions (decay_factor = 1.0)
-    - After 3 days: Linear decay at 5% per day, floor at 25%
-    
-    Args:
-        first_block: The block when the miner was first active.
-        current_block: The current blockchain block.
-        block_time_seconds: Seconds per block (default 12 for Bittensor).
-    
-    Returns:
-        Decay factor (0.25 to 1.0) to multiply miner_weight by.
-    """
+def calculate_decay_factor(first_block: int, current_block: int, block_time_seconds: int = 12) -> float:  
     if first_block <= 0 or first_block >= current_block:
-        return 1.0  # No decay for new/invalid miners
+        return 1.0
     
     time_elapsed_seconds = (current_block - first_block) * block_time_seconds
     grace_period_seconds = GRACE_PERIOD_DAYS * 24 * 3600
     
     if time_elapsed_seconds <= grace_period_seconds:
-        return 1.0  # Full emissions during grace period
+        return 1.0
     
-    days_past_grace = (time_elapsed_seconds - grace_period_seconds) / (24 * 3600)  # Days past grace
-    decay_factor = max(DECAY_FLOOR, 1.0 - DECAY_FACTOR * days_past_grace)  # Linear decay, floor at DECAY_FLOOR
+    days_past_grace = (time_elapsed_seconds - grace_period_seconds) / (24 * 3600)
+    decay_factor = max(DECAY_FLOOR, 1.0 - DECAY_FACTOR * days_past_grace)
     return decay_factor
 
 
@@ -221,7 +207,10 @@ async def set_weights_burn_only(eval_set_id: int, validator_hotkey: Keypair, net
             wta_weight=1.0,
             weights={0: 1.0},
             evaluation_set_id=eval_set_id
-        )
+        )        
+        await post_weights_to_agora(wallet.hotkey.ss58_address, 
+                                    current_block, uids, weights, 
+                                    "ok" if success else "error")
         if success:
             logger.info("✅ Burn-only weights set successfully (chain confirmed)")
             return True
