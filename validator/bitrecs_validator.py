@@ -464,9 +464,10 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                                              input_tokens=cost_report.get("input_tokens", 0), 
                                              output_tokens=cost_report.get("output_tokens", 0))
             if updated_cost:
-                logger.info(f"Updated cost estimate:  input cost: {updated_cost['input_cost']}, output cost: {updated_cost['output_cost']})")                
+                logger.info(f"Updated cost estimate: input: {updated_cost['input_cost']}, output: {updated_cost['output_cost']})")
                 try:
                     total_cost = float(updated_cost.get("total_cost", 0.0))
+                    logger.info(f"Total cost estimate: {total_cost}")
                 except (ValueError, TypeError):
                     total_cost = 0.0
 
