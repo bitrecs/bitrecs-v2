@@ -32,11 +32,7 @@ async def r2_download_and_sync():
 
 
 
-def download_db_from_r2(bucket_name: str, key: str, download_dir: str, region: str = "wnam") -> Optional[str]:  
-    if bucket_name != "v2-testnet":
-        logger.error("R2_BUCKET must be set to 'v2-testnet'")
-        return None
-    
+def download_db_from_r2(bucket_name: str, key: str, download_dir: str, region: str = "wnam") -> Optional[str]:
     if not os.path.exists(download_dir):
         logger.error(f"Directory not found: {download_dir}")
         return None
