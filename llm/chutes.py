@@ -40,7 +40,7 @@ class Chutes:
                 {"role": "user", "content": prompt}
             ],
             "stream": False,
-            "max_tokens": 2048,
+            "max_tokens": 4096,
             "temperature": self.temp
         }      
         timeout = (5, 60) #connect, read timeout     
