@@ -6,6 +6,14 @@ AND ags.agent_id NOT IN (SELECT agent_id FROM benchmark_agent_ids)
 ORDER BY ags.created_at DESC;
 
 
+SELECT a.name, a.miner_uid, ass.final_score, a.*,  ass.created_at as score_created_at, ass.set_id, ass.approved, ass.validator_count
+FROM agents a
+JOIN agent_scores ass ON a.agent_id = ass.agent_id
+WHERE ass.set_id = (SELECT MAX(set_id) FROM evaluation_sets)
+AND a.agent_id NOT IN (SELECT agent_id FROM benchmark_agent_ids)
+ORDER BY ROUND(ass.final_score::numeric, 6) DESC, a.created_at ASC
+
+
 SELECT 
     schemaname,
     relname                  AS table_name,
@@ -46,3 +54,27 @@ SELECT * FROM AGENTS WHERE created_at >= (
 SELECT MIN(created_at) FROM evaluation_sets
 WHERE set_id = (SELECT MAX(set_id) FROM evaluation_sets))
 ORDER BY created_at DESC
+
+
+
+SELECT 
+    e.agent_id,  
+    a.name,
+    r.evaluation_run_id,
+    r.evaluation_id,
+    r.problem_name,
+    r.status,
+    r.test_results,
+    r.created_at,
+    i.provider,
+    i.model,
+    i.temperature,
+    i.status_code,
+    i.num_input_tokens,
+    i.num_output_tokens,
+    i.cost_usd  
+FROM evaluation_runs r
+LEFT JOIN inferences i ON r.evaluation_run_id = i.evaluation_run_id
+LEFT JOIN evaluations e ON r.evaluation_id = e.evaluation_id
+INNER JOIN agents a ON e.agent_id = a.agent_id
+WHERE a.agent_id = ''
