@@ -129,15 +129,15 @@ class OpenRouter:
 
         data = {
             "model": self.model,
-            "messages": [
-                #{"role": "system", "content": "/no_think"},
+            "messages": [                
                 {
                     "role": "user", 
                     "content": prompt
                 }],
             "reasoning": reasoning,
             "stream": False,
-            "temperature": self.temp
+            "temperature": self.temp,
+            "max_tokens": 4096
         }
         
         timeout = (5, 60) #connect, read timeout
