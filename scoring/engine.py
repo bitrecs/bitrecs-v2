@@ -1,5 +1,4 @@
 import os
-import math
 import time
 import httpx
 import asyncio
@@ -318,8 +317,11 @@ async def post_weights_to_agora(hotkey: str, block: int, uids: list[int], weight
     try:
         from utils.agora import post_to_agora, AgoraStatus
         weight_info = {f"uid{uid}": weight for uid, weight in zip(uids, weights)}
+        mode = os.getenv("MODE", "unknown_mode")
+        net_id = os.getenv("NETUID", "unknown_net")        
+        id = f"{mode}_{net_id}"
         payload = AgoraStatus(
-            id="validator",
+            id=id,
             from_server=hotkey,
             priority=1,
             description=str({"block": block, "weights": weight_info}),
