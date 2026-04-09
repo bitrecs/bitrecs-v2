@@ -35,6 +35,11 @@ dependencies = [
     "cachetools>=7.0.5",
 ]
 
+[tool.uv]
+override-dependencies = [
+    "aiohttp>=3.13.5",
+]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 pythonpath = [
