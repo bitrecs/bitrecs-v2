@@ -17,6 +17,15 @@ async def test_post_to_agora2():
     posted = await post_to_agora(payload)
     assert posted, "Failed to post to Agora"
 
+async def test_post_to_agora3():
+    from utils.agora import post_to_agora, AgoraStatus
+    weight_info = {"uid0": 0.5, "uid1": 0.3, "uid2": 0.2}
+    netuid = int(os.getenv("NETUID", "0"))
+    priority = 1 if netuid == 296 else 2
+    payload = AgoraStatus(id="api", from_server=MINER_WALLET_HOTKEY, priority=priority, description=str(weight_info), status="ok")
+    posted = await post_to_agora(payload)
+    assert posted, "Failed to post to Agora"
+
 
 async def test_post_weights_to_agora():
     from scoring.engine import post_weights_to_agora

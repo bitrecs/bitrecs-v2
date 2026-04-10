@@ -318,12 +318,13 @@ async def post_weights_to_agora(hotkey: str, block: int, uids: list[int], weight
         from utils.agora import post_to_agora, AgoraStatus
         weight_info = {f"uid{uid}": weight for uid, weight in zip(uids, weights)}
         mode = os.getenv("MODE", "unknown_mode")
-        net_id = os.getenv("NETUID", "unknown_net")        
-        id = f"{mode}_{net_id}"
+        netuid = int(os.getenv("NETUID", "0"))
+        priority = 1 if netuid == 122 else 2
+        id = f"{mode}_{netuid}"
         payload = AgoraStatus(
             id=id,
             from_server=hotkey,
-            priority=1,
+            priority=priority,
             description=str({"block": block, "weights": weight_info}),
             status=status
         )
