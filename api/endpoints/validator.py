@@ -188,16 +188,21 @@ async def validator_register_as_validator(
     
     session_id = uuid4()    
     ip_address = get_client_ip(request)
+    validator_name = validator_hotkey_to_name(registration_request.hotkey)
     SESSION_ID_TO_VALIDATOR[session_id] = Validator(
         session_id=session_id,
-        name=validator_hotkey_to_name(registration_request.hotkey),
+        name=validator_name,
         hotkey=registration_request.hotkey,
         time_connected=datetime.now(timezone.utc),
         ip_address=ip_address
     )
-    await insert_validator_session(session_id, validator_hotkey_to_name(registration_request.hotkey), registration_request.hotkey, ip_address)
+    await insert_validator_session(session_id, 
+                                   validator_name, 
+                                   registration_request.hotkey, 
+                                   ip_address, 
+                                   registration_request.commit_hash)
     
-    logger.info(f"Validator '{validator_hotkey_to_name(registration_request.hotkey)}' ({registration_request.hotkey}) was registered")
+    logger.info(f"Validator '{validator_name}' ({registration_request.hotkey}) was registered")
     logger.info(f"  Session ID: {session_id}")
     logger.info(f"  IP Address: {ip_address}")
     
@@ -257,7 +262,11 @@ async def validator_register_as_screener(
         ip_address=ip_address
     )    
 
-    await insert_validator_session(session_id, registration_request.name, registration_request.name, ip_address)
+    await insert_validator_session(session_id, 
+                                   registration_request.name, 
+                                   registration_request.name, 
+                                   ip_address, 
+                                   registration_request.commit_hash)
     
     logger.info(f"Screener {registration_request.name} was registered")
     logger.info(f"  Session ID: {session_id}")
