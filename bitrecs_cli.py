@@ -30,7 +30,8 @@ from utils.verify import create_transport_signature
 from utils.commands import run_cmd
 
 console = Console()
-DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
+DEFAULT_API_BASE_URL = "https://v2.api.bitrecs.ai"
+#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
 #DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 

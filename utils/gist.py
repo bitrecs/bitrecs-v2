@@ -8,7 +8,7 @@ from utils import logger
 def get_gist(github_account: str, gist_id: str) -> str:
     raw_url = f"https://gist.githubusercontent.com/{github_account}/{gist_id}/raw"
     with httpx.Client(follow_redirects=True) as client:
-        response = client.get(raw_url, timeout=15.0)
+        response = client.get(raw_url, timeout=60.0)
         if response.status_code == 200:
             content = response.text
             return content
@@ -20,7 +20,7 @@ def get_gist_created_at(gist_id: str) -> datetime:
     api_url = f"https://api.github.com/gists/{gist_id}"
     try:
         with httpx.Client() as client:
-            response = client.get(api_url, timeout=15.0)
+            response = client.get(api_url, timeout=60.0)
             response.raise_for_status()
             data = response.json()
             created_at_str = data.get('created_at')
@@ -36,7 +36,7 @@ def get_gist_file_names(gist_id: str) -> List[str]:
     api_url = f"https://api.github.com/gists/{gist_id}"
     try:
         with httpx.Client() as client:
-            response = client.get(api_url, timeout=15.0)
+            response = client.get(api_url, timeout=60.0)
             response.raise_for_status()
             data = response.json()
             files = data.get('files', {})
@@ -50,7 +50,7 @@ def get_gist_sha_commits(gist_id: str) -> List[str]:
     api_url = f"https://api.github.com/gists/{gist_id}/commits"
     try:
         with httpx.Client() as client:
-            response = client.get(api_url, timeout=15.0)
+            response = client.get(api_url, timeout=60.0)
             response.raise_for_status()
             commits = response.json()
             sha_list = [commit.get('version') for commit in commits if 'version' in commit]

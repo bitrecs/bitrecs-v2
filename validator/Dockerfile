@@ -1,5 +1,9 @@
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
+# Accept build arg for SHA
+ARG BUILD_SHA
+ENV BUILD_SHA=${BUILD_SHA}
+
 # Install git (required for the version script)
 RUN apt-get update && \
     apt-get install -y git && \
