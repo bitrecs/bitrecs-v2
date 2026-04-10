@@ -25,7 +25,6 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ~/.docker/config.json:/config.json:ro
     environment:
       - WATCHTOWER_CLEANUP=true
     command: --interval 120 bitrecs-validator
