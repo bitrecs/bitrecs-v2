@@ -98,7 +98,7 @@ Validator Docker Compose: [docker-compose-prod.yml](../validator/docker-compose-
 ```
 copy .yml file into ~/bitrecs:
 
-https://raw.githubusercontent.com/bitrecs/bitrecs-v2/refs/heads/main/validator/docker-compose-prod.yml
+curl -L -o docker-compose-prod.yml "https://raw.githubusercontent.com/bitrecs/bitrecs-v2/refs/heads/main/validator/docker-compose-prod.yml"
 
 docker compose -f docker-compose-prod.yml up -d
 ```

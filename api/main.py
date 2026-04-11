@@ -240,7 +240,7 @@ async def read_root(request: Request):
 @limiter.limit("30/minute")
 async def health(request: Request):
     client_ip = get_client_ip(request)
-    logger.info(f"Health check from IP: {client_ip}")   
+    logger.info(f"Health check from IP: {client_ip}")    
     thread_count = threading.active_count()
     message = "OK"
     status = "healthy"
@@ -264,7 +264,8 @@ async def health(request: Request):
     db_status = "OK" if db_health else "ERROR"
     agent_count = await get_agent_count()
     validator_info = get_connected_validators_info()
-     
+    submissions_enabled = await is_system_enabled()
+
     return {
         "status": status,
         "nodes": 0,
@@ -274,6 +275,10 @@ async def health(request: Request):
         "agent_count": agent_count,
         "validators": validator_info,
         "similarity_threshold": str(SIMILARITY_THRESHOLD) if COSINE_COMPARE_ENABLED else "DISABLED",
+        "screener_1_threshold": config.SCREENER_1_THRESHOLD,
+        "screener_2_threshold": config.SCREENER_2_THRESHOLD,
+        "prune_threshold": config.PRUNE_THRESHOLD,
+        "submissions_enabled": submissions_enabled,
         "threads": thread_count,     
         "memory_current_mb": round(current / 1024 / 1024, 2),
         "memory_peak_mb": round(peak / 1024 / 1024, 2),        
@@ -298,6 +303,7 @@ async def check_agent_post(
         raise HTTPException(status_code=503, detail=config.DISALLOW_UPLOADS_REASON)
     if not await is_system_enabled():
         raise HTTPException(status_code=503, detail="Submissions are currently disabled. Please try again later.")
+    app.state.total_requests += 1
     
     await ensure_min_validators()
 
@@ -378,6 +384,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         raise HTTPException(status_code=503, detail=config.DISALLOW_UPLOADS_REASON)
     if not await is_system_enabled():
         raise HTTPException(status_code=503, detail="Submissions are currently disabled. Please try again later.")
+    app.state.total_requests += 1
 
     await ensure_min_validators()
     
@@ -531,14 +538,13 @@ async def miner_submission(request: Request, submission: MinerSubmission):
     except HTTPException:
         # Re-raise HTTPExceptions (they have specific status codes)
         raise
-    except Exception as e:        
+    except Exception as e:
         logger.error(f"Error submitting artifact (request_id: {request_id}): {e}")                
         error_details = {
             "error": "Failed to submit artifact",
             "details": str(e),
             "request_id": request_id,
-            #"traceback": traceback.format_exc() if config.ENV != "prod" else None  # Full traceback in non-prod
-            "traceback": traceback.format_exc()
+            "traceback": traceback.format_exc() if config.ENV != "prod" else None
         }
         await record_upload_attempt(
             upload_type="agent",
