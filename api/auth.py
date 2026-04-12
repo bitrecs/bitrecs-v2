@@ -13,6 +13,7 @@ EXCLUDED_PATHS = [
     "/health",        # Health check
     "/submit",        # Bitrecs CLI submission endpoint
     "/check",         # Bitrecs CLI check endpoint
+    "/inference/models"  # List available models endpoint
 ]
 
 class APIKeyMiddleware(BaseHTTPMiddleware):

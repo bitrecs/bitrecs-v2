@@ -189,3 +189,6 @@ class InferenceCoster:
         input_cost = (input_tokens / 1e6) * pricing.input
         output_cost = (output_tokens / 1e6) * pricing.output
         return CostResult(input=input_cost, output=output_cost)
+    
+    async def models(self) -> Optional[Dict[str, Any]]:
+        return await self._get_cached_data(self.provider)
