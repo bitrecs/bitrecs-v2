@@ -13,10 +13,12 @@ NETUID = int(NETUID)
 SUBTENSOR_ADDRESS = os.getenv("SUBTENSOR_ADDRESS")
 if not SUBTENSOR_ADDRESS:
     logger.warning("SUBTENSOR_ADDRESS is not set in .env")
+    raise EnvironmentError("SUBTENSOR_ADDRESS is not set in .env. Please set it to the address of the subtensor you want to connect to (e.g., wss://test.finney.opentensor.ai:443).")
 
 SUBTENSOR_NETWORK = os.getenv("SUBTENSOR_NETWORK")
 if not SUBTENSOR_NETWORK:
     logger.fatal("SUBTENSOR_NETWORK is not set in .env")
+    raise EnvironmentError("SUBTENSOR_NETWORK is not set in .env. Please set it to the name of the subtensor network you want to connect to (e.g., finney).")
 
 MODE = os.getenv("MODE")
 if not MODE:

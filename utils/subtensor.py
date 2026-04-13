@@ -11,8 +11,9 @@ class SubtensorWrapper:
     Wrapper for bittensor async_subtensor with automatic reconnection on failure.
     """
 
-    def __init__(self, endpoint: Optional[str] = None, fallback: Optional[str] = None):       
-        self._endpoint = endpoint or os.getenv("SUBTENSOR_NETWORK")
+    def __init__(self, endpoint: Optional[str] = None, fallback: Optional[str] = None):
+        self._network = os.getenv("SUBTENSOR_NETWORK")  # e.g., "finney"
+        self._endpoint = endpoint or os.getenv("SUBTENSOR_ADDRESS")  # Custom URL if set
         self._fallback = fallback or "wss://test.finney.opentensor.ai:443"
         self._subtensor: Optional[bt.AsyncSubtensor] = None
         self._lock = asyncio.Lock()
@@ -20,26 +21,34 @@ class SubtensorWrapper:
     async def _create_connection(self) -> bt.AsyncSubtensor:
         """Create and initialize a new subtensor connection."""
         try:
-            logger.debug(f"Attempting to connect to primary endpoint: {self._endpoint}")
-            subtensor = bt.AsyncSubtensor(self._endpoint)
+            logger.debug(f"Attempting to connect with network: {self._network}, endpoint: {self._endpoint}")
+
+            # If _endpoint is a custom URL, use it as primary via fallback_endpoints
+            if self._endpoint and self._endpoint.startswith("ws"):
+                subtensor = bt.AsyncSubtensor(
+                    network=self._network,  # Still use "finney" for fallbacks
+                    fallback_endpoints=[self._endpoint],  # Prioritize custom URL
+                )
+            else:
+                # Use network directly (for cases where SUBTENSOR_ADDRESS is not a URL)
+                subtensor = bt.AsyncSubtensor(network=self._endpoint or self._network)
+
             await subtensor.initialize()
-            logger.info(f"Successfully connected to primary endpoint: {self._endpoint}")
+            logger.info(f"Successfully connected to subtensor")
             return subtensor
         except Exception as e:
-            logger.warning(
-                f"Failed to connect to primary endpoint {self._endpoint}"
-            )
+            logger.warning(f"Failed to connect to primary: {e}")
             if self._fallback:
-                logger.info(f"Attempting fallback connection to: {self._fallback}")
+                logger.info(f"Attempting fallback: {self._fallback}")
                 try:
-                    subtensor = bt.AsyncSubtensor(self._fallback)
+                    subtensor = bt.AsyncSubtensor(
+                        network=self._network, fallback_endpoints=[self._fallback]
+                    )
                     await subtensor.initialize()
-                    logger.info(f"Successfully connected to fallback: {self._fallback}")
+                    logger.info(f"Successfully connected to fallback")
                     return subtensor
                 except Exception as fallback_error:
-                    logger.error(
-                        f"Failed to connect to fallback {self._fallback}: {fallback_error}"
-                    )
+                    logger.error(f"Failed to connect to fallback: {fallback_error}")
                     raise
             raise
 

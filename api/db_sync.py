@@ -9,16 +9,18 @@ from api import config
 from typing import Optional
 from utils.database import db_operation
 from botocore.config import Config
-from utils.validator_hotkeys import TEST_VALIDATOR_HOTKEYS
+from utils.validator_hotkeys import TEST_VALIDATOR_HOTKEYS, MAINNET_VALIDATOR_HOTKEYS
 
 R2_INTERVAL_SECONDS = 900
 
-async def r2_download_and_sync():    
+async def r2_download_and_sync():
     await asyncio.sleep(300)
-    logger.info("Starting r2_download_and_sync loop...")
+    IS_MAINNET = os.getenv("ENV", "").lower() == "prod"
+    logger.info(f"Starting r2_download_and_sync loop... Environment: {'Mainnet' if IS_MAINNET else 'Testnet'}")
     while True:
-        try:            
-            for hotkey in TEST_VALIDATOR_HOTKEYS:
+        try:
+            VALIDATOR_KEYS = MAINNET_VALIDATOR_HOTKEYS if IS_MAINNET else TEST_VALIDATOR_HOTKEYS
+            for hotkey in VALIDATOR_KEYS:
                 r2_key = f"{hotkey}/scores.db"
                 local_db_path = download_db_from_r2(bucket_name=config.R2_BUCKET_NAME, key=r2_key, download_dir="/tmp")
                 if local_db_path:
