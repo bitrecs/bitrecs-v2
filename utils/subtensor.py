@@ -11,8 +11,11 @@ class SubtensorWrapper:
     Wrapper for bittensor async_subtensor with automatic reconnection on failure.
     """
 
-    def __init__(self, endpoint: Optional[str] = None, fallback: Optional[str] = None):       
-        self._endpoint = endpoint or os.getenv("SUBTENSOR_NETWORK", "wss://test.finney.opentensor.ai:443")
+    def __init__(self, endpoint: Optional[str] = None, fallback: Optional[str] = None):
+        self._endpoint = endpoint or os.getenv("SUBTENSOR_ADDRESS")
+        if not self._endpoint:
+            logger.error("Subtensor endpoint must be provided via constructor or SUBTENSOR_ADDRESS environment variable.")
+            raise ValueError("Subtensor endpoint must be provided via constructor or SUBTENSOR_ADDRESS environment variable.")
         self._fallback = fallback or "wss://test.finney.opentensor.ai:443"
         self._subtensor: Optional[bt.AsyncSubtensor] = None
         self._lock = asyncio.Lock()

@@ -76,7 +76,7 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
     
     start_time = time.perf_counter()
     bitrecs = BitrecsCLI(ctx.obj.get('url'))
-    netuid = netuid or int(get_or_prompt("BITRECS_NETUID", "Enter the Netuid", "296"))    
+    netuid = netuid or int(get_or_prompt("NETUID", "Enter the Netuid", "122"))
     if not any([github_account, gist_id]):
         console.print("Please provide either --github-account and --gist-id, or ensure the corresponding environment variables are set.", style="bold red")
         return
@@ -84,8 +84,8 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
         console.print("Please provide either --coldkey-name and --hotkey-name, or ensure the corresponding environment variables are set.", style="bold red")
         return
     
-    coldkey = coldkey_name or get_or_prompt("OWNER_COLDKEY", "Enter your coldkey name", "default")
-    hotkey = hotkey_name or get_or_prompt("BITRECS_HOTKEY_NAME", "Enter your hotkey name", "default")
+    coldkey = coldkey_name or get_or_prompt("COLDKEY_NAME", "Enter your coldkey name", "default")
+    hotkey = hotkey_name or get_or_prompt("HOTKEY_NAME", "Enter your hotkey name", "default")
     wallet = Wallet(name=coldkey, hotkey=hotkey)
     
     validated, reason = validate_artifact_gist(gist_id)
