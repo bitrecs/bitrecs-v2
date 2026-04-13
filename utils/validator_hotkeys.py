@@ -15,6 +15,8 @@ WHITELISTED_VALIDATORS = [
 
 TEST_VALIDATOR_HOTKEYS = [validator["hotkey"] for validator in WHITELISTED_VALIDATORS if "test" in validator["name"].lower()]
 
+MAINNET_VALIDATOR_HOTKEYS = [validator["hotkey"] for validator in WHITELISTED_VALIDATORS if "test" not in validator["name"].lower()]
+
 def is_validator_hotkey_whitelisted(validator_hotkey: str) -> bool:
     return validator_hotkey in [validator["hotkey"] for validator in WHITELISTED_VALIDATORS]
 
