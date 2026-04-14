@@ -21,7 +21,7 @@ class SubtensorWrapper:
     async def _create_connection(self) -> bt.AsyncSubtensor:
         """Create and initialize a new subtensor connection."""
         try:
-            logger.debug(f"Attempting to connect with network: {self._network}, endpoint: {self._endpoint}")
+            logger.info(f"Attempting to connect with network: {self._network}, endpoint: {self._endpoint}")
 
             # If _endpoint is a custom URL, use it as primary via fallback_endpoints
             if self._endpoint and self._endpoint.startswith("ws"):
