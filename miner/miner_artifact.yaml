@@ -2,7 +2,7 @@ name: "bitrecs recommender"
 version_num: "1"
 status: "screening_1"
 miner_hotkey: "5F95Nub62Fhwy3UFBMWg5eDou1B45yrzXaa7FjgXMALcER6r"
-provider: "OPEN_ROUTER"
+provider: "CHUTES"
 model: "qwen/qwen3-next-80b-a3b-instruct"
 
 system_prompt_template: |

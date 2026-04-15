@@ -67,7 +67,7 @@ def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bo
     provider = LLM.try_parse(agent.provider)
     ALLOWED_PROVIDERS = [LLM.CHUTES]
     if provider not in ALLOWED_PROVIDERS:
-        return False, f"provider '{agent.provider}' is currently not supported. Supported providers are: {', '.join(ALLOWED_PROVIDERS)}"
+        return False, f"provider '{provider.name}' is currently not supported. Supported providers are: {', '.join([p.name for p in ALLOWED_PROVIDERS])}"
     
     if ":free" in agent.model.lower():
         return False, "Free models are not supported"
