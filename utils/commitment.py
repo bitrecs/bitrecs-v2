@@ -35,12 +35,11 @@ async def is_commitment_valid(submission: MinerSubmission) -> Tuple[bool, int]:
         )
         if not commitments:
             logger.warning(f"No commitment found for hotkey {submission.hotkey}")
-            return False, 0
+            return False, 0        
         
-        #TODO: dimi add back on prod
-        # if len(commitments) != 1:
-        #     logger.warning(f"Multiple commitments found for hotkey {submission.hotkey}, expected only one")
-        #     return False
+        if len(commitments) != 1:
+            logger.warning(f"Multiple commitments found for hotkey {submission.hotkey}, expected only one")
+            return False
         
         block = commitments[-1][0]  # Get the block number of the most recent commitment
         chain_commitment = commitments[-1][1]  # Get the most recent commitment data

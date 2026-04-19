@@ -490,15 +490,15 @@ async def miner_submission(request: Request, submission: MinerSubmission):
                     f"Artifact submission rejected due to similarity: "
                     f"{[{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]}"
                 )                
-                # return JSONResponse(
-                #     status_code=409,  # Conflict
-                #     content={
-                #         "error": "Agent is too similar to existing agents",
-                #         "message": "This agent appears to be a duplicate or very similar to existing submissions",
-                #         "similar_agents": similar_details,
-                #         "threshold": SIMILARITY_THRESHOLD
-                #     }
-                # )
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "error": "Agent is too similar to existing agents",
+                        "message": "This agent appears to be a duplicate or very similar to existing submissions",
+                        "similar_agents": similar_details,
+                        "threshold": SIMILARITY_THRESHOLD
+                    }
+                )
             
         
         artifact_id = await create_agent(artifact_instance)
