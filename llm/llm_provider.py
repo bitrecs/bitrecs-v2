@@ -16,7 +16,7 @@ class LLM(Enum):
     PERPLEXITY = 12
 
     @staticmethod
-    def try_parse(value: str):
+    def try_parse(value: str) -> 'LLM':
         try:
             return LLM[value.upper()]
         except KeyError:

@@ -80,7 +80,7 @@ async def test_create_commitment():
     assert commitment_result, "Commitment to chain should succeed"
 
 
-@pytest.mark.skip(reason="skipped")
+#@pytest.mark.skip(reason="skipped")
 @pytest.mark.asyncio
 async def test_get_miner_commitments():
     miner_commitments = await get_miner_commitments(MINER_WALLET_HOTKEY)

@@ -4,7 +4,7 @@ status: "screening_1"
 miner_hotkey: "5E21uMQoM5KxuKZtLFvP3aabQrTGz1qhrsH2QzA9yZcqRJ9q"
 miner_uid: ""
 ip_address: ""
-provider: "OPEN_ROUTER"
+provider: "CHUTES"
 model: "z-ai/glm-5"
 
 system_prompt_template: |
