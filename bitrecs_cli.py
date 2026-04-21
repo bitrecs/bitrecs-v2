@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import utils.logger as logger
 from bittensor_wallet.wallet import Wallet
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 from models.agent import Agent
 from models.miner_submission import MinerSubmission
 from rules.agent_validator import validate_artifact_template
@@ -24,7 +24,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
 from version import __version__ as this_version
-from utils.commitment import commit_to_chain_with_reveal, get_miner_commitments
+from utils.commitment import commit_to_chain_with_reveal
 from utils.subtensor import close_subtensor
 from utils.verify import create_transport_signature
 from utils.commands import run_cmd
