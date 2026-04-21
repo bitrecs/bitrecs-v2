@@ -15,8 +15,8 @@ NETUID = int(os.getenv("NETUID", 296))
 
 async def is_commitment_valid_with_retry(
     submission: MinerSubmission,
-    max_attempts: int = 3,
-    delay_seconds: float = 4.0,
+    max_attempts: int = 5,
+    delay_seconds: float = 6.0,
 ) -> Tuple[bool, int]:
     """
     Retry wrapper around is_commitment_valid.
@@ -28,7 +28,8 @@ async def is_commitment_valid_with_retry(
 
     Returns:
         Tuple of (is_valid, block_number)
-    """
+    """    
+    logger.info(f"Checking is_commitment_valid_with_retry on subnet {NETUID} for hotkey {submission.hotkey}")
     last_result: Tuple[bool, int] = (False, 0)
     for attempt in range(1, max_attempts + 1):
         last_result = await is_commitment_valid(submission)
@@ -109,61 +110,6 @@ async def get_miner_commitments(hotkey_ss58: str) -> Optional[List]:
         return None
 
 
-# async def commit_to_chain(   
-#     github_account: str,
-#     gist_id: str,   
-#     coldkey: str,
-#     hotkey: str
-# ) -> bool:
-#     """Miner commitment to chain indicating their ownership of the Gist artifact.    
-#     Args:      
-#         gist_id (str): Gist ID containing the artifact.yaml        
-#         coldkey (str): Name of the coldkey in the wallet
-#         hotkey (str): Name of the hotkey in the wallet      
-#     """
-   
-#     wallet = bt.Wallet(name=coldkey, hotkey=hotkey)
-    
-#     logger.info(f"Committing ownership of Gist {gist_id} to chain")
-#     logger.info(f"Using wallet: {wallet.hotkey.ss58_address[:16]}...")
-
-#     commit_sha = get_gist_sha_commits(gist_id)[0]
-#     content_sha = get_gist_hash(github_account, gist_id)
-#     preamble = f"{commit_sha}:{content_sha}"    
-   
-#     async def _commit():
-#         sub = await get_subtensor()
-#         data = preamble        
-#         while True:
-#             try:
-#                 await sub.set_reveal_commitment(
-#                     wallet=wallet,
-#                     netuid=NETUID,
-#                     data=data,
-#                     blocks_until_reveal=1
-#                 )
-#                 break
-#             except MetadataError as e:
-#                 if "SpaceLimitExceeded" in str(e):
-#                     logger.warning("Space limit exceeded, waiting for next block...")
-#                     await sub.wait_for_block()
-#                 else:
-#                     raise
-    
-#     try:
-#         await _commit()
-        
-#         print(f"Commited: {preamble} for hotkey {wallet.hotkey.ss58_address}")        
-#         logger.info("Commit successful")
-#         return True
-    
-#     except Exception as e:
-#         logger.error(f"Commit failed: {e}")
-#         print(json.dumps({"success": False, "error": str(e)}))
-#         raise
-
-
-
 async def commit_to_chain_with_reveal(   
     github_account: str,
     gist_id: str,   
@@ -204,7 +150,7 @@ async def commit_to_chain_with_reveal(
     
     try:
         await _commit()
-        current_block = await sub.get_current_block()   
+        current_block = await sub.get_current_block()
         print(f"Commited: {preamble} for hotkey {wallet.hotkey.ss58_address} on block {current_block}")        
         logger.info("Commit successful")
         return True, current_block
