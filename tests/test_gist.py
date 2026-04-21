@@ -9,7 +9,7 @@ from bittensor_wallet import Wallet
 from datetime import datetime, timezone
 from utils.subtensor import get_subtensor
 from rules.agent_validator import validate_artifact_template
-from utils.commitment import commit_to_chain, commit_to_chain_with_reveal, get_miner_commitments, is_commitment_valid, is_commitment_valid_with_retry
+from utils.commitment import commit_to_chain_with_reveal, get_miner_commitments, is_commitment_valid, is_commitment_valid_with_retry
 from utils.gist import get_gist, get_gist_created_at, get_gist_file_names, get_gist_sha_commits
 from models.miner_submission import MinerSubmission
 from uuid import UUID
@@ -75,7 +75,7 @@ async def test_create_commitment():
     validated, reason = validate_artifact_template(artifact, gist_raw_data)
     assert validated, f"Artifact validation failed: {reason}"   
     
-    commitment_result = await commit_to_chain(GITHUB_ACCOUNT, GIST_ID, MINER_WALLET_NAME, MINER_WALLET_HOTKEY_NAME)
+    commitment_result = await commit_to_chain_with_reveal(GITHUB_ACCOUNT, GIST_ID, MINER_WALLET)
     print(f"Commitment result: {commitment_result}")
     assert commitment_result, "Commitment to chain should succeed"
 

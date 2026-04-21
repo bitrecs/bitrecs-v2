@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import utils.logger as logger
 from bittensor_wallet.wallet import Wallet
-from typing import Optional
+from typing import List, Optional, Tuple
 from models.agent import Agent
 from models.miner_submission import MinerSubmission
 from rules.agent_validator import validate_artifact_template
@@ -24,7 +24,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
 from version import __version__ as this_version
-from utils.commitment import commit_to_chain_with_reveal
+from utils.commitment import commit_to_chain_with_reveal, get_miner_commitments
 from utils.subtensor import close_subtensor
 from utils.verify import create_transport_signature
 from utils.commands import run_cmd
@@ -34,6 +34,7 @@ DEFAULT_API_BASE_URL = "https://v2.api.bitrecs.ai"
 #DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
 #DEFAULT_API_BASE_URL = "http://localhost:8000"
 
+console.print(f"Bitrecs CLI - Version {this_version} using Endpoint {DEFAULT_API_BASE_URL}", style="bold cyan")
 
 def get_or_prompt(key: str, prompt: str, default: Optional[str] = None) -> str:
     """Get value from environment or prompt user."""
@@ -110,11 +111,9 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
         hotkey=wallet.hotkey.ss58_address,
         signature=signature)
     
-    console.print(Panel(f"[bold cyan]Preparing to Upload Artifact with Commitment[/bold cyan]\n[yellow]GitHub Account:[/yellow] {github_account}\n[yellow]Gist ID:[/yellow] {gist_id}\n[yellow]Hotkey:[/yellow] {wallet.hotkey.ss58_address}\n[yellow]Netuid:[/yellow] {netuid}", title="Upload", border_style="cyan"))    
-    
+    console.print(Panel(f"[bold cyan]Preparing to Upload Artifact with Commitment[/bold cyan]\n[yellow]GitHub Account:[/yellow] {github_account}\n[yellow]Gist ID:[/yellow] {gist_id}\n[yellow]Hotkey:[/yellow] {wallet.hotkey.ss58_address}\n[yellow]Netuid:[/yellow] {netuid}", title="Upload", border_style="cyan"))
     try:
-        logger.info(f"Starting upload with Commitment for Gist {gist_id} using wallet {wallet.hotkey.ss58_address} on Netuid {netuid}")
-        
+        logger.info(f"Starting upload with Commitment for Gist {gist_id} using wallet {wallet.hotkey.ss58_address} on Netuid {netuid}")        
         with httpx.Client() as client:
             console.print("Checking agent eligibility with the Bitrecs API...", style="dim")           
             check_response = client.post(f"{bitrecs.api_url}/check", json=submission.to_dict(), timeout=120)
@@ -122,25 +121,28 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
                 console.print(f"Error checking agent: {check_response.text}", style="bold red")
                 return
             
-            async def commit_to_chain_task() -> MinerSubmission:
+            async def commit_to_chain_task() -> Tuple[bool, int]:
                 commited, current_block = await commit_to_chain_with_reveal(submission.github_account, submission.gist_id, wallet)
-                if not commited:
-                    raise Exception("Commitment to chain failed")
-                console.print(f"\n[bold green]Commitment to chain successful on block {current_block}![/bold green]")
-                return submission
-            
+                return commited, current_block
+         
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:                
                 commit_task_id = progress.add_task("Committing to chain...this can take up to 1 minute", total=None)
                 commit_task = asyncio.create_task(commit_to_chain_task())
                 await asyncio.gather(commit_task)
                 progress.update(commit_task_id, completed=True)
             
-            submission = commit_task.result()
-            # Wait for reveal
-            console.print(f"Confirming blocks ... please stand by")
-            await asyncio.sleep(24)
+            commited, current_block = commit_task.result()
+            if not commited:
+                console.print("Commitment to chain failed. Please check to ensure you are connected to the correct network and registered and try again.", style="bold red")                
+                return
             
+            console.print(f"\n[bold green]Commitment to chain successful on block {current_block}![/bold green]")          
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
+                # Wait for propogation
+                prop_id = progress.add_task(f"Confirming blocks ... please stand by", total=None)
+                await asyncio.sleep(24)
+                progress.update(prop_id, completed=True)
+            
                 progress.add_task("Submitting artifact...", total=None)
                 nonce = secrets.token_hex(16)
                 ts = int(time.time())
@@ -192,12 +194,8 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
                     error_data = response.json()
                     error_msg = error_data.get('error') or error_data.get('detail') or 'Unknown error'
                     console.print(f"Upload failed (status {response.status_code}): {error_msg}", style="bold red")
-                    if 'details' in error_data:
-                        print(f"Details: {error_data['details']}")
-                    if 'traceback' in error_data and error_data['traceback']:
-                        print(f"Traceback:\n{error_data['traceback']}")
                 except ValueError:
-                    console.print(f"Upload failed (status {response.status_code}): {response.text}", style="bold red")
+                    console.print(f"Upload failed (status {response.status_code})", style="bold red")
                 console.print("Your artifact was not uploaded - Please check the error message and try again.", style="bold red")
         
     except Exception as e:

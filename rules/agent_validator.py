@@ -93,7 +93,7 @@ def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bo
             ast = env.parse(template_str)            
             for node in ast.find_all(nodes.Name):
                 var = node.name
-                print(f"Found variable '{var}' in {template_name}")
+                #print(f"Found variable '{var}' in {template_name}")
                 matched_vars[var] += 1
                 if var in VALID_TEMPLATE_VARIABLES:
                     variable_counts[var] += 1
@@ -107,7 +107,7 @@ def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bo
     result = ""
     test_passed = True    
     for var, max_count in VARIABLE_COUNT_RESTRICTIONS.items():
-        print(f"Checking variable '{var}' with count {variable_counts[var]} against max count {max_count}")
+        #print(f"Checking variable '{var}' with count {variable_counts[var]} against max count {max_count}")
         if variable_counts[var] > max_count:
             test_passed = False
             invalid_vars.add(var)
@@ -118,7 +118,7 @@ def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bo
         for var, count in matches.items():
             if var in VARIABLE_COUNT_RESTRICTIONS:
                 max_count = VARIABLE_COUNT_RESTRICTIONS[var]
-                print(f"Checking raw variable '{var}' with count {count} against max count {max_count}")
+                #print(f"Checking raw variable '{var}' with count {count} against max count {max_count}")
                 if count > max_count:
                     test_passed = False
                     invalid_vars.add(var)

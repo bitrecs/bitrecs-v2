@@ -73,9 +73,12 @@ async def is_commitment_valid(submission: MinerSubmission) -> Tuple[bool, int]:
             logger.warning(f"No commitment found for hotkey {submission.hotkey}")
             return False, 0
         
-        if len(commitments) != 1:
-            logger.warning(f"Multiple commitments found for hotkey {submission.hotkey}, expected only one")
-            return False, 0
+        if NETUID != 296:
+            if len(commitments) != 1:
+                logger.warning(f"Multiple commitments found for hotkey {submission.hotkey}, expected only one")
+                return False, 0
+        else:
+            logger.info(f"Testnet Netuid {NETUID} multiple commits permitted")
         
         block = commitments[-1][0]  # Get the block number of the most recent commitment
         chain_commitment = commitments[-1][1]  # Get the most recent commitment data
@@ -106,58 +109,58 @@ async def get_miner_commitments(hotkey_ss58: str) -> Optional[List]:
         return None
 
 
-async def commit_to_chain(   
-    github_account: str,
-    gist_id: str,   
-    coldkey: str,
-    hotkey: str
-) -> bool:
-    """Miner commitment to chain indicating their ownership of the Gist artifact.    
-    Args:      
-        gist_id (str): Gist ID containing the artifact.yaml        
-        coldkey (str): Name of the coldkey in the wallet
-        hotkey (str): Name of the hotkey in the wallet      
-    """
+# async def commit_to_chain(   
+#     github_account: str,
+#     gist_id: str,   
+#     coldkey: str,
+#     hotkey: str
+# ) -> bool:
+#     """Miner commitment to chain indicating their ownership of the Gist artifact.    
+#     Args:      
+#         gist_id (str): Gist ID containing the artifact.yaml        
+#         coldkey (str): Name of the coldkey in the wallet
+#         hotkey (str): Name of the hotkey in the wallet      
+#     """
    
-    wallet = bt.Wallet(name=coldkey, hotkey=hotkey)
+#     wallet = bt.Wallet(name=coldkey, hotkey=hotkey)
     
-    logger.info(f"Committing ownership of Gist {gist_id} to chain")
-    logger.info(f"Using wallet: {wallet.hotkey.ss58_address[:16]}...")
+#     logger.info(f"Committing ownership of Gist {gist_id} to chain")
+#     logger.info(f"Using wallet: {wallet.hotkey.ss58_address[:16]}...")
 
-    commit_sha = get_gist_sha_commits(gist_id)[0]
-    content_sha = get_gist_hash(github_account, gist_id)
-    preamble = f"{commit_sha}:{content_sha}"    
+#     commit_sha = get_gist_sha_commits(gist_id)[0]
+#     content_sha = get_gist_hash(github_account, gist_id)
+#     preamble = f"{commit_sha}:{content_sha}"    
    
-    async def _commit():
-        sub = await get_subtensor()
-        data = preamble        
-        while True:
-            try:
-                await sub.set_reveal_commitment(
-                    wallet=wallet,
-                    netuid=NETUID,
-                    data=data,
-                    blocks_until_reveal=1
-                )
-                break
-            except MetadataError as e:
-                if "SpaceLimitExceeded" in str(e):
-                    logger.warning("Space limit exceeded, waiting for next block...")
-                    await sub.wait_for_block()
-                else:
-                    raise
+#     async def _commit():
+#         sub = await get_subtensor()
+#         data = preamble        
+#         while True:
+#             try:
+#                 await sub.set_reveal_commitment(
+#                     wallet=wallet,
+#                     netuid=NETUID,
+#                     data=data,
+#                     blocks_until_reveal=1
+#                 )
+#                 break
+#             except MetadataError as e:
+#                 if "SpaceLimitExceeded" in str(e):
+#                     logger.warning("Space limit exceeded, waiting for next block...")
+#                     await sub.wait_for_block()
+#                 else:
+#                     raise
     
-    try:
-        await _commit()
+#     try:
+#         await _commit()
         
-        print(f"Commited: {preamble} for hotkey {wallet.hotkey.ss58_address}")        
-        logger.info("Commit successful")
-        return True
+#         print(f"Commited: {preamble} for hotkey {wallet.hotkey.ss58_address}")        
+#         logger.info("Commit successful")
+#         return True
     
-    except Exception as e:
-        logger.error(f"Commit failed: {e}")
-        print(json.dumps({"success": False, "error": str(e)}))
-        raise
+#     except Exception as e:
+#         logger.error(f"Commit failed: {e}")
+#         print(json.dumps({"success": False, "error": str(e)}))
+#         raise
 
 
 
@@ -209,5 +212,5 @@ async def commit_to_chain_with_reveal(
     except Exception as e:
         logger.error(f"Commit failed: {e}")
         print(json.dumps({"success": False, "error": str(e)}))
-        raise
+        return False, 0
 
