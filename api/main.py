@@ -61,7 +61,7 @@ from api.utils.limiter import limiter
 from models.miner_submission import MinerSubmission
 from utils.gist import get_gist, get_gist_created_at
 from models.payments import AgentUploadResponse, ErrorResponse
-from utils.commitment import is_commitment_valid
+from utils.commitment import is_commitment_valid_with_retry
 from queries.hotkey_gist import log_hotkey_gist
 from utils.inference_coster import InferenceCoster, pre_cache_inference_cost
 from utils.verify import (
@@ -445,7 +445,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             await check_agent_banned(submission.hotkey)
             await check_hotkey_registered(submission.hotkey)
         
-        commit_valid, commit_block = await is_commitment_valid(submission)
+        commit_valid, commit_block = await is_commitment_valid_with_retry(submission)
         if not commit_valid:
             logger.warning(f"MinerSubmission commitment to chain is not valid for Gist {submission.gist_id}")
             return JSONResponse(content={"error": "Commitment to chain is not valid for this submission"}, status_code=400)

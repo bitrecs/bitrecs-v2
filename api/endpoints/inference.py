@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, logger
 from api.endpoints.validator import Validator, get_request_validator_with_lock
 from api.endpoints.validator_models import InferenceCostEstimateRequest
 from llm.llm_provider import LLM
@@ -6,6 +6,7 @@ from models.inference_report import InferenceReport
 from queries.inference import get_cost_report_for_agent, insert_inference
 from api.utils.limiter import limiter
 from utils.inference_coster import InferenceCoster
+import utils.logger as logger
 
 router = APIRouter()
 
@@ -23,7 +24,14 @@ async def estimate_inference_cost(
     coster = get_inference_coster(inference_request.provider, inference_request.model_name)
     cost = await coster.cost_estimate(inference_request.input_tokens, inference_request.output_tokens)
     if cost is None:
-        raise HTTPException(status_code=503, detail="Cost estimation not available")
+        #raise HTTPException(status_code=503, detail="Cost estimation not available")
+        logger.warning(f"Cost estimation not available for provider {inference_request.provider} and model {inference_request.model_name}")
+        return {
+            "input_cost": 0.0,
+            "output_cost": 0.0,
+            "total_cost": 0.0,
+            "currency": "USD"
+        }
     return {
         "input_cost": cost.input,
         "output_cost": cost.output,

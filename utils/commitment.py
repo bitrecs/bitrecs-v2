@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 import bittensor as bt
 import utils.logger as logger
 from typing import List, Optional, Tuple
@@ -10,6 +11,41 @@ from utils.subtensor import get_subtensor
 from utils.verify import verify_submission_signature
 
 NETUID = int(os.getenv("NETUID", 296))
+
+
+async def is_commitment_valid_with_retry(
+    submission: MinerSubmission,
+    max_attempts: int = 3,
+    delay_seconds: float = 4.0,
+) -> Tuple[bool, int]:
+    """
+    Retry wrapper around is_commitment_valid.
+
+    Args:
+        submission: The miner submission to validate
+        max_attempts: Total number of attempts before giving up
+        delay_seconds: Seconds to wait between attempts
+
+    Returns:
+        Tuple of (is_valid, block_number)
+    """
+    last_result: Tuple[bool, int] = (False, 0)
+    for attempt in range(1, max_attempts + 1):
+        last_result = await is_commitment_valid(submission)
+        if last_result[0]:
+            return last_result
+        if attempt < max_attempts:
+            logger.warning(
+                f"Commitment validation failed for hotkey {submission.hotkey} "
+                f"(attempt {attempt}/{max_attempts}), retrying in {delay_seconds}s..."
+            )
+            await asyncio.sleep(delay_seconds)
+
+    logger.warning(
+        f"Commitment validation failed for hotkey {submission.hotkey} "
+        f"after {max_attempts} attempts"
+    )
+    return last_result
 
 
 async def is_commitment_valid(submission: MinerSubmission) -> Tuple[bool, int]:
@@ -35,11 +71,11 @@ async def is_commitment_valid(submission: MinerSubmission) -> Tuple[bool, int]:
         )
         if not commitments:
             logger.warning(f"No commitment found for hotkey {submission.hotkey}")
-            return False, 0        
+            return False, 0
         
         if len(commitments) != 1:
             logger.warning(f"Multiple commitments found for hotkey {submission.hotkey}, expected only one")
-            return False
+            return False, 0
         
         block = commitments[-1][0]  # Get the block number of the most recent commitment
         chain_commitment = commitments[-1][1]  # Get the most recent commitment data

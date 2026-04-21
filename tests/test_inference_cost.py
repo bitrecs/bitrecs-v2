@@ -326,4 +326,34 @@ def test_get_agent_cost_report():
         print(f"Total input tokens: {total_input_tokens}, Total output tokens: {total_output_tokens}")
         total_tokens = total_input_tokens + total_output_tokens
         print(f"\033[1;32mTotal tokens: {total_tokens} for cost of ${run_cost:.8f}\033[0m")
+
+
+@pytest.mark.asyncio
+async def test_chutes_no_model_found():    
+    base_url = os.getenv("BITRECS_PLATFORM_URL")
+    base_url = "http://localhost:8000" 
+    key = os.environ.get("BITRECS_PLATFORM_API_KEY")
+    headers = {"X-API-Key": key}
+    estimate = InferenceCostEstimateRequest(
+        provider="chutes",
+        model_name="unsloth/Mistral-Nemo-Instruct-2407_invalid",
+        input_tokens=1_000_000,
+        output_tokens=1_000_000
+    )
+    with httpx.Client() as client:
+        response = client.post(
+            f"{base_url}/inference/estimate-cost",
+            headers=headers,
+            json=estimate.model_dump()            
+        )
+        assert response.status_code == 200
+        result = response.json()
+        print(result)
+        assert "input_cost" in result
+        assert "output_cost" in result
+        assert "total_cost" in result
+        assert result["input_cost"] == 0.0
+        assert result["output_cost"] == 0.0
+        assert result["total_cost"] == 0.0
+
     

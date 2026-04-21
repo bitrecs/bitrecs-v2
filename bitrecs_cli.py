@@ -137,8 +137,8 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
             
             submission = commit_task.result()
             # Wait for reveal
-            console.print(f"Waiting for reveal ...")
-            await asyncio.sleep(12)
+            console.print(f"Confirming blocks ... please stand by")
+            await asyncio.sleep(24)
             
             with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console, transient=True) as progress:
                 progress.add_task("Submitting artifact...", total=None)
@@ -156,6 +156,10 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
                 submit_url =f"{bitrecs.api_url}/submit"
                 response = client.post(submit_url, json=submission.to_dict(), timeout=120, headers=headers)
             
+            end_time = time.perf_counter()
+            elapsed = end_time - start_time
+            console.print(f"Upload process took {elapsed:.2f} seconds.", style="dim")
+
             if response.status_code == 201:
                 response_data = response.json()
                 console.print(Panel(f"[bold green]Upload Complete[/bold green]\n[cyan]Artifact uploaded successfully![/cyan]", title="Success", border_style="green"))
@@ -163,9 +167,8 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
                 artifact_id = response_data.get('artifact_id')
                 console.print(f"Your artifact ID is: [yellow]{artifact_id}[/yellow]")
                 artifact_url = f"https://dashboard.bitrecs.ai/agent/{artifact_id}"
-                console.print(f"View your artifact here: [yellow]{artifact_url}[/yellow]")
+                console.print(f"View your artifact here: [yellow]{artifact_url}[/yellow]")                
                 
-                # Display additional response details
                 request_id = response_data.get('request_id')
                 message = response_data.get('message')
                 similarity_check = response_data.get('similarity_check')
@@ -183,32 +186,28 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
                         console.print(f"  - Agent ID: [yellow]{agent_id}[/yellow], Distance: [yellow]{distance}[/yellow]")
                 else:
                     console.print("No similar agents found.")
+                console.print(f"Thank you for contributing to the Bitrecs ecosystem!", style="bold cyan")
             else:
-                error = response.json().get('detail', 'Unknown error') if response.headers.get('content-type', '').startswith('application/json') else response.text
-                console.print(f"Upload failed (status {response.status_code}): {error}", style="bold red")
                 try:
                     error_data = response.json()
-                    print(f"Upload failed (status {response.status_code}): {error_data.get('error', 'Unknown error')}")
+                    error_msg = error_data.get('error') or error_data.get('detail') or 'Unknown error'
+                    console.print(f"Upload failed (status {response.status_code}): {error_msg}", style="bold red")
                     if 'details' in error_data:
                         print(f"Details: {error_data['details']}")
                     if 'traceback' in error_data and error_data['traceback']:
                         print(f"Traceback:\n{error_data['traceback']}")
-                except ValueError:                    
-                    print(f"Upload failed (status {response.status_code}): {response.text}")
-            
-            end_time = time.perf_counter()
-            elapsed = end_time - start_time
-            console.print(f"Upload process took {elapsed:.2f} seconds.", style="dim")
+                except ValueError:
+                    console.print(f"Upload failed (status {response.status_code}): {response.text}", style="bold red")
+                console.print("Your artifact was not uploaded - Please check the error message and try again.", style="bold red")
         
-
-        console.print(f"Thank you for contributing to the Bitrecs ecosystem!", style="bold cyan")
-        await close_subtensor()
     except Exception as e:
         end_time = time.perf_counter()
         elapsed = end_time - start_time
         logger.info(f"Upload failed after {elapsed:.2f} seconds with error: {str(e)}")  
         console.print(f"Error after {elapsed:.2f} seconds: {e}", style="bold red")
         raise e
+    finally:
+        await close_subtensor()
 
 
 

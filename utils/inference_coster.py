@@ -46,12 +46,12 @@ class InferenceCoster:
             page = 0
             limit = 500
             all_items = []
-            with httpx.Client(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 while True:
                     max_retries = 3
                     for attempt in range(max_retries):
                         try:
-                            response = client.get(f"https://api.chutes.ai/chutes/?page={page}&limit={limit}")
+                            response = await client.get(f"https://api.chutes.ai/chutes/?page={page}&limit={limit}")
                             response.raise_for_status()
                             break
                         except httpx.HTTPStatusError as e:
@@ -100,12 +100,18 @@ class InferenceCoster:
         """
         Get cached data for the provider, refreshing if stale.
         """
-        async with self._lock:
+        # Fast path: check without lock
+        if provider in self._cache:
+            data, timestamp = self._cache[provider]
+            if datetime.now() - timestamp < self._cache_ttl:
+                return data
+        # Slow path: acquire lock to refresh
+        async with self._lock:            
             if provider in self._cache:
                 data, timestamp = self._cache[provider]
                 if datetime.now() - timestamp < self._cache_ttl:
                     return data
-            
+
             # Fetch fresh data
             if provider.upper() == LLM.CHUTES.name.upper():
                 data = await self._fetch_chutes_data()
