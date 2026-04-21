@@ -9,7 +9,7 @@ dependencies = [
     "bittensor-cli==9.20.0",
     "bittensor-wallet==4.0.1",    
     "cryptography>=46.0.6",
-    "async-substrate-interface>=1.6.3",
+    "async-substrate-interface==1.6.3",
     "affinetes>=0.2.0",
     "python-dotenv>=1.2.2",
     "fastapi>=0.135.3",

@@ -117,18 +117,21 @@ async def calculate_scores_loop():
 
 
 async def send_heartbeat_loop():
+    logger.info("Starting send heartbeat loop...")
+    while True:
+        asyncio.create_task(send_heartbeat_once())  # Fire-and-forget task
+        await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
+
+
+async def send_heartbeat_once():
     try:
-        logger.info("Starting send heartbeat loop...")
-        while True:
-            branch, sha = get_git_info()
-            logger.info(f"Sending heartbeat... Branch: {branch}, SHA: {sha}")
-            system_metrics = await get_system_metrics()
-            await post_bitrecs_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
-            await asyncio.sleep(config.SEND_HEARTBEAT_INTERVAL_SECONDS)
+        branch, sha = get_git_info()
+        logger.info(f"Sending heartbeat... Branch: {branch}, SHA: {sha}")
+        system_metrics = await get_system_metrics()
+        await post_bitrecs_platform("/validator/heartbeat", ValidatorHeartbeatRequest(system_metrics=system_metrics), bearer_token=session_id, quiet=2)
     except Exception as e:
-        logger.error(f"Error in send_heartbeat_loop(): {type(e).__name__}: {e}")
-        logger.error(traceback.format_exc())
-        os._exit(1)
+        logger.error(f"Error sending heartbeat: {type(e).__name__}: {e}")
+        # Log and continue; don't exit
 
 
 async def r2_sync_loop():
