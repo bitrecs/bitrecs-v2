@@ -187,16 +187,20 @@ async def get_eval_log(run_id: str) -> str | None:
 
 
 async def get_cost_estimate(provider: str, model: str, input_tokens: int, output_tokens: int) -> Dict[str, Any] | None:
-    response = await post_bitrecs_platform("/inference/estimate-cost", 
-                                           InferenceCostEstimateRequest(
-                                            provider=provider, 
-                                            model_name=model,
-                                            input_tokens=input_tokens,
-                                            output_tokens=output_tokens),
-                                            bearer_token=session_id, quiet=2)
-    if response is not None and "input_cost" in response and "output_cost" in response:
-        return response
-    return None
+    try:
+        response = await post_bitrecs_platform("/inference/estimate-cost", 
+                                            InferenceCostEstimateRequest(
+                                                provider=provider, 
+                                                model_name=model,
+                                                input_tokens=input_tokens,
+                                                output_tokens=output_tokens),
+                                                bearer_token=session_id, quiet=2)
+        if response is not None and "input_cost" in response and "output_cost" in response:
+            return response
+        return None
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error fetching cost estimate: {e.response.status_code} - {e.response.text}")
+        return None
 
 async def post_cost_report(evaluation_run_id: UUID,
                            provider: str, model: str, 
@@ -311,12 +315,13 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info(f"Miner Artifact Status: {miner_agent.status}")
             logger.info(f"Miner Artifact Hotkey: {miner_agent.miner_hotkey}")
 
+            logger.info(f"Testing model: {miner_agent.model} with provider: {miner_agent.provider}")
             cost_estimate = await get_cost_estimate(miner_agent.provider, miner_agent.model, input_tokens=1_000_000, output_tokens=1_000_000)
             if not cost_estimate:
-                logger.warning("Cost estimate not available")
-                raise Exception(f"Cost estimate not available for provider: {miner_agent.provider}, model: {miner_agent.model}")
-            logger.info(f"Cost estimate:  input cost: {cost_estimate['input_cost']}, output cost: {cost_estimate['output_cost']})")
-            logger.info(f"Testing model: {miner_agent.model} with provider: {miner_agent.provider}")
+                logger.warning(f"Cost estimate not available for provider: {miner_agent.provider}, model: {miner_agent.model}")
+                #raise Exception(f"Cost estimate not available for provider: {miner_agent.provider}, model: {miner_agent.model}")
+            else:
+                logger.info(f"Cost estimate:  input cost: {cost_estimate['input_cost']}, output cost: {cost_estimate['output_cost']})")
 
             # Move from pending -> initializing_agent
             await update_evaluation_run(evaluation_run_id, problem_name, EvaluationRunStatus.initializing_agent)
@@ -470,6 +475,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             else:
                 logger.info("Saved result to local backup successfully")
 
+            total_cost = 0.0
             updated_cost = await get_cost_estimate(miner_agent.provider, 
                                              miner_agent.model, 
                                              input_tokens=cost_report.get("input_tokens", 0), 
