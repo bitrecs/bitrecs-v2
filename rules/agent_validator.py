@@ -35,6 +35,17 @@ def count_raw_template_variables(template_str: str) -> dict:
         result[var] = len(matches)
     return result
 
+    
+def has_skus_in_template(template_str: str) -> bool:
+    sku_pattern = r'\b(?:\d{5,25}|[a-zA-Z0-9]+-[a-zA-Z0-9]+)\b'
+    lines = template_str.split('\n')
+    for line in lines:
+        skus = re.findall(sku_pattern, line)
+        if len(skus) > 2:
+            logger.warning(f"Found potential hardcoded SKU list in line: '{line}' with SKUs: {skus}")
+            return True
+    return False
+
 
 def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bool, str]:
     print(f"Validating artifact template for agent: {agent.name}")
@@ -71,6 +82,11 @@ def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bo
     
     if ":free" in agent.model.lower():
         return False, "Free models are not supported"
+    
+    if has_skus_in_template(agent.system_prompt_template):
+        return False, "system_prompt_template contains hardcoded SKU lists"
+    if has_skus_in_template(agent.user_prompt_template):
+        return False, "user_prompt_template contains hardcoded SKU lists"
     
     try:
         Template(agent.system_prompt_template)
