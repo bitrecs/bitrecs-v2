@@ -61,10 +61,12 @@ def test_various_sku_formats():
         "This template contains SKU 12345 which is a 5-digit number.",
         "This template contains SKU 1234 which should not be counted as it's only 4 digits.",
         "This template contains SKU ABCDE which should not be counted as it doesn't match the pattern."
+        "This template contains SKU B0B9C3C8SS which is alphanumeric with letters and numbers.",
+        "This tempalte contains SKUs in the 2000s about Y2K bug wow remember that? 2000, 2001, 2002 and 1980s should not be counted as SKUs."
     ]
     total = 0
     for s in test_strings:
-        count = count_skus_in_template(s)
-        print(f"String: '{s}'\nFound {count} SKUs.\n")
+        count, skus = count_skus_in_template(s)
+        print(f"String: '{s}'\nFound {count} SKUs: {skus}\n")
         total += count
-    assert total == 3, f"Expected to find 3 SKUs in total, but found {total}"
+    assert total == 4, f"Expected to find 4 SKUs in total, but found {total}"

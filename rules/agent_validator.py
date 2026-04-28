@@ -1,6 +1,6 @@
 import re
 import utils.logger as logger
-from typing import Tuple
+from typing import List, Tuple
 from collections import Counter
 from models.agent import Agent
 from llm.llm_provider import LLM
@@ -27,7 +27,7 @@ VARIABLE_COUNT_RESTRICTIONS = {
     'cart_json': 1
 }
 
-SKU_PATTERN = re.compile(r'\b(?:\d{5,25}|[a-zA-Z]+[a-zA-Z0-9]*-[a-zA-Z0-9]+)\b')
+SKU_PATTERN = re.compile(r'\b(?=[\w-]{5,})(?=[\w-]*\d)(?!\d{1,4}\b)(?!\d+[a-zA-Z]{1,2}\b)(?:\d{5,25}|[a-zA-Z0-9]*\d[a-zA-Z0-9]+|[a-zA-Z0-9]+-[a-zA-Z0-9]*\d[a-zA-Z0-9]*)\b')
     
     
 def count_raw_template_variables(template_str: str) -> dict:
@@ -39,14 +39,16 @@ def count_raw_template_variables(template_str: str) -> dict:
     return result
 
 
-def count_skus_in_template(template_str: str) -> int:
-    skus = re.findall(SKU_PATTERN, template_str)
+def count_skus_in_template(template_str: str) -> Tuple[int, List[str]]:
+    cleaned = re.sub(r'\{\{.*?\}\}', '', template_str)
+    skus = re.findall(SKU_PATTERN, cleaned)
     print(f"Found SKUs in template: {skus}")
-    return len(skus)
+    return len(skus), skus
     
 
-def has_skus_in_template(template_str: str) -> bool:
-    lines = template_str.split('\n')
+def has_skus_in_template(template_str: str) -> bool:    
+    cleaned = re.sub(r'\{\{.*?\}\}', '', template_str)
+    lines = cleaned.split('\n')
     for line in lines:
         skus = re.findall(SKU_PATTERN, line)
         if len(skus) > 2:
@@ -91,9 +93,13 @@ def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bo
     if ":free" in agent.model.lower():
         return False, "Free models are not supported"
     
-    sku_count = count_skus_in_template(agent.system_prompt_template) + count_skus_in_template(agent.user_prompt_template)
-    if sku_count > 0:
-        return False, f"Found {sku_count} potential hardcoded SKUs in the prompt templates. Hardcoded SKUs are not allowed in the templates."
+    system_sku_count, system_skus = count_skus_in_template(agent.system_prompt_template)
+    if system_sku_count > 0:
+        return False, f"Found {system_sku_count} potential hardcoded SKUs in the prompt templates. Hardcoded SKUs are not allowed in the templates. {system_skus}"
+    
+    user_sku_count, user_skus = count_skus_in_template(agent.user_prompt_template)
+    if user_sku_count > 0:
+        return False, f"Found {user_sku_count} potential hardcoded SKUs in the prompt templates. Hardcoded SKUs are not allowed in the templates. {user_skus}"
     
     if has_skus_in_template(agent.system_prompt_template):
         return False, "system_prompt_template contains hardcoded SKU lists"
