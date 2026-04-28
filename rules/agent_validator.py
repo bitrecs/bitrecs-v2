@@ -26,6 +26,8 @@ VARIABLE_COUNT_RESTRICTIONS = {
     'order_json': 1,
     'cart_json': 1
 }
+
+SKU_PATTERN = re.compile(r'\b(?:\d{5,25}|[a-zA-Z0-9]+-[a-zA-Z0-9]+)\b')
     
 def count_raw_template_variables(template_str: str) -> dict:
     result = {var: 0 for var in VARIABLE_COUNT_RESTRICTIONS.keys()}
@@ -35,12 +37,16 @@ def count_raw_template_variables(template_str: str) -> dict:
         result[var] = len(matches)
     return result
 
+
+def count_skus_in_template(template_str: str) -> int:
+    skus = re.findall(SKU_PATTERN, template_str)
+    return len(skus)
+    
     
 def has_skus_in_template(template_str: str) -> bool:
-    sku_pattern = r'\b(?:\d{5,25}|[a-zA-Z0-9]+-[a-zA-Z0-9]+)\b'
     lines = template_str.split('\n')
     for line in lines:
-        skus = re.findall(sku_pattern, line)
+        skus = re.findall(SKU_PATTERN, line)
         if len(skus) > 2:
             logger.warning(f"Found potential hardcoded SKU list in line: '{line}' with SKUs: {skus}")
             return True
@@ -82,6 +88,10 @@ def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bo
     
     if ":free" in agent.model.lower():
         return False, "Free models are not supported"
+    
+    sku_count = count_skus_in_template(agent.system_prompt_template) + count_skus_in_template(agent.user_prompt_template)
+    if sku_count > 0:
+        return False, f"Found {sku_count} potential hardcoded SKUs in the prompt templates. Hardcoded SKUs are not allowed in the templates."
     
     if has_skus_in_template(agent.system_prompt_template):
         return False, "system_prompt_template contains hardcoded SKU lists"
