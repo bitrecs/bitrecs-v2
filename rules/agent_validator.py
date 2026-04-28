@@ -5,7 +5,16 @@ from collections import Counter
 from models.agent import Agent
 from llm.llm_provider import LLM
 from utils.token import get_token_count
-from jinja2 import Template, TemplateSyntaxError, Environment, nodes
+from jinja2 import (
+    Template, TemplateSyntaxError, 
+    Environment, nodes
+)
+from jinja2.nodes import (
+    Output, Name, Const,
+    TemplateData, Block, 
+    If, For, Macro
+)
+
 
 MAX_SYSTEM_PROMPT_TOKENS = 5_000
 MAX_PROMPT_TOKENS = 10_000
@@ -41,20 +50,39 @@ def count_raw_template_variables(template_str: str) -> dict:
 
 def count_skus_in_template(template_str: str) -> Tuple[int, List[str]]:
     cleaned = re.sub(r'\{\{.*?\}\}', '', template_str)
-    skus = re.findall(SKU_PATTERN, cleaned)
-    print(f"Found SKUs in template: {skus}")
+    skus = re.findall(SKU_PATTERN, cleaned)    
+    logger.debug(f"Found SKUs in template: {skus}")
     return len(skus), skus
     
 
-def has_skus_in_template(template_str: str) -> bool:    
-    cleaned = re.sub(r'\{\{.*?\}\}', '', template_str)
-    lines = cleaned.split('\n')
-    for line in lines:
-        skus = re.findall(SKU_PATTERN, line)
-        if len(skus) > 2:
-            logger.warning(f"Found potential hardcoded SKU list in line: '{line}' with SKUs: {skus}")
-            return True
-    return False
+def is_simple_expression(node) -> bool:
+    return isinstance(node, (Name, TemplateData, Const))
+
+
+def has_forbidden_jinja_syntax(template_str: str) -> bool:   
+    env = Environment(
+        autoescape=False,
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )    
+    try:
+        ast = env.parse(template_str)
+
+        def walk(node):            
+            if isinstance(node, (Block, If, For, Macro)):
+                return True                        
+            if isinstance(node, Output):
+                for subnode in node.nodes:
+                    if not is_simple_expression(subnode):
+                        return True
+            for child in node.iter_child_nodes():
+                if walk(child):
+                    return True
+            return False        
+        return walk(ast)
+        
+    except Exception:
+        return True
 
 
 def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bool, str]:
@@ -101,19 +129,21 @@ def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bo
     if user_sku_count > 0:
         return False, f"Found {user_sku_count} potential hardcoded SKUs in the prompt templates. Hardcoded SKUs are not allowed in the templates. {user_skus}"
     
-    if has_skus_in_template(agent.system_prompt_template):
-        return False, "system_prompt_template contains hardcoded SKU lists"
-    if has_skus_in_template(agent.user_prompt_template):
-        return False, "user_prompt_template contains hardcoded SKU lists"
-    
     try:
         Template(agent.system_prompt_template)
     except TemplateSyntaxError as e:
         return False, f"system_prompt_template is not a valid Jinja2 template: {e}"
+    
+    if has_forbidden_jinja_syntax(agent.system_prompt_template):
+        return False, "system_prompt_template contains forbidden Jinja syntax (only {{variable}} allowed)"
+    
     try:
         Template(agent.user_prompt_template)
     except TemplateSyntaxError as e:
         return False, f"user_prompt_template is not a valid Jinja2 template: {e}"
+    
+    if has_forbidden_jinja_syntax(agent.user_prompt_template):
+        return False, "user_prompt_template contains forbidden Jinja syntax (only {{variable}} allowed)"
     
     env = Environment()
     matched_vars = Counter()
