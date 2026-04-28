@@ -27,7 +27,8 @@ VARIABLE_COUNT_RESTRICTIONS = {
     'cart_json': 1
 }
 
-SKU_PATTERN = re.compile(r'\b(?:\d{5,25}|[a-zA-Z0-9]+-[a-zA-Z0-9]+)\b')
+SKU_PATTERN = re.compile(r'\b(?:\d{5,25}|[a-zA-Z]+[a-zA-Z0-9]*-[a-zA-Z0-9]+)\b')
+    
     
 def count_raw_template_variables(template_str: str) -> dict:
     result = {var: 0 for var in VARIABLE_COUNT_RESTRICTIONS.keys()}
@@ -40,9 +41,10 @@ def count_raw_template_variables(template_str: str) -> dict:
 
 def count_skus_in_template(template_str: str) -> int:
     skus = re.findall(SKU_PATTERN, template_str)
+    print(f"Found SKUs in template: {skus}")
     return len(skus)
     
-    
+
 def has_skus_in_template(template_str: str) -> bool:
     lines = template_str.split('\n')
     for line in lines:
