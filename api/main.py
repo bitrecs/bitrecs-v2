@@ -68,7 +68,7 @@ from utils.verify import (
     verify_submission_signature, verify_timestamp, 
     verify_transport_signature
 )
-
+from scoring.constants import MINER_EMISSION_PORTION
 
 #COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
 COSINE_COMPARE_ENABLED = True
@@ -283,7 +283,8 @@ async def health(request: Request):
         "memory_current_mb": round(current / 1024 / 1024, 2),
         "memory_peak_mb": round(peak / 1024 / 1024, 2),        
         "message": message,
-        "version": version_file.strip() if version_file else "N/A"        
+        "version": version_file.strip() if version_file else "N/A",
+        "miner_emissions": MINER_EMISSION_PORTION
     }
 
 

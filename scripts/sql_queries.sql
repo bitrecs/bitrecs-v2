@@ -78,3 +78,102 @@ LEFT JOIN inferences i ON r.evaluation_run_id = i.evaluation_run_id
 LEFT JOIN evaluations e ON r.evaluation_id = e.evaluation_id
 INNER JOIN agents a ON e.agent_id = a.agent_id
 WHERE a.agent_id = ''
+
+
+
+SELECT 
+    DATE(created_at) AS day,
+    SUM(COALESCE(num_input_tokens, 0) + COALESCE(num_output_tokens, 0)) AS total_tokens
+FROM 
+    public.inferences
+GROUP BY 
+    DATE(created_at)
+ORDER BY 
+    day desc;
+
+
+WITH zero_vec AS (
+  SELECT array_agg(0)::vector AS zero_vector
+  FROM generate_series(1, 768)
+)
+SELECT 
+  embedding_id,
+  agent_text,
+  embedding_provider,
+  embedding_model,
+  embedding_vector <-> zero_vector AS l2_norm
+FROM public.agent_embeddings, zero_vec
+ORDER BY embedding_vector <-> zero_vector DESC
+LIMIT 20;
+
+
+SELECT 
+  a.name,
+  ae2.embedding_id,
+  ae2.agent_id,  
+  ae2.embedding_provider,
+  ae2.embedding_model,
+  (ae1.embedding_vector <=> ae2.embedding_vector) AS cosine_distance,
+  (ae1.embedding_vector <-> ae2.embedding_vector) AS euclidean_distance
+FROM public.agent_embeddings ae1
+JOIN public.agent_embeddings ae2 
+  ON ae1.embedding_id <> ae2.embedding_id
+LEFT JOIN agents a ON ae2.agent_id = a.agent_id
+WHERE ae1.agent_id = 'XXX'::uuid
+ORDER BY ae1.embedding_vector <=> ae2.embedding_vector ASC
+LIMIT 100;
+
+
+WITH sampled_pairs AS (
+  SELECT 
+    a.embedding_vector AS v1,
+    b.embedding_vector AS v2
+  FROM public.agent_embeddings a
+  JOIN public.agent_embeddings b 
+    ON a.embedding_id < b.embedding_id          -- guarantees unique pairs, no self-matches
+  ORDER BY random()                             -- random shuffle
+  LIMIT 10000                                   -- change this number as needed (5000–20000 is usually fine)
+)
+SELECT 
+  COUNT(*) AS num_pairs_sampled,
+  AVG(v1 <=> v2)                                      AS avg_cosine_distance,
+  MIN(v1 <=> v2)                                      AS closest_pair_distance,
+  MAX(v1 <=> v2)                                      AS farthest_pair_distance,
+  PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY v1 <=> v2) AS median_cosine_distance,
+  STDDEV(v1 <=> v2)                                   AS stddev_cosine_distance,
+  AVG(CASE WHEN v1 <=> v2 < 0.2 THEN 1.0 ELSE 0.0 END) * 100 AS percent_very_similar
+FROM sampled_pairs;
+
+
+
+WITH centroid_cte AS (
+  SELECT AVG(embedding_vector) AS global_centroid
+  FROM public.agent_embeddings
+)
+SELECT 
+  embedding_id,
+  agent_text,
+  embedding_provider,
+  embedding_model,
+  (embedding_vector <=> global_centroid) AS cosine_distance_to_centroid
+FROM public.agent_embeddings, centroid_cte  
+ORDER BY embedding_vector <=> global_centroid ASC   -- smallest = most central
+LIMIT 10;
+
+
+WITH centroid_cte AS (
+  SELECT AVG(embedding_vector) AS global_centroid
+  FROM public.agent_embeddings
+)
+SELECT DISTINCT ON (ae.agent_id)          -- One row per agent
+  ae.embedding_id,
+  a.name AS agent_name,
+  ae.agent_id,
+  ae.agent_text,
+  ae.embedding_provider,
+  ae.embedding_model,
+  (ae.embedding_vector <=> global_centroid) AS cosine_distance_to_centroid
+FROM public.agent_embeddings ae
+CROSS JOIN centroid_cte
+LEFT JOIN agents a ON ae.agent_id = a.agent_id
+ORDER BY ae.agent_id, ae.embedding_vector <=> global_centroid ASC;
