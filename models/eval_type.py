@@ -33,7 +33,39 @@ class BitrecsEvaluationType(str, Enum):
     NDCG_AT10_CURATED_MUSICAL_INSTRUMENTS_500 = "ndcg_at10_curated_musical_instruments_500"
     NDCG_AT10_CURATED_MUSICAL_INSTRUMENTS_1000 = "ndcg_at10_curated_musical_instruments_1000"
 
-    AMAZON_ALL_BEAUTY_100 = "amazon_all_beauty_100"    
+    NDCG_AT10_BM25_APPLIANCES_500_MEDIUM = "ndcg_at10_bm25_appliances_500_medium"
+    NDCG_AT10_BM25_APPLIANCES_1000_MEDIUM = "ndcg_at10_bm25_appliances_1000_medium"
+    NDCG_AT10_BM25_APPLIANCES_1500_HARD = "ndcg_at10_bm25_appliances_1500_hard"
+    NDCG_AT10_BM25_APPLIANCES_2000_HARD = "ndcg_at10_bm25_appliances_2000_hard"
+
+    NDCG_AT10_BM25_ELECTRONICS_500_MEDIUM = "ndcg_at10_bm25_electronics_500_medium"
+    NDCG_AT10_BM25_ELECTRONICS_1000_MEDIUM = "ndcg_at10_bm25_electronics_1000_medium"
+    NDCG_AT10_BM25_ELECTRONICS_1500_HARD = "ndcg_at10_bm25_electronics_1500_hard"
+    NDCG_AT10_BM25_ELECTRONICS_2000_HARD = "ndcg_at10_bm25_electronics_2000_hard"
+
+    NDCG_AT10_BM25_MUSICAL_INSTRUMENTS_500_MEDIUM = "ndcg_at10_bm25_musical_instruments_500_medium"
+    NDCG_AT10_BM25_MUSICAL_INSTRUMENTS_1000_MEDIUM = "ndcg_at10_bm25_musical_instruments_1000_medium"
+    NDCG_AT10_BM25_MUSICAL_INSTRUMENTS_1500_HARD = "ndcg_at10_bm25_musical_instruments_1500_hard"
+    NDCG_AT10_BM25_MUSICAL_INSTRUMENTS_2000_HARD = "ndcg_at10_bm25_musical_instruments_2000_hard"
+
+    RECALL_AT10_BM25_APPLIANCES_500_MEDIUM = "recall_at10_bm25_appliances_500_medium"
+    RECALL_AT10_BM25_APPLIANCES_1000_MEDIUM = "recall_at10_bm25_appliances_1000_medium"
+    RECALL_AT10_BM25_APPLIANCES_1500_HARD = "recall_at10_bm25_appliances_1500_hard"
+    RECALL_AT10_BM25_APPLIANCES_2000_HARD = "recall_at10_bm25_appliances_2000_hard"
+
+    RECALL_AT10_BM25_ELECTRONICS_500_MEDIUM = "recall_at10_bm25_electronics_500_medium"
+    RECALL_AT10_BM25_ELECTRONICS_1000_MEDIUM = "recall_at10_bm25_electronics_1000_medium"
+    RECALL_AT10_BM25_ELECTRONICS_1500_HARD = "recall_at10_bm25_electronics_1500_hard"
+    RECALL_AT10_BM25_ELECTRONICS_2000_HARD = "recall_at10_bm25_electronics_2000_hard"
+
+    RECALL_AT10_BM25_MUSICAL_INSTRUMENTS_500_MEDIUM = "recall_at10_bm25_musical_instruments_500_medium"
+    RECALL_AT10_BM25_MUSICAL_INSTRUMENTS_1000_MEDIUM = "recall_at10_bm25_musical_instruments_1000_medium"
+    RECALL_AT10_BM25_MUSICAL_INSTRUMENTS_1500_HARD = "recall_at10_bm25_musical_instruments_1500_hard"
+    RECALL_AT10_BM25_MUSICAL_INSTRUMENTS_2000_HARD = "recall_at10_bm25_musical_instruments_2000_hard"
+
+    BITRECS_PROMPT_SIZE_DAILY = "bitrecs_prompt_size_daily"
+
+    AMAZON_ALL_BEAUTY_100 = "amazon_all_beauty_100"
     AMAZON_ALL_BEAUTY_500 = "amazon_all_beauty_500"
     AMAZON_ALL_BEAUTY_1000 = "amazon_all_beauty_1000"
     AMAZON_FASHION_100 = "amazon_fashion_100"    
