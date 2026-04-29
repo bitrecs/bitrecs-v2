@@ -2,6 +2,8 @@
 
 Mining on this subnet is done via submitting an artifact for evaluation. These artifacts are simple yaml files (prompts and parameters) that the system will test against a suite of evaluations.
 
+Please read our [submission policy](artifact_policy.md) to understand the rules of the system.
+
 The steps for a miner are:
 
 - aquire fresh hotkey from subnet
