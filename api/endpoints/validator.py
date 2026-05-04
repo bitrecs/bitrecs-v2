@@ -19,7 +19,8 @@ from queries.agent import (
     get_next_agent_id_awaiting_evaluation_for_validator_hotkey
 )
 from queries.evaluation import (
-    get_hydrated_evaluation_by_id, 
+    get_hydrated_evaluation_by_id,
+    get_num_total_screener_2_evaluations_for_agent_id, 
     update_evaluation_finished_at, 
     create_new_evaluation_and_evaluation_runs, 
     get_num_successful_validator_evaluations_for_agent_id,
@@ -673,3 +674,13 @@ async def handle_evaluation_if_finished(evaluation_id: UUID) -> None:
         
         if new_agent_status is not None:
             await update_agent_status(hydrated_evaluation.agent_id, new_agent_status)
+    elif hydrated_evaluation.status == EvaluationStatus.failure:
+        if agent.status == AgentStatus.screening_2:
+            num_total = await get_num_total_screener_2_evaluations_for_agent_id(agent.agent_id)
+            if num_total >= config.MAX_SCREENER_2_ATTEMPTS:
+                logger.warning(
+                    f"Agent {agent.agent_id} hit max screener_2 attempts cap "
+                    f"({num_total}/{config.MAX_SCREENER_2_ATTEMPTS}). "
+                    f"Marking as failed_screening_2."
+                )
+                await update_agent_status(agent.agent_id, AgentStatus.failed_screening_2)

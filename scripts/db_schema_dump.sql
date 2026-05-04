@@ -1344,7 +1344,7 @@ CREATE OR REPLACE VIEW public.evaluations_hydrated AS
     evaluations.evaluation_set_group,
     (
         CASE
-            WHEN every(((erh.status = 'finished'::public.evaluationrunstatus) OR ((erh.status = 'error'::public.evaluationrunstatus) AND ((erh.error_code >= 1000) AND (erh.error_code <= 1999))))) THEN 'success'::text
+            WHEN every(((erh.status = 'finished'::public.evaluationrunstatus) OR ((erh.status = 'error'::public.evaluationrunstatus) AND ((erh.error_code >= 1000) AND (erh.error_code <= 2999))))) THEN 'success'::text
             WHEN every((erh.status = ANY (ARRAY['finished'::public.evaluationrunstatus, 'error'::public.evaluationrunstatus]))) THEN 'failure'::text
             ELSE 'running'::text
         END)::public.evaluationstatus AS status,

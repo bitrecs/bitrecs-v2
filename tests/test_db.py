@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 from models.inference_report import InferenceReport
 from queries.banned_hotkey import add_banned_hotkey
+from queries.evaluation import get_num_total_screener_2_evaluations_for_agent_id
 from queries.inference import insert_inference
 from queries.system_enabled import get_system_enabled
 from utils.database import check_database_health
@@ -114,3 +115,14 @@ async def test_load_banned_hotkeys():
         if count > 5:
             break
     print(f"Successfully added {count} hotkeys to the ban list")
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("db_setup")
+async def test_max_screener_2_attempts():
+    agent_id = "4672b021-9eaa-4a4b-808c-233da0b0e11e"
+    result = await get_num_total_screener_2_evaluations_for_agent_id(agent_id)
+    print(f"Total Screener 2 evaluations for agent {agent_id}: {result}")
+    assert isinstance(result, int), "Expected the result to be an integer representing the total number of Screener 2 evaluations for the agent"
+    
+    

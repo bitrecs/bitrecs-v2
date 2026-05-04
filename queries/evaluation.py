@@ -154,6 +154,20 @@ async def get_num_total_validator_evaluations_for_agent_id(conn: DatabaseConnect
 
 
 @db_operation
+async def get_num_total_screener_2_evaluations_for_agent_id(conn: DatabaseConnection, agent_id: UUID) -> int:
+    result = await conn.fetchval(
+        """
+        SELECT COUNT(*)
+        FROM evaluations
+        WHERE agent_id = $1
+          AND evaluation_set_group = 'screener_2'
+        """,
+        agent_id,
+    )
+    return result or 0
+
+
+@db_operation
 async def set_all_unfinished_evaluation_runs_to_errored(conn: DatabaseConnection, error_message: str) -> None:
     await conn.execute(
         f"""
