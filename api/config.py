@@ -133,6 +133,7 @@ MAX_TOTAL_EVALS_PER_AGENT = int(os.getenv("MAX_TOTAL_EVALS_PER_AGENT", str(NUM_E
 
 ARTIFACTS_PER_INTERVAL = int(os.getenv("ARTIFACTS_PER_INTERVAL", 50))
 
+MAX_SCREENER_2_ATTEMPTS = int(os.getenv("MAX_SCREENER_2_ATTEMPTS", "3"))
 
 logger.info("=== API Configuration ===")
 logger.info("-------------------------")
@@ -175,6 +176,8 @@ logger.info("-------------------------")
 
 logger.info(f"Number of Evaluations per Agent: {NUM_EVALS_PER_AGENT}")
 logger.info(f"Max Total Evaluations per Agent: {MAX_TOTAL_EVALS_PER_AGENT}")
+logger.info(f"Max Screener 2 Attempts: {MAX_SCREENER_2_ATTEMPTS}")
+logger.info("-------------------------")
 logger.info(f"Evaluation Ceiling Multiplier: {EVALUATION_CEILING_MULTIPLIER}")
 logger.info(f"Artifacts per Interval: {ARTIFACTS_PER_INTERVAL}")
 
