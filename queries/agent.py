@@ -201,6 +201,17 @@ async def update_agent_status(conn: DatabaseConnection, agent_id: UUID, status: 
         )
         logger.info(f"Deleted vector embeddings for agent {agent_id} due to failed_screening_1.")        
 
+    # delete temporary key if it exists
+    complete_statuses = {AgentStatus.failed_screening_1, AgentStatus.failed_screening_2, AgentStatus.finished}
+    if status in complete_statuses:        
+        await conn.execute(
+            """
+            DELETE FROM temp_keys
+            WHERE miner_hotkey IN (SELECT miner_hotkey FROM agents WHERE agent_id = $1)
+            """,
+            agent_id
+        )
+        logger.info(f"Deleted temporary key for agent {agent_id} due to status {status.value}.")
 
 
 @db_operation
