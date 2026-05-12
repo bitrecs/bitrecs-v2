@@ -344,6 +344,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             if not any([openrouter_api_key, chutes_api_key]):
                 raise Exception("Missing required API keys for Affine ENV evaluation run")
             
+            BYPASS_PROVIDER_CHECK = 0
             provider = LLM.try_parse(miner_agent.provider)
             if provider == LLM.OPEN_ROUTER:
                 openrouter_api_key = await get_agent_temp_key(miner_agent.agent_id)
@@ -351,6 +352,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                     raise Exception(f"Failed to retrieve temporary API key for agent {miner_agent.agent_id}")
                 else:
                     logger.info(f"Retrieved temporary OPEN ROUTER API key for agent {miner_agent.agent_id} successfully")
+                    BYPASS_PROVIDER_CHECK = 1
 
             bitrecs_run_id = str(evaluation_run_id)
             af_image = config.EVAL_CONTAINER_TAG
@@ -365,7 +367,8 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 "OPENROUTER_API_KEY": openrouter_api_key,
                 "CHUTES_API_KEY": chutes_api_key,
                 "MODEL_COST_INPUT": str(cost_estimate["input_cost"]),
-                "MODEL_COST_OUTPUT": str(cost_estimate["output_cost"])
+                "MODEL_COST_OUTPUT": str(cost_estimate["output_cost"]),
+                "BYPASS_PROVIDER_CHECK": str(BYPASS_PROVIDER_CHECK)
             }
             env = af_env.load_env(
                 image=af_image,
