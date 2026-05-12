@@ -53,7 +53,7 @@ class OpenRouter:
             "input": text,
             "dimensions": self.embedding_dimensions  # Request specific dimensions
         }
-        timeout = (5, 30)  # connect, read timeout
+        timeout = (5, 120)  # connect, read timeout
         max_retries = 2  # 3 total attempts
         for attempt in range(max_retries + 1):
             try:
@@ -140,7 +140,7 @@ class OpenRouter:
             "max_tokens": 4096
         }
         
-        timeout = (5, 60) #connect, read timeout
+        timeout = (5, 120) #connect, read timeout
         try:
             with httpx.Client(timeout=timeout) as client:
                 if logger.level >= logging.DEBUG:

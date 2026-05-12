@@ -538,6 +538,8 @@ async def _run_evaluation(request_evaluation_response: ValidatorRequestEvaluatio
     SIMULATE_EVALUATION_RUNS = False
     logger.info(f"Starting evaluation...simulating: {SIMULATE_EVALUATION_RUNS}")
 
+    # Snuffle to dampen inference load
+    secrets.SystemRandom().shuffle(request_evaluation_response.evaluation_runs)
     for evaluation_run in request_evaluation_response.evaluation_runs:
         evaluation_run_id = evaluation_run.evaluation_run_id
         problem_name = evaluation_run.problem_name
