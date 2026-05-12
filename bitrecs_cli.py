@@ -33,8 +33,8 @@ from llm.llm_provider import LLM
 
 console = Console()
 #DEFAULT_API_BASE_URL = "https://v2.api.bitrecs.ai"
-#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
-DEFAULT_API_BASE_URL = "http://localhost:8000"
+DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
+#DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 console.print(f"Bitrecs CLI - Version {this_version} using Endpoint {DEFAULT_API_BASE_URL}", style="bold cyan")
 
@@ -105,14 +105,18 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
     
     provider = LLM.try_parse(artifact.provider)
     if provider == LLM.OPEN_ROUTER:        
-        console.print("This artifact uses OpenRouter as its provider, which requires a temporary API key to be generated and attached to your submission. This key will be created with a limited lifespan and credit to ensure security. Do you want to proceed?", style="bold yellow")
+        console.print("This artifact uses OpenRouter as its provider, which requires a temporary API key to be generated and attached to your submission.\nThis key will be created with a limited lifespan and credit to ensure security. Do you want to proceed?", style="bold yellow")
         console.print("Note: you must have a valid OPENROUTER_MGMT_KEY environment variable set to use this feature.", style="dim yellow")
         proceed = Prompt.ask("Proceed with creating temporary OpenRouter key?", choices=["y", "n"], default="y")
         if not proceed or proceed.lower() != "y":
             console.print("Aborting upload as per user request.", style="bold red")
             return
+        open_router_mgmt_key = os.getenv("OPENROUTER_MGMT_KEY")
+        if not open_router_mgmt_key:
+            console.print("OPENROUTER_MGMT_KEY environment variable is not set. Please set it and try again.", style="bold red")
+            return
         temp_key = await create_temporary_openrouter_key(
-            mgmt_key=os.getenv("OPENROUTER_MGMT_KEY"),
+            mgmt_key=open_router_mgmt_key,
             name=f"miner-{wallet.hotkey.ss58_address[:8]}-{gist_id}"
         )
         if temp_key is None or not temp_key.startswith("sk-or-v1-"):

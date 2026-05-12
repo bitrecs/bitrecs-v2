@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-02T12:10:43.454911934Z"
+exclude-newer = "2026-05-05T18:36:36.248292862Z"
 exclude-newer-span = "P7D"
 
 [manifest]
@@ -352,7 +352,7 @@ requires-dist = [
     { name = "affinetes", specifier = ">=0.2.0" },
     { name = "aioboto3", specifier = ">=15.5.0" },
     { name = "aiocache", specifier = ">=0.12.3" },
-    { name = "async-substrate-interface", specifier = ">=1.6.3" },
+    { name = "async-substrate-interface", specifier = "==1.6.3" },
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "bittensor", specifier = "==10.2.0" },
     { name = "bittensor-cli", specifier = "==9.20.0" },

@@ -114,7 +114,7 @@ def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bo
         return False, f"provider '{agent.provider}' is not a supported LLM provider"
     
     provider = LLM.try_parse(agent.provider)
-    ALLOWED_PROVIDERS = [LLM.CHUTES]
+    ALLOWED_PROVIDERS = [LLM.CHUTES, LLM.OPEN_ROUTER]
     if provider not in ALLOWED_PROVIDERS:
         return False, f"provider '{provider.name}' is currently not supported. Supported providers are: {', '.join([p.name for p in ALLOWED_PROVIDERS])}"
     
