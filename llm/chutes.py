@@ -43,7 +43,7 @@ class Chutes:
             "max_tokens": 4096,
             "temperature": self.temp
         }      
-        timeout = (5, 60) #connect, read timeout     
+        timeout = (5, 240) #connect, read timeout     
         try:
             with httpx.Client(timeout=timeout) as client:
                 if logger.level <= logging.DEBUG:
