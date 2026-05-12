@@ -37,7 +37,7 @@ from get_version import get_git_info
 from utils.epoch import get_current_epoch_info
 from utils.subtensor import get_subtensor
 from models.inference_report import InferenceReport
-
+from llm.llm_provider import LLM
 
 EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
@@ -236,6 +236,11 @@ async def post_cost_report(evaluation_run_id: UUID,
         logger.error(f"Error reporting inference cost: {e}")
 
 
+async def get_agent_temp_key(agent_id: UUID) -> str | None:    
+    response = await get_bitrecs_platform(f"/agent/temp-key?agent_id={agent_id}", quiet=2)
+    return response.get("temp_key", None)
+
+
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
     """Load an agent by its evaluation run ID."""
     response = await get_bitrecs_platform(f"/agent/get-by-evaluation-run-id?evaluation_run_id={evaluation_run_id}", quiet=2)
@@ -338,8 +343,16 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             chutes_api_key = os.environ.get("CHUTES_API_KEY")
             if not any([openrouter_api_key, chutes_api_key]):
                 raise Exception("Missing required API keys for Affine ENV evaluation run")
+            
+            provider = LLM.try_parse(miner_agent.provider)
+            if provider == LLM.OPEN_ROUTER:
+                openrouter_api_key = await get_agent_temp_key(miner_agent.agent_id)
+                if openrouter_api_key is None:
+                    raise Exception(f"Failed to retrieve temporary API key for agent {miner_agent.agent_id}")
+                else:
+                    logger.info(f"Retrieved temporary OPEN ROUTER API key for agent {miner_agent.agent_id} successfully")
 
-            bitrecs_run_id = str(evaluation_run_id)            
+            bitrecs_run_id = str(evaluation_run_id)
             af_image = config.EVAL_CONTAINER_TAG
             af_mode = "docker"
             af_hostname = "localhost" if not is_docker else "bitrecs-evals-main"  # Container name for network access
@@ -357,7 +370,7 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             env = af_env.load_env(
                 image=af_image,
                 mode=af_mode,
-                env_vars=af_env_vars,                
+                env_vars=af_env_vars,
                 host_network=None,
                 cleanup=False,
                 force_recreate=True,                
