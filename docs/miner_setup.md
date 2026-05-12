@@ -17,6 +17,23 @@ uv run bitrecs_cli.py upload --github-account mygithubaccount --gist-id your_gis
 ```
 **Note: submitting an artifact can take up to 1 minute**
 
+## BYOK
+
+Bitrecs V2 supports OPEN_ROUTER mangement keys + temp inference keys. 
+
+https://openrouter.ai/docs/guides/overview/auth/management-api-keys
+
+If you create a management key and put it in your local .env:
+
+```
+OPENROUTER_MGMT_KEY=your open router management key
+```
+
+The CLI will generate and submit a temporary inference key tied to your OpenRouter account. This key will be used by the validators to run the eval and it will get deleted from the system shortly thereafter. The temp keys are created with a 4 hour expiry window and max $5.00 USD spending limit.
+
+The CLI looks at your **artifact.provider** value, if provider = OPEN_ROUTER it will triage into the management key logic.
+
+
 ## Eval Process
 
 Once your artifact has been uploaded it will go into an evaluation queue. This queue consists of 2 screeners and n validators. Each screener runs a specific set of basic evals to ensure data consistency. Once your artifact reaches the validator queue, it will be evalauted against a rotating set of evals to measure performance. Each validator computes the WTA miner and sets weights accordingly.
