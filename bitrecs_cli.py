@@ -106,7 +106,7 @@ async def upload(ctx, github_account: Optional[str], gist_id: Optional[str], col
     provider = LLM.try_parse(artifact.provider)
     if provider == LLM.OPEN_ROUTER:        
         console.print("This artifact uses OpenRouter as its provider, which requires a temporary API key to be generated and attached to your submission. This key will be created with a limited lifespan and credit to ensure security. Do you want to proceed?", style="bold yellow")
-        console.print("Note: you must have a valid OPENROUTER_MGMT_KEY environment variable set with a Management API key to use this feature.", style="dim yellow")
+        console.print("Note: you must have a valid OPENROUTER_MGMT_KEY environment variable set to use this feature.", style="dim yellow")
         proceed = Prompt.ask("Proceed with creating temporary OpenRouter key?", choices=["y", "n"], default="y")
         if not proceed or proceed.lower() != "y":
             console.print("Aborting upload as per user request.", style="bold red")

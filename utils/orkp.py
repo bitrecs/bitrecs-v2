@@ -3,11 +3,10 @@ import utils.logger as logger
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-
 OPENROUTER_MGMT_URL = "https://openrouter.ai/api/v1/keys"
+DEFAULT_KEY_EXPIRY_HOURS = 4
+DEFAULT_KEY_CREDIT_LIMIT_USD = 5.0
 
-DEFAULT_KEY_EXPIRY_HOURS = 2
-DEFAULT_KEY_CREDIT_LIMIT_USD = 2.0
 
 async def create_temporary_openrouter_key(
     mgmt_key: str,
@@ -42,7 +41,7 @@ async def create_temporary_openrouter_key(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 OPENROUTER_MGMT_URL,
                 headers=headers,
@@ -67,7 +66,6 @@ async def create_temporary_openrouter_key(
     return None
 
 
-
 async def validate_openrouter_key(key: str, model: str) -> bool:
     """
     Tests OpenRouter key and model with absolute minimal token usage.
@@ -81,7 +79,7 @@ async def validate_openrouter_key(key: str, model: str) -> bool:
 
     # 1. First, check key validity and remaining credits (0 tokens)
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             auth_response = await client.get("https://openrouter.ai/api/v1/auth/key", headers=headers)
             if auth_response.status_code != 200:
                 logger.error(f"OpenRouter key is invalid or inactive: {auth_response.text}")

@@ -56,7 +56,6 @@ async def list_docker_containers_loop():
         await asyncio.sleep(1800)
 
 
-
 async def calculate_scores_loop():
     BLOCKS_BEFORE_EPOCH_TO_SET_WEIGHTS = 30  # ~6 minutes
     last_set_epoch = -1  # Track last epoch weights were set
@@ -205,6 +204,7 @@ async def get_cost_estimate(provider: str, model: str, input_tokens: int, output
         logger.error(f"HTTP error fetching cost estimate: {e.response.status_code} - {e.response.text}")
         return None
 
+
 async def post_cost_report(evaluation_run_id: UUID,
                            provider: str, model: str, 
                            temperature: float, 
@@ -319,9 +319,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info("Loaded miner input YAML file successfully")
             logger.info(f"Evaluation set ID: {evaluation_set_id}")
             logger.info(f"Miner Artifact ID: {miner_agent.agent_id}")
-            logger.info(f"Miner Artifact Name: {miner_agent.name}")
-            logger.info(f"Miner Artifact Status: {miner_agent.status}")
             logger.info(f"Miner Artifact Hotkey: {miner_agent.miner_hotkey}")
+            logger.info(f"Miner Artifact Name: {miner_agent.name}")
+            logger.info(f"Miner Artifact Status: {miner_agent.status}")            
 
             logger.info(f"Testing model: {miner_agent.model} with provider: {miner_agent.provider}")
             cost_estimate = await get_cost_estimate(miner_agent.provider, miner_agent.model, input_tokens=1_000_000, output_tokens=1_000_000)
