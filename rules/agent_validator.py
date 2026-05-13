@@ -36,9 +36,19 @@ VARIABLE_COUNT_RESTRICTIONS = {
     'cart_json': 1
 }
 
-SKU_PATTERN = re.compile(r'\b(?=[\w-]{5,})(?=[\w-]*\d)(?!\d{1,4}\b)(?!\d+[a-zA-Z]{1,2}\b)(?:\d{5,25}|[a-zA-Z0-9]*\d[a-zA-Z0-9]+|[a-zA-Z0-9]+-[a-zA-Z0-9]*\d[a-zA-Z0-9]*)\b')
-    
-    
+SKU_PATTERN = re.compile(
+    r'\b'
+    r'(?![vV]\d+(\.\d+)*\b)'
+    r'(?=[\w.-]{5,})'
+    r'(?=.*?\d)'
+    r'(?!\d{1,4}\b)'
+    r'(?!\d+[a-zA-Z]{1,2}\b)'
+    r'(?![a-zA-Z]{2,}-\d\b)'
+    r'[\w.-]*\d[\w.-]*'
+    r'\b'
+)
+
+
 def count_raw_template_variables(template_str: str) -> dict:
     result = {var: 0 for var in VARIABLE_COUNT_RESTRICTIONS.keys()}
     for var in VARIABLE_COUNT_RESTRICTIONS.keys():

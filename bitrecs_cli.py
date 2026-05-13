@@ -33,8 +33,8 @@ from llm.llm_provider import LLM
 
 console = Console()
 #DEFAULT_API_BASE_URL = "https://v2.api.bitrecs.ai"
-#DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
-DEFAULT_API_BASE_URL = "http://localhost:8000"
+DEFAULT_API_BASE_URL = "https://v2.testnet.api.bitrecs.ai"
+#DEFAULT_API_BASE_URL = "http://localhost:8000"
 
 console.print(f"Bitrecs CLI - Version {this_version} using Endpoint {DEFAULT_API_BASE_URL}", style="bold cyan")
 
