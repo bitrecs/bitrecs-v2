@@ -33,7 +33,7 @@ async def get_miner_first_blocks(conn: DatabaseConnection) -> dict[str, int]:
         """
         SELECT miner_hotkey, MIN(block) as first_block 
         FROM hotkey_gist 
-        WHERE block != 0
+        WHERE block != 0 AND miner_hotkey NOT IN (SELECT miner_hotkey FROM banned_hotkeys)
         GROUP BY miner_hotkey
         """
     )
