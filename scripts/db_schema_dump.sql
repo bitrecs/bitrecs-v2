@@ -105,6 +105,7 @@ DROP TABLE IF EXISTS public.approved_agents;
 DROP TABLE IF EXISTS public.agents;
 DROP TABLE IF EXISTS public.agent_scores;
 DROP TABLE IF EXISTS public.agent_embeddings;
+DROP TABLE IF EXISTS public.temp_keys;
 
 DROP VIEW IF EXISTS public.validator_queue;
 DROP VIEW IF EXISTS public.screener_2_queue;
@@ -1556,6 +1557,16 @@ ALTER TABLE ONLY public.inferences
 ALTER TABLE ONLY public.unapproved_agent_ids
     ADD CONSTRAINT unapproved_agent_ids_agent_id_fkey FOREIGN KEY (agent_id) REFERENCES public.agents(agent_id);
 
+
+CREATE TABLE public.temp_keys (
+  id serial NOT NULL,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  miner_hotkey character varying(255) NOT NULL,
+  or_temp_key character varying(255) NOT NULL
+);
+
+ALTER TABLE public.temp_keys
+ADD CONSTRAINT temp_keys_pkey PRIMARY KEY (id);
 
 --
 -- PostgreSQL database dump complete

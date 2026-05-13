@@ -14,45 +14,10 @@ load_dotenv()
 
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("affinetes").setLevel(logging.DEBUG)
 
 PARENT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-
-# @pytest.mark.asyncio
-# async def test_calculator_sandbox_example():    
-#     try:
-#         import docker
-#         client = docker.from_env()
-#         client.ping()
-#     except Exception:
-#         pytest.skip("Docker daemon not running, skipping test")
-#         logger.warning("Docker daemon not running, skipping test")
-    
-#     image_tag = af_env.build_image_from_env(
-#         env_path=os.path.join(PARENT_DIR, "sandbox/environments/calc"),
-#         image_tag="calculator:latest"
-#     )
-#     logger.info(f"Built Docker image with tag: {image_tag}")    
-    
-#     env = af_env.load_env(
-#         image="calculator:latest",
-#         env_vars={"CHUTES_API_KEY": "your-api-key"}, 
-#         host_network=True,
-#         host_port=8080,
-#         log_file="calculator_env.log"
-#     )
-
-#     assert env is not None
-#     logger.info("Loaded Docker environment successfully")        
-    
-#     result = await env.evaluate(
-#         model="deepseek-ai/DeepSeek-V3",
-#         base_url="https://llm.chutes.ai/v1",
-#         task_id=10
-#     )
-#     print(result)  # {"score": 1.0, "success": True}
-#     assert result["score"] == 1.0
-#     assert result["success"] == True   
-
 
 
 async def try_get_run_log(run_id: str) -> str | None:    
@@ -96,13 +61,18 @@ async def test_bitrecs_eval_sandbox():
     af_run_token = os.environ.get("BITRECS_RUN_TOKEN")
     af_run_token = secrets.token_hex(16) if not af_run_token else af_run_token    
     bitrecs_run_id = str(uuid.uuid4())
-
+    host_hf_cache = os.path.expanduser("~/.cache/huggingface") 
+    os.makedirs(host_hf_cache, exist_ok=True)
+    
     af_env_vars = {
-            "BITRECS_RUN_TOKEN": af_run_token,
-            "BITRECS_RUN_ID": bitrecs_run_id,
-            "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
-            "CHUTES_API_KEY": os.environ.get("CHUTES_API_KEY")
-        }
+        "BITRECS_RUN_TOKEN": af_run_token,
+        "BITRECS_RUN_ID": bitrecs_run_id,
+        "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
+        "CHUTES_API_KEY": os.environ.get("CHUTES_API_KEY"),
+        "MODEL_COST_INPUT": str("0.1"),
+        "MODEL_COST_OUTPUT": str("0.2"),
+    }
+
     assert all(af_env_vars.values()), "Provider API keys must be set in environment variables"
 
     env = af_env.load_env(
@@ -113,7 +83,10 @@ async def test_bitrecs_eval_sandbox():
         cleanup=False,
         force_recreate=True,
         host_port=8000,
-        pull=True
+        pull=True,
+        volumes={
+            host_hf_cache: {'bind': '/root/.cache/huggingface', 'mode': 'rw'}
+        }
     )
     
     assert env is not None
