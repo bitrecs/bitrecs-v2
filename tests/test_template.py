@@ -124,3 +124,16 @@ def test_hardcore_sku_boundaries():
     for text, expected in test_cases.items():
         count, skus = count_skus_in_template(text)
         assert count == expected, f"Failed on '{text}': Expected {expected}, found {count} ({skus})"
+
+
+def test_template_contains_regex_match_vars():
+    artifact = os.path.join(ROOT_DIR, "miner", "miner_artifact_s.yaml")
+    if not os.path.exists(artifact):
+        print(f"YAML file not found at path: {artifact}")
+        return
+    with open(artifact, 'r') as f:
+        yaml_content = f.read()
+    artifact = Agent.from_yaml(yaml_content)
+    validated, reason = validate_artifact_template(artifact, yaml_content)
+    assert not validated, f"Artifact validation should have failed but passed: {reason}"
+    print(f"Invalid, found variables: {reason}")    

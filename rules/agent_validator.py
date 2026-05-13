@@ -38,13 +38,13 @@ VARIABLE_COUNT_RESTRICTIONS = {
 
 SKU_PATTERN = re.compile(
     r'\b'
-    r'(?![vV]\d+(\.\d+)*\b)'
+    r'(?![vV]\d+(?:\.\d+)*\b)'
     r'(?=[\w.-]{5,})'
     r'(?=.*?\d)'
     r'(?!\d{1,4}\b)'
     r'(?!\d+[a-zA-Z]{1,2}\b)'
     r'(?![a-zA-Z]{2,}-\d\b)'
-    r'[\w.-]*\d[\w.-]*'
+    r'[\w.-]{0,20}\d[\w.-]{0,20}'
     r'\b'
 )
 
@@ -59,9 +59,10 @@ def count_raw_template_variables(template_str: str) -> dict:
 
 
 def count_skus_in_template(template_str: str) -> Tuple[int, List[str]]:
-    cleaned = re.sub(r'\{\{.*?\}\}', '', template_str)
-    skus = re.findall(SKU_PATTERN, cleaned)    
-    logger.debug(f"Found SKUs in template: {skus}")
+    cleaned = re.sub(r'\{\{.*?\}\}', '', template_str)    
+    skus = SKU_PATTERN.findall(cleaned)
+    if len(skus) > 0:
+        logger.debug(f"Found SKUs in template: {skus}")
     return len(skus), skus
     
 
