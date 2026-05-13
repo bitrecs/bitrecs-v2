@@ -359,6 +359,44 @@ async def check_agent_post(
         )
         return JSONResponse(content={"error": "Miner hotkey in submission does not match miner hotkey in artifact"}, status_code=400)
     
+    # Assign UUID before similarity check (needed for embedding)
+    artifact_instance.agent_id = uuid.uuid4()    
+    artifact_instance.created_at = datetime.now(timezone.utc)
+    similar_agents = []
+    if COSINE_COMPARE_ENABLED:
+        logger.info("Cosine similarity check is ENABLED for artifact submissions")
+        logger.info(f"Checking similarity for artifact ID: {artifact_instance.agent_id}")
+        logger.info(f"Threshold: {SIMILARITY_THRESHOLD}")
+        
+        is_too_similar, similar_agents = await check_similar_agents(
+            artifact_instance,
+            similarity_threshold=SIMILARITY_THRESHOLD,
+            max_results=5
+        )
+        
+        if is_too_similar:                
+            similar_details = [
+                {
+                    "agent_id": str(agent_id)[:8],
+                    "similarity_score": f"{1 - distance:.4f}",
+                    "distance": f"{distance:.4f}"
+                }
+                for agent_id, distance in similar_agents
+            ]                
+            logger.warning(
+                f"Artifact submission rejected due to similarity: "
+                f"{[{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]}"
+            )                
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "error": "Agent is too similar to existing agents",
+                    "message": "This agent appears to be a duplicate or very similar to existing submissions",
+                    "similar_agents": similar_details,
+                    "threshold": SIMILARITY_THRESHOLD
+                }
+            )
+    
     return AgentUploadResponse(
         status="success",
         message=f"Agent check successful"
@@ -486,7 +524,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         artifact_instance.created_at = datetime.now(timezone.utc)
 
         similar_agents = []
-        if COSINE_COMPARE_ENABLED and 1==1:
+        if COSINE_COMPARE_ENABLED:
             logger.info("Cosine similarity check is ENABLED for artifact submissions")
             logger.info(f"Checking similarity for artifact ID: {artifact_instance.agent_id}")
             logger.info(f"Threshold: {SIMILARITY_THRESHOLD}")
@@ -500,7 +538,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             if is_too_similar:                
                 similar_details = [
                     {
-                        "agent_id": str(agent_id),
+                        "agent_id": str(agent_id)[:8],
                         "similarity_score": f"{1 - distance:.4f}",
                         "distance": f"{distance:.4f}"
                     }
