@@ -74,7 +74,7 @@ async def validate_openrouter_key(key: str, model: str) -> bool:
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://bitrecs.ai",
-        "X-Title": "bitrecs-test"
+        "X-Title": "bitrecs"
     }
 
     # 1. First, check key validity and remaining credits (0 tokens)
