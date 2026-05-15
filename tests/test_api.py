@@ -115,5 +115,17 @@ def test_get_current_agents():
     print(f" found {len(agents)} agents in response")
 
 
+def test_get_temp_key():
+    """Test GET /retrieval/current-agents endpoint"""
+    SERVICE_URL = "http://localhost:8000"
+    #SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "http://localhost:8000")
+    key = os.environ.get("BITRECS_PLATFORM_API_KEY")
+    headers = {"X-API-Key": key}  
+    test_agent_id = "931d53bb-688a-40f9-9b9f-11ecbef15e50"
+    response = client.get(f"{SERVICE_URL}/agent/temp-key?agent_id={test_agent_id}", headers=headers)
+    assert response.status_code == 200, f"Expected 200 OK, got {response.status_code}"
+    temp_key = response.json().get("temp_key")
+    assert temp_key is not None, "Expected a temporary key in the response"
+
     
   

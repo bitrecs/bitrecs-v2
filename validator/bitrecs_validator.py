@@ -37,7 +37,7 @@ from get_version import get_git_info
 from utils.epoch import get_current_epoch_info
 from utils.subtensor import get_subtensor
 from models.inference_report import InferenceReport
-
+from llm.llm_provider import LLM
 
 EVAL_TIMEOUT = (30, 600)
 RETRY_SLEEP_ON_ERROR = 60
@@ -54,7 +54,6 @@ async def list_docker_containers_loop():
         eval_sha = await get_eval_container_sha()
         logger.info(f"Eval container SHA: {eval_sha}")
         await asyncio.sleep(1800)
-
 
 
 async def calculate_scores_loop():
@@ -205,6 +204,7 @@ async def get_cost_estimate(provider: str, model: str, input_tokens: int, output
         logger.error(f"HTTP error fetching cost estimate: {e.response.status_code} - {e.response.text}")
         return None
 
+
 async def post_cost_report(evaluation_run_id: UUID,
                            provider: str, model: str, 
                            temperature: float, 
@@ -234,6 +234,11 @@ async def post_cost_report(evaluation_run_id: UUID,
         logger.error(f"HTTP error reporting inference cost: {e.response.status_code} - {e.response.text}")
     except Exception as e:
         logger.error(f"Error reporting inference cost: {e}")
+
+
+async def get_agent_temp_key(agent_id: UUID) -> str | None:    
+    response = await get_bitrecs_platform(f"/agent/temp-key?agent_id={agent_id}", quiet=2)
+    return response.get("temp_key", None)
 
 
 async def load_agent_by_evaluation_run(evaluation_run_id: UUID) -> Agent:
@@ -314,9 +319,9 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             logger.info("Loaded miner input YAML file successfully")
             logger.info(f"Evaluation set ID: {evaluation_set_id}")
             logger.info(f"Miner Artifact ID: {miner_agent.agent_id}")
-            logger.info(f"Miner Artifact Name: {miner_agent.name}")
-            logger.info(f"Miner Artifact Status: {miner_agent.status}")
             logger.info(f"Miner Artifact Hotkey: {miner_agent.miner_hotkey}")
+            logger.info(f"Miner Artifact Name: {miner_agent.name}")
+            logger.info(f"Miner Artifact Status: {miner_agent.status}")            
 
             logger.info(f"Testing model: {miner_agent.model} with provider: {miner_agent.provider}")
             cost_estimate = await get_cost_estimate(miner_agent.provider, miner_agent.model, input_tokens=1_000_000, output_tokens=1_000_000)
@@ -338,12 +343,24 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
             chutes_api_key = os.environ.get("CHUTES_API_KEY")
             if not any([openrouter_api_key, chutes_api_key]):
                 raise Exception("Missing required API keys for Affine ENV evaluation run")
+            
+            BYPASS_PROVIDER_CHECK = 0
+            provider = LLM.try_parse(miner_agent.provider)
+            if provider == LLM.OPEN_ROUTER:
+                openrouter_api_key = await get_agent_temp_key(miner_agent.agent_id)
+                if openrouter_api_key is None:
+                    raise Exception(f"Failed to retrieve temporary API key for agent {miner_agent.agent_id}")
+                else:
+                    logger.info(f"Retrieved temporary OPEN ROUTER API key for agent {miner_agent.agent_id} successfully")
+                    BYPASS_PROVIDER_CHECK = 1
 
-            bitrecs_run_id = str(evaluation_run_id)            
+            bitrecs_run_id = str(evaluation_run_id)
             af_image = config.EVAL_CONTAINER_TAG
             af_mode = "docker"
             af_hostname = "localhost" if not is_docker else "bitrecs-evals-main"  # Container name for network access
             af_container_port = 8000
+            host_hf_cache = os.path.expanduser("~/.cache/huggingface")
+            os.makedirs(host_hf_cache, exist_ok=True)
             
             af_run_token = secrets.token_hex(16)
             af_env_vars = {                
@@ -352,17 +369,21 @@ async def _run_evaluation_run(evaluation_run_id: UUID, problem_name: str, agent_
                 "OPENROUTER_API_KEY": openrouter_api_key,
                 "CHUTES_API_KEY": chutes_api_key,
                 "MODEL_COST_INPUT": str(cost_estimate["input_cost"]),
-                "MODEL_COST_OUTPUT": str(cost_estimate["output_cost"])
+                "MODEL_COST_OUTPUT": str(cost_estimate["output_cost"]),
+                "BYPASS_PROVIDER_CHECK": str(BYPASS_PROVIDER_CHECK)
             }
             env = af_env.load_env(
                 image=af_image,
                 mode=af_mode,
-                env_vars=af_env_vars,                
+                env_vars=af_env_vars,
                 host_network=None,
                 cleanup=False,
                 force_recreate=True,                
                 pull=True,
-                network="bitrecs-network"
+                network="bitrecs-network",
+                volumes={
+                    host_hf_cache: {'bind': '/root/.cache/huggingface', 'mode': 'rw'}
+                }
             )
             if env is None:
                 raise Exception("Failed to load Docker environment")

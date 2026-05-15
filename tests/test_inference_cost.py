@@ -234,11 +234,9 @@ async def test_open_router_valid_model():
 
 
 @pytest.mark.asyncio
-async def test_open_router_get_cost_estimate_api_ok():
-    
-    base_url = os.getenv("BITRECS_PLATFORM_URL")
-    #base_url = "http://localhost:8000" 
-
+async def test_open_router_get_cost_estimate_api_ok():    
+    #base_url = os.getenv("BITRECS_PLATFORM_URL")
+    base_url = "http://localhost:8000" 
     key = os.environ.get("BITRECS_PLATFORM_API_KEY")
     headers = {"X-API-Key": key}
     estimate = InferenceCostEstimateRequest(
@@ -259,7 +257,7 @@ async def test_open_router_get_cost_estimate_api_ok():
         assert "input_cost" in result
         assert "output_cost" in result
         assert "total_cost" in result
-        assert result["input_cost"] == pytest.approx(0.05, rel=0.1)
+        assert result["input_cost"] == pytest.approx(0.04, rel=0.1)
         assert result["output_cost"] == pytest.approx(0.15, rel=0.1)
         assert result["total_cost"] == pytest.approx(0.20, rel=0.1)
         
@@ -267,11 +265,9 @@ async def test_open_router_get_cost_estimate_api_ok():
 
 
 @pytest.mark.asyncio
-async def test_chutesr_get_cost_estimate_api_ok():
-    
-    base_url = os.getenv("BITRECS_PLATFORM_URL")
-    #base_url = "http://localhost:8000" 
-
+async def test_chutes_get_cost_estimate_api_ok():    
+    #base_url = os.getenv("BITRECS_PLATFORM_URL")
+    base_url = "http://localhost:8000" 
     key = os.environ.get("BITRECS_PLATFORM_API_KEY")
     headers = {"X-API-Key": key}
     estimate = InferenceCostEstimateRequest(

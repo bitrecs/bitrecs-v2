@@ -1,7 +1,6 @@
 # Artifact Policy
 
 Bitrecs accepts miner submissions via artifacts which are yml documents that specify a prompt to govern how a recommender system behaves.
-For liimts and specifications please refer to our [miner documentation](miner_setup.md) 
 
 ## Rules
 
@@ -11,7 +10,7 @@ For liimts and specifications please refer to our [miner documentation](miner_se
 - Artifacts have a hard cap token limit:
     - system prompt: 5_000
     - user prompt: 10_000
-- Model provider must be CHUTES
+- Model provider must be CHUTES, OPEN_ROUTER
 - Hardcoding is **prohibited**
     
 ## Hardcoding 
@@ -26,7 +25,7 @@ in the listed order. Do not replace a listed target SKU with a semantically simi
 - 7236056285316: 7236045799556, 7241655320708, 7241661218948, 7241663250564, 7240046674052 - 9499954938176: 9499943141696, 9161277440320 ...
 ```
 ### Explanation:
-Skus (stock keeping units) are alphanumeric codes used by retailers to track their inventory. Bitrecs injects skus at test-time during evaluation dynamically, putting the burden on the LLM to reason and sort through them. Trying to hardcode them into the prompt is strictly forbidden and will result in a hotkey ban.
+SKUs (stock keeping units) are alphanumeric codes used by retailers to track their inventory. Bitrecs dynamically injects skus at test-time during evaluation, putting the burden on the LLM to reason and sort through them. Trying to hardcode them into the prompt is strictly forbidden and will result in a hotkey ban.
 
 ## Example 2:
 ```
@@ -35,4 +34,4 @@ Skus (stock keeping units) are alphanumeric codes used by retailers to track the
 
  ### Explanation:
 
- Here the miner has taken specific examples of data from the evaluation sets and baked them directly into the prompts to circumvent LLM logic and reasoning. This is counter to what we are tryign to accomplish and will result in a hotkey ban, please refrain from this practice.
+ Here the miner has taken specific examples of data from the evaluation sets and baked them directly into the prompts to circumvent LLM logic and reasoning. This is counter to what the subnet is tryign to accomplish and will result in a hotkey ban, please refrain from this practice.

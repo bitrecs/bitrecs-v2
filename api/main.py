@@ -69,6 +69,10 @@ from utils.verify import (
     verify_transport_signature
 )
 from scoring.constants import MINER_EMISSION_PORTION
+from llm.llm_provider import LLM
+from queries.temp_key import save_temp_key
+from utils.orkp import validate_openrouter_key
+
 
 #COSINE_COMPARE_ENABLED = os.environ.get("COSINE_COMPARE_ENABLED", "true").lower() == "true"
 COSINE_COMPARE_ENABLED = True
@@ -355,6 +359,44 @@ async def check_agent_post(
         )
         return JSONResponse(content={"error": "Miner hotkey in submission does not match miner hotkey in artifact"}, status_code=400)
     
+    # Assign UUID before similarity check (needed for embedding)
+    artifact_instance.agent_id = uuid.uuid4()    
+    artifact_instance.created_at = datetime.now(timezone.utc)
+    similar_agents = []
+    if COSINE_COMPARE_ENABLED:
+        logger.info("Cosine similarity check is ENABLED for artifact submissions")
+        logger.info(f"Checking similarity for artifact ID: {artifact_instance.agent_id}")
+        logger.info(f"Threshold: {SIMILARITY_THRESHOLD}")
+        
+        is_too_similar, similar_agents = await check_similar_agents(
+            artifact_instance,
+            similarity_threshold=SIMILARITY_THRESHOLD,
+            max_results=5
+        )
+        
+        if is_too_similar:                
+            similar_details = [
+                {
+                    "agent_id": str(agent_id)[:8],
+                    "similarity_score": f"{1 - distance:.4f}",
+                    "distance": f"{distance:.4f}"
+                }
+                for agent_id, distance in similar_agents
+            ]                
+            logger.warning(
+                f"Artifact submission rejected due to similarity: "
+                f"{[{'agent_id': agent_id, 'distance': distance} for agent_id, distance in similar_agents]}"
+            )                
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "error": "Agent is too similar to existing agents",
+                    "message": "This agent appears to be a duplicate or very similar to existing submissions",
+                    "similar_agents": similar_details,
+                    "threshold": SIMILARITY_THRESHOLD
+                }
+            )
+    
     return AgentUploadResponse(
         status="success",
         message=f"Agent check successful"
@@ -445,6 +487,21 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             await check_if_gist_used(submission.gist_id)
             await check_agent_banned(submission.hotkey)
             await check_hotkey_registered(submission.hotkey)
+
+        provider = LLM.try_parse(artifact_instance.provider)
+        if provider == LLM.OPEN_ROUTER:
+            temp_key = request.headers.get("X-ORTK")
+            validated_key = await validate_openrouter_key(temp_key, artifact_instance.model)
+            if not validated_key:
+                logger.warning("Invalid or unauthorized OpenRouter key provided in headers")
+                return JSONResponse(content={"error": "Invalid or unauthorized OpenRouter key"}, status_code=400)
+            else:
+                tk_saved = await save_temp_key(hotkey=submission.hotkey, temp_key=temp_key)
+                if not tk_saved:
+                    logger.error("Failed to save temporary OpenRouter key to database")
+                    return JSONResponse(content={"error": "Failed to save temporary OpenRouter key"}, status_code=500)
+                else:
+                    logger.info(f"Temporary OpenRouter key saved to database for hotkey {submission.hotkey}")
         
         commit_valid, commit_block = await is_commitment_valid_with_retry(submission)
         if not commit_valid:
@@ -467,7 +524,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
         artifact_instance.created_at = datetime.now(timezone.utc)
 
         similar_agents = []
-        if COSINE_COMPARE_ENABLED and 1==1:
+        if COSINE_COMPARE_ENABLED:
             logger.info("Cosine similarity check is ENABLED for artifact submissions")
             logger.info(f"Checking similarity for artifact ID: {artifact_instance.agent_id}")
             logger.info(f"Threshold: {SIMILARITY_THRESHOLD}")
@@ -481,7 +538,7 @@ async def miner_submission(request: Request, submission: MinerSubmission):
             if is_too_similar:                
                 similar_details = [
                     {
-                        "agent_id": str(agent_id),
+                        "agent_id": str(agent_id)[:8],
                         "similarity_score": f"{1 - distance:.4f}",
                         "distance": f"{distance:.4f}"
                     }

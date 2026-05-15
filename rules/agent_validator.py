@@ -36,9 +36,19 @@ VARIABLE_COUNT_RESTRICTIONS = {
     'cart_json': 1
 }
 
-SKU_PATTERN = re.compile(r'\b(?=[\w-]{5,})(?=[\w-]*\d)(?!\d{1,4}\b)(?!\d+[a-zA-Z]{1,2}\b)(?:\d{5,25}|[a-zA-Z0-9]*\d[a-zA-Z0-9]+|[a-zA-Z0-9]+-[a-zA-Z0-9]*\d[a-zA-Z0-9]*)\b')
-    
-    
+SKU_PATTERN = re.compile(
+    r'\b'
+    r'(?![vV]\d+(?:\.\d+)*\b)'
+    r'(?=[\w.-]{5,})'
+    r'(?=.*?\d)'
+    r'(?!\d{1,4}\b)'
+    r'(?!\d+[a-zA-Z]{1,2}\b)'
+    r'(?![a-zA-Z]{2,}-\d\b)'
+    r'[\w.-]{0,20}\d[\w.-]{0,20}'
+    r'\b'
+)
+
+
 def count_raw_template_variables(template_str: str) -> dict:
     result = {var: 0 for var in VARIABLE_COUNT_RESTRICTIONS.keys()}
     for var in VARIABLE_COUNT_RESTRICTIONS.keys():
@@ -49,9 +59,10 @@ def count_raw_template_variables(template_str: str) -> dict:
 
 
 def count_skus_in_template(template_str: str) -> Tuple[int, List[str]]:
-    cleaned = re.sub(r'\{\{.*?\}\}', '', template_str)
-    skus = re.findall(SKU_PATTERN, cleaned)    
-    logger.debug(f"Found SKUs in template: {skus}")
+    cleaned = re.sub(r'\{\{.*?\}\}', '', template_str)    
+    skus = SKU_PATTERN.findall(cleaned)
+    if len(skus) > 0:
+        logger.debug(f"Found SKUs in template: {skus}")
     return len(skus), skus
     
 
@@ -114,7 +125,7 @@ def validate_artifact_template(agent: Agent, raw_source: str = None) -> Tuple[bo
         return False, f"provider '{agent.provider}' is not a supported LLM provider"
     
     provider = LLM.try_parse(agent.provider)
-    ALLOWED_PROVIDERS = [LLM.CHUTES]
+    ALLOWED_PROVIDERS = [LLM.CHUTES, LLM.OPEN_ROUTER]
     if provider not in ALLOWED_PROVIDERS:
         return False, f"provider '{provider.name}' is currently not supported. Supported providers are: {', '.join([p.name for p in ALLOWED_PROVIDERS])}"
     

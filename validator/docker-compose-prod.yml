@@ -10,6 +10,7 @@ services:
       - ~/.bittensor/wallets:/root/.bittensor/wallets:ro
       - ~/bitrecs/data:/app/data
       - /var/log/bitrecs/validator:/var/log/bitrecs/validator
+      - ~/.cache/huggingface/datasets:/root/.cache/huggingface/datasets
     env_file:
       - .env
     environment:

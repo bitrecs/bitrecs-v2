@@ -17,6 +17,25 @@ uv run bitrecs_cli.py upload --github-account mygithubaccount --gist-id your_gis
 ```
 **Note: submitting an artifact can take up to 1 minute**
 
+## BYOK
+
+Bitrecs V2 supports a *bring your own key* setup via OPEN_ROUTER mangement keys.
+
+https://openrouter.ai/docs/guides/overview/auth/management-api-keys
+
+This is enabled by assinging your managment key to an environment var:
+
+```
+OPENROUTER_MGMT_KEY=your open router management key
+```
+
+During submission, the CLI will generate and submit a session inference key on behalf of your OpenRouter management key. 
+
+The CLI looks at the **artifact.provider** value, if provider = OPEN_ROUTER it will triage into the management key logic.
+
+The session inference key generated will be used by the validators to run the eval and it will get deleted from the system shortly thereafter. The session inference keys are created with a 4 hour expiry window and max $5.00 USD spending limit.
+
+
 ## Eval Process
 
 Once your artifact has been uploaded it will go into an evaluation queue. This queue consists of 2 screeners and n validators. Each screener runs a specific set of basic evals to ensure data consistency. Once your artifact reaches the validator queue, it will be evalauted against a rotating set of evals to measure performance. Each validator computes the WTA miner and sets weights accordingly.
@@ -30,7 +49,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 Clone repo
 ```
-git clone repo
+git clone git@github.com:bitrecs/bitrecs-v2.git
 ```
 Sync and Setup Environment
 ```
@@ -38,9 +57,9 @@ uv sync
 ```
 Create environment file
 ```
-touch .env
 SUBTENSOR_ADDRESS=wss://test.finney.opentensor.ai:443
 SUBTENSOR_NETWORK=test
+OPENROUTER_MGMT_KEY=
 ```
 
 Submit artifact
@@ -51,7 +70,7 @@ uv run bitrecs_cli.py upload --github-account mygithubaccount --gist-id your_gis
 ## General Mining Tips
 
 - Only 1 submission per hotkey
-- The system only accepts gists that have a single commit. So if you create a gist, then go back to edit it - it will be rejected by the system.
+- The system only accepts gists that have a **single commit**.
 - Gists submitted must be < 24 hours old
 - View example [miner_artifact.yml](../miner/miner_artifact.yaml) to see how variables are used 
 

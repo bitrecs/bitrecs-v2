@@ -214,3 +214,5 @@ scores2.db
 
 data/weights/*.sqlite
 data/weights/*.db
+
+miner/miner_artifact_s.yaml
