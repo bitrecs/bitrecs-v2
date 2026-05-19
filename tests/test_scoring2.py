@@ -10,7 +10,7 @@ from scoring.pareto import (
 from scoring.threshold import calculate_threshold, compute_miner_thresholds
 from scoring.wta import (
     compute_subset_scores_with_priority,
-    find_subset_winner_score_first,
+    find_subset_winner_gm,
     scores_to_weights    
 )
 from scoring.types import BlockNumber, EnvironmentId, MinerUID
@@ -283,7 +283,7 @@ class TestFirstCommitAdvantage:
             MinerUID(1): BlockNumber(2000),
         }  # Miner 0 came first
 
-        winner = find_subset_winner_score_first(scores, thresholds, first_blocks, ENV_AB_TUPLE)
+        winner = find_subset_winner_gm(scores, thresholds, first_blocks, ENV_AB_TUPLE)
 
         # Miner 0 should win because they came first
         assert winner == MinerUID(0)
@@ -303,7 +303,7 @@ class TestFirstCommitAdvantage:
             MinerUID(1): BlockNumber(2000),
         }  # Miner 0 came first
 
-        winner = find_subset_winner_score_first(scores, thresholds, first_blocks, ENV_AB_TUPLE)
+        winner = find_subset_winner_gm(scores, thresholds, first_blocks, ENV_AB_TUPLE)
 
         # Miner 1 should win because they beat the threshold
         assert winner == MinerUID(1)
@@ -323,7 +323,7 @@ class TestFirstCommitAdvantage:
         thresholds = compute_miner_thresholds(scores, episodes_per_env=50)
         first_blocks = {MinerUID(0): BlockNumber(1000), MinerUID(1): BlockNumber(2000)}
 
-        winner = find_subset_winner_score_first(scores, thresholds, first_blocks, ENV_AB_TUPLE)
+        winner = find_subset_winner_gm(scores, thresholds, first_blocks, ENV_AB_TUPLE)
 
         # Miner 0 wins because miner 1 can't beat threshold on env "a"
         # (1 has 0.5, threshold for 0's 0.9 is ~0.92-1.0)
@@ -339,7 +339,7 @@ class TestFirstCommitAdvantage:
         # Same block - neither has time priority, so lower UID wins
         first_blocks = {MinerUID(0): BlockNumber(1000), MinerUID(1): BlockNumber(1000)}
 
-        winner = find_subset_winner_score_first(scores, thresholds, first_blocks, ENV_AB_TUPLE)
+        winner = find_subset_winner_gm(scores, thresholds, first_blocks, ENV_AB_TUPLE)
 
         # Miner 0 wins by UID tiebreaker (lower UID when same block)
         assert winner == MinerUID(0)
