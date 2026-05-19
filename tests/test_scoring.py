@@ -3,6 +3,7 @@ import json
 import httpx
 import pytest
 import typer
+from scoring.types import SubsetWeightScheme
 import utils.logger as logger
 from pathlib import Path
 from scoring.constants import DEFAULT_Z_SCORE, MAX_THRESHOLD_GAP, MIN_THRESHOLD_GAP
@@ -144,12 +145,16 @@ async def test_scoring_wta():
 
     pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
     frontier_uids = set(pareto_result.frontier_uids)
-    filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
-
     subset_scores = compute_subset_scores_with_priority(
-        filtered_scores, miner_thresholds, miner_blocks, envs
+        miner_scores,
+        miner_thresholds, 
+        miner_blocks, 
+        envs,
+        subset_weight_scheme=SubsetWeightScheme.EXPONENTIAL
     )
-    weights = scores_to_weights(subset_scores)
+    final_subset_scores = {uid: score for uid, score in subset_scores.items() if uid in frontier_uids}        
+    weights = scores_to_weights(final_subset_scores)
+        
     typer.echo("\nSubset scores:")
     for uid, score in sorted(subset_scores.items(), key=lambda x: x[1], reverse=True):
         typer.echo(f"  UID {uid}: {score:.1f} points")
@@ -180,12 +185,15 @@ async def test_scoring_wta_global():
 
     pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
     frontier_uids = set(pareto_result.frontier_uids)
-    filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
-
     subset_scores = compute_subset_scores_with_priority(
-        filtered_scores, miner_thresholds, miner_blocks, envs
+        miner_scores,
+        miner_thresholds, 
+        miner_blocks, 
+        envs,
+        subset_weight_scheme=SubsetWeightScheme.EXPONENTIAL
     )
-    weights = scores_to_weights(subset_scores)
+    final_subset_scores = {uid: score for uid, score in subset_scores.items() if uid in frontier_uids}        
+    weights = scores_to_weights(final_subset_scores)
     typer.echo("\nSubset scores:")
     for uid, score in sorted(subset_scores.items(), key=lambda x: x[1], reverse=True):
         typer.echo(f"  UID {uid}: {score:.1f} points")
@@ -240,8 +248,8 @@ async def test_scoring_wta_all():
 
 @pytest.mark.asyncio
 async def test_get_latest_scores():    
-    #SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")
-    SERVICE_URL = "http://localhost:8000"
+    SERVICE_URL = os.environ.get("BITRECS_PLATFORM_URL", "")
+    #SERVICE_URL = "http://localhost:8000"
     async with httpx.AsyncClient(base_url=SERVICE_URL) as client:
         headers = {
             'Accept': 'application/json',
