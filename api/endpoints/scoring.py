@@ -8,11 +8,11 @@ from itertools import combinations
 from typing import Any, Dict, Optional
 from api.utils.limiter import limiter
 from queries.scores import get_miner_scores
-from scoring.types import MinerFirstBlocks
+from scoring.types import MinerFirstBlocks, SubsetWeightScheme
 from utils.ttl import ttl_cache
 from scoring.pareto import compute_pareto_frontier
 from scoring.threshold import compute_miner_thresholds
-from scoring.wta import compute_subset_scores_with_priority, scores_to_weights, find_subset_winner_score_first
+from scoring.wta import compute_subset_scores_with_priority, find_subset_winner_gm, scores_to_weights
 from scoring.engine import df_to_miner_scores, df_to_samples, get_current_eval_set_id
 from models.evaluation_set import EvaluationSetGroup
 from queries.evaluation_set import get_latest_set_id, get_set_created_at
@@ -147,11 +147,17 @@ async def winner_take_all(request: Request) -> Dict[str, Any]:
         miner_thresholds = compute_miner_thresholds(miner_scores, episodes_per_env=samples)
         pareto_result = compute_pareto_frontier(miner_scores, envs, samples)
         frontier_uids = set(pareto_result.frontier_uids)
-        filtered_scores = {uid: s for uid, s in miner_scores.items() if uid in frontier_uids}
-        subset_scores = compute_subset_scores_with_priority(filtered_scores, miner_thresholds, miner_blocks, envs)
-        weights = scores_to_weights(subset_scores)
+        subset_scores = compute_subset_scores_with_priority(
+            miner_scores,
+            miner_thresholds, 
+            miner_blocks, 
+            envs,
+            subset_weight_scheme=SubsetWeightScheme.EXPONENTIAL
+        )
+        final_subset_scores = {uid: score for uid, score in subset_scores.items() if uid in frontier_uids}        
+        weights = scores_to_weights(final_subset_scores)
         subset_winners = {
-            str(subset): find_subset_winner_score_first(filtered_scores, miner_thresholds, miner_blocks, subset)
+            str(subset): find_subset_winner_gm(miner_scores, miner_thresholds, miner_blocks, subset)
             for subset_size in range(1, len(envs) + 1)
             for subset in combinations(envs, subset_size)
         }
